@@ -151,7 +151,7 @@ function StoryPage() {
             <Link to="/podcast">The podcast</Link>
           </Button>
           <Button asChild variant="secondary">
-            <Link to="/subscribe">Get notified</Link>
+            <Link to="/hosts">The crew</Link>
           </Button>
         </div>
 

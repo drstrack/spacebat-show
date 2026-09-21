@@ -32,9 +32,6 @@ export function SiteFooter() {
           </div>
           <div className="space-y-2">
             <p className="font-display text-base tracking-wide">Follow</p>
-            <Link to="/subscribe" className="block text-ink/80 hover:text-crimson">
-              Subscribe
-            </Link>
             <a
               href={show.socials.danX}
               target="_blank"

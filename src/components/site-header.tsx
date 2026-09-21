@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const links = [
   { to: "/podcast", label: "Podcast" },
   { to: "/story", label: "The name" },
-  { to: "/subscribe", label: "Subscribe" },
+  { to: "/hosts", label: "The crew" },
 ] as const;
 
 export function SiteHeader() {
@@ -42,7 +42,7 @@ export function SiteHeader() {
             </Link>
           ))}
           <Button asChild size="sm" className="ml-2">
-            <Link to="/subscribe">Get notified</Link>
+            <Link to="/podcast">The podcast</Link>
           </Button>
         </nav>
 

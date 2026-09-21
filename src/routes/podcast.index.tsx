@@ -56,7 +56,7 @@ function PodcastPage() {
               the listen link lands on this page.
             </p>
             <Button asChild className="mt-8 w-fit">
-              <Link to="/subscribe">Get notified</Link>
+              <Link to="/hosts">Meet the crew</Link>
             </Button>
           </div>
         </div>

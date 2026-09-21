@@ -59,14 +59,7 @@ function EpisodePage() {
         </Button>
       ) : (
         <p className="panel mt-8 bg-caption px-4 py-3 text-sm text-ink">
-          Still on the pad. When it publishes, the listen link lands here.{" "}
-          <Link
-            to="/subscribe"
-            className="font-display text-lg tracking-wide text-crimson hover:underline"
-          >
-            Subscribe
-          </Link>{" "}
-          and we’ll ping you.
+          Still on the pad. When it publishes, the listen link lands here.
         </p>
       )}
 

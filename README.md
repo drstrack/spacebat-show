@@ -1,6 +1,6 @@
 # SpaceBat
 
-Site for the SpaceBat show. Comic-book catalog, hosts, and a waitlist for episode drops.
+Site for the SpaceBat show. Comic-book catalog, hosts, and a podcast page.
 
 Live: [www.spacebatshow.net](https://www.spacebatshow.net)
 
