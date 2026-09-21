@@ -8,18 +8,36 @@ function StoryPage() {
   return (
     <article>
       <header className="mx-auto max-w-6xl px-3 pt-6 sm:px-5">
-        <div className="panel overflow-hidden md:grid md:grid-cols-[minmax(0,0.72fr)_minmax(0,1.1fr)]">
-          <img
-            src="/images/issue-cover.webp"
-            alt="Tongue-in-cheek SpaceBat mascot — a bat in a foam cape punching toward camera."
-            className="aspect-[3/4] max-h-[52dvh] w-full object-cover object-top md:max-h-none md:aspect-auto md:h-full md:min-h-[32rem] md:border-r-4 md:border-ink"
-          />
-          <div className="flex flex-col justify-end bg-paper p-6 sm:p-10">
+        <div className="panel overflow-hidden">
+          <div className="grid md:grid-cols-2">
+            <figure className="relative">
+              <img
+                src="/images/spacebat-closeup.webp"
+                alt="NASA still of the free-tailed bat clinging to Discovery’s orange tank."
+                className="aspect-[16/10] w-full object-cover md:aspect-auto md:h-full md:min-h-[28rem] md:border-r-4 md:border-ink"
+              />
+              <figcaption className="absolute bottom-3 left-3 caption-box text-sm">
+                NASA · The real one
+              </figcaption>
+            </figure>
+            <figure className="relative hidden md:block">
+              <img
+                src="/images/issue-cover.webp"
+                alt="Tongue-in-cheek SpaceBat mascot — a bat in a foam cape punching toward camera."
+                className="h-full min-h-[28rem] w-full object-cover object-top"
+              />
+              <span className="burst absolute right-4 top-4 text-sm">Hold on.</span>
+              <figcaption className="absolute bottom-3 left-3 caption-box text-sm">
+                The wink
+              </figcaption>
+            </figure>
+          </div>
+          <div className="border-t-4 border-ink bg-paper p-6 sm:p-10">
             <span className="caption-box w-fit">The name</span>
-            <h1 className="mt-4 max-w-xl font-display text-5xl leading-none tracking-wide sm:text-6xl">
+            <h1 className="mt-4 max-w-3xl font-display text-5xl leading-none tracking-wide sm:text-6xl">
               We stole it from a bat.
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-muted">
+            <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted">
               Pad 39A, March 15, 2009. A free-tailed bat on Discovery’s orange
               tank. NASA lost him after the tower. We took the name, drew him
               a cape, and went back to arguing about comics, movies, tech,
