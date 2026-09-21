@@ -48,6 +48,16 @@ function SubscribePage() {
     }
   }
 
+  function reset() {
+    try {
+      localStorage.removeItem(KEY);
+    } catch {
+      /* ignore */
+    }
+    setSaved(null);
+    setError(null);
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
       <span className="caption-box">The list</span>
@@ -59,11 +69,20 @@ function SubscribePage() {
       </p>
 
       {saved ? (
-        <p className="panel mt-8 bg-caption px-5 py-4 text-sm text-ink">
-          You’re on the list as{" "}
-          <span className="font-display text-lg text-crimson">{saved}</span>.
-          We’ll use it when the next episode drops.
-        </p>
+        <div className="panel mt-8 bg-caption px-5 py-4 text-sm text-ink">
+          <p>
+            You’re on the list as{" "}
+            <span className="font-display text-lg text-crimson">{saved}</span>.
+            We’ll use it when the next episode drops.
+          </p>
+          <button
+            type="button"
+            onClick={reset}
+            className="mt-3 text-xs uppercase tracking-widest text-ink/70 underline-offset-4 hover:text-crimson hover:underline"
+          >
+            Use a different email
+          </button>
+        </div>
       ) : (
         <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-3 sm:flex-row">
           <label className="sr-only" htmlFor="email">
