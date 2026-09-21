@@ -1,7 +1,8 @@
 import { cn } from "@/lib/utils";
 
+/** Superhero-style bat. Orange tank badge, not the yellow-oval mark. */
 const BAT =
-  "16 8.4 14.4 8.6 12.2 3.8 13 9.2 11 11 9.6 12.4 4 10.2 1.2 11 0.8 14.2 4 15.4 2.6 21 6.6 18.4 5.4 25.6 10.4 21.2 9.4 27.4 13.8 23.2 16 28.4 18.2 23.2 22.6 27.4 21.6 21.2 26.6 25.6 25.4 18.4 29.4 21 28 15.4 31.2 14.2 30.8 11 28 10.2 22.4 12.4 21 11 19 9.2 19.8 3.8 17.6 8.6";
+  "11.95 5.66 15.12 10.59 16 9.54 16.88 10.59 20.05 5.66 19.34 11.3 20.93 11.82 23.22 10.59 27.62 10.59 29.55 12.35 29.64 14.82 26.38 15.7 27.62 19.04 23.22 16.93 24.45 21.33 20.05 18.69 20.75 22.74 16 26.96 11.25 22.74 11.95 18.69 7.55 21.33 8.78 16.93 4.38 19.04 5.62 15.7 2.36 14.82 2.45 12.35 4.38 10.59 8.78 10.59 11.07 11.82 12.66 11.3";
 
 export function BatMark({ className }: { className?: string }) {
   return (
@@ -10,8 +11,8 @@ export function BatMark({ className }: { className?: string }) {
       className={cn("shrink-0", className)}
       aria-hidden="true"
     >
-      <rect width="32" height="32" fill="#141414" />
-      <polygon fill="#e45a12" points={BAT} />
+      <rect width="32" height="32" fill="#e45a12" />
+      <polygon fill="#141414" points={BAT} />
     </svg>
   );
 }
