@@ -16,23 +16,72 @@ function parseSignup(input: unknown): { email: string } {
 }
 
 function notifyDest(): string | undefined {
-  // Dynamic key so the bundler cannot inline an empty build-time value.
+  // Dynamic lookup so the bundler cannot inline an empty build-time value.
   const v = globalThis.process?.env?.["NOTIFY_EMAIL"]?.trim();
   return v || undefined;
 }
 
-function formsubmitOk(status: number, body: string): boolean {
+function relayAccepted(status: number, body: string): boolean {
   let parsed: { success?: boolean | string; message?: string } = {};
   try {
     parsed = JSON.parse(body) as typeof parsed;
   } catch {
-    return status >= 200 && status < 300;
+    return status >= 200 && status < 300 && !/error|fail/i.test(body);
   }
   const success = parsed.success === true || parsed.success === "true";
   const message = String(parsed.message ?? "");
-  // First post asks the owner to click Activate Form — that still counts as delivered.
   if (success || /activat/i.test(message)) return true;
   return false;
+}
+
+async function postJson(dest: string, subscriber: string): Promise<{ status: number; body: string }> {
+  const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(dest)}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Origin: SITE,
+      Referer: `${SITE}/subscribe`,
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+    },
+    body: JSON.stringify({
+      name: "SpaceBat waitlist",
+      email: subscriber,
+      _subject: "SpaceBat waitlist",
+      _template: "box",
+      _captcha: "false",
+      _honey: "",
+      _url: `${SITE}/subscribe`,
+      message: `${subscriber} asked to be notified when SpaceBat episodes drop.`,
+    }),
+  });
+  return { status: res.status, body: await res.text() };
+}
+
+async function postForm(dest: string, subscriber: string): Promise<{ status: number; body: string }> {
+  const body = new URLSearchParams({
+    name: "SpaceBat waitlist",
+    email: subscriber,
+    _subject: "SpaceBat waitlist",
+    _captcha: "false",
+    _honey: "",
+    _url: `${SITE}/subscribe`,
+    message: `${subscriber} asked to be notified when SpaceBat episodes drop.`,
+  });
+  const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(dest)}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+      Origin: SITE,
+      Referer: `${SITE}/subscribe`,
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+    },
+    body,
+  });
+  return { status: res.status, body: await res.text() };
 }
 
 /**
@@ -45,48 +94,22 @@ export const joinWaitlist = createServerFn({ method: "POST" })
     const dest = notifyDest();
     if (!dest) {
       console.error("[waitlist] inbox env missing");
-      throw new Error("Could not send that signup. Try again in a moment.");
+      throw new Error("List is not connected. Try again shortly.");
     }
 
-    const payload = {
-      name: "SpaceBat waitlist",
-      email: data.email,
-      _subject: "SpaceBat waitlist",
-      _template: "box",
-      _captcha: "false",
-      _honey: "",
-      _url: `${SITE}/subscribe`,
-      message: `${data.email} asked to be notified when SpaceBat episodes drop.`,
-    };
+    const json = await postJson(dest, data.email);
+    if (relayAccepted(json.status, json.body)) return { ok: true };
 
-    let lastStatus = 0;
-    let lastBody = "";
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const res = await fetch(
-        `https://formsubmit.co/ajax/${encodeURIComponent(dest)}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Origin: SITE,
-            Referer: `${SITE}/subscribe`,
-          },
-          body: JSON.stringify(payload),
-        },
-      );
-      lastStatus = res.status;
-      lastBody = await res.text();
-      if (formsubmitOk(lastStatus, lastBody)) {
-        return { ok: true };
-      }
-      if (lastStatus === 429) {
-        await new Promise((r) => setTimeout(r, 1500));
-        continue;
-      }
-      break;
+    if (json.status === 429) {
+      await new Promise((r) => setTimeout(r, 1600));
     }
 
-    console.error("[waitlist] notify failed", { status: lastStatus });
+    const form = await postForm(dest, data.email);
+    if (relayAccepted(form.status, form.body)) return { ok: true };
+
+    console.error("[waitlist] notify failed", {
+      jsonStatus: json.status,
+      formStatus: form.status,
+    });
     throw new Error("Could not send that signup. Try again in a moment.");
   });
