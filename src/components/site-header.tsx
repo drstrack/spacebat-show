@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { to: "/podcast", label: "Podcast" },
+  { to: "/listen", label: "Podcast" },
   { to: "/story", label: "The name" },
   { to: "/hosts", label: "The crew" },
 ] as const;
@@ -34,7 +34,8 @@ export function SiteHeader() {
               to={l.to}
               className={cn(
                 "px-3 py-2 font-display text-base tracking-wide text-ink/70 hover:text-ink",
-                (pathname === l.to || (l.to === "/podcast" && pathname.startsWith("/podcast"))) &&
+                (pathname === l.to ||
+                  (l.to === "/listen" && pathname.startsWith("/podcast/"))) &&
                   "text-crimson",
               )}
             >
@@ -42,7 +43,7 @@ export function SiteHeader() {
             </Link>
           ))}
           <Button asChild size="sm" className="ml-2">
-            <Link to="/listen">Listen</Link>
+            <Link to="/podcast">Listen</Link>
           </Button>
         </nav>
 
@@ -67,7 +68,7 @@ export function SiteHeader() {
                 className={cn(
                   "px-3 py-3 font-display text-xl tracking-wide text-ink/70",
                   (pathname === l.to ||
-                    (l.to === "/podcast" && pathname.startsWith("/podcast"))) &&
+                    (l.to === "/listen" && pathname.startsWith("/podcast/"))) &&
                     "text-crimson",
                 )}
               >
@@ -75,7 +76,7 @@ export function SiteHeader() {
               </Link>
             ))}
             <Link
-              to="/listen"
+              to="/podcast"
               onClick={() => setOpen(false)}
               className="px-3 py-3 font-display text-xl tracking-wide text-crimson"
             >
