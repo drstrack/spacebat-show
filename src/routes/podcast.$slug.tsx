@@ -1,27 +1,28 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowUpRight } from "lucide-react";
+import { loadPublishedEpisodes } from "@/lib/podcast-feed.functions";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { episodeIsLive, episodes, getEpisode, show } from "@/data/show";
 
 export const Route = createFileRoute("/podcast/$slug")({
-  loader: ({ params }) => {
-    const episode = getEpisode(params.slug);
+  loader: async ({ params }) => {
+    const episodes = await loadPublishedEpisodes();
+    const episode = episodes.find((item) => item.slug === params.slug);
     if (!episode) throw notFound();
-    return episode;
+    return {
+      episode,
+      others: episodes.filter((item) => item.slug !== episode.slug).slice(0, 4),
+    };
   },
   component: EpisodePage,
 });
 
 function EpisodePage() {
-  const episode = Route.useLoaderData();
-  const live = episodeIsLive(episode);
-  const others = episodes.filter((e) => e.slug !== episode.slug).slice(0, 4);
+  const { episode, others } = Route.useLoaderData();
 
   return (
     <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
       <Link
         to="/podcast"
+        hash="episodes"
         className="font-display text-lg tracking-wide text-crimson hover:underline"
       >
         All episodes
@@ -38,38 +39,26 @@ function EpisodePage() {
         <span className="text-xs uppercase tracking-[0.12em] text-muted">
           {episode.dateLabel}
         </span>
-        {live ? null : <span className="burst text-xs">Upcoming</span>}
       </div>
       <h1 className="mt-4 font-display text-5xl leading-none tracking-wide">
         {episode.title}
       </h1>
       <p className="mt-4 text-lg leading-relaxed text-muted">{episode.description}</p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {episode.topics.map((t) => (
-          <Badge key={t}>{t}</Badge>
-        ))}
-      </div>
-
-      {live && episode.listenUrl ? (
-        <Button className="mt-8" size="lg" asChild>
-          <a href={episode.listenUrl} target="_blank" rel="noreferrer">
-            Listen
-            <ArrowUpRight className="size-4" />
+      {episode.listenUrl ? (
+        <audio controls preload="none" src={episode.listenUrl} className="mt-8 w-full" />
+      ) : null}
+      {episode.pageUrl ? (
+        <p className="mt-4 text-sm">
+          <a
+            href={episode.pageUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-display text-lg tracking-wide text-crimson hover:underline"
+          >
+            Open on Podhome
           </a>
-        </Button>
-      ) : (
-        <p className="panel mt-8 bg-caption px-4 py-3 text-sm text-ink">
-          Still on the pad. The live booth is on the{" "}
-          <Link to="/podcast" hash="live" className="font-display text-lg tracking-wide text-crimson hover:underline">
-            podcast page
-          </Link>
-          , or{" "}
-          <a href={show.liveStream} className="font-display text-lg tracking-wide text-crimson hover:underline">
-            open the stream
-          </a>
-          .
         </p>
-      )}
+      ) : null}
 
       {others.length > 0 ? (
         <section className="mt-16">

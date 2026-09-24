@@ -11,6 +11,8 @@ export type Episode = {
   cover: string;
   /** External listen link (Spotify, Apple, YouTube, etc.) once an episode is out. */
   listenUrl?: string;
+  /** Podhome episode page, when the recording is posted. */
+  pageUrl?: string;
   status: EpisodeStatus;
   topics: string[];
 };
@@ -26,6 +28,8 @@ export const show = {
   },
   /** Podhome live stream (Icecast). HTTPS — the http URL is the same mount. */
   liveStream: "https://stream.podhome.fm/the-spacebat-show",
+  /** Public RSS. Finished episodes are read from here. */
+  feedUrl: "https://serve.podhome.fm/rss/4d42b4ec-475a-4fc7-9470-799fd9192a60",
 };
 
 export const hosts = {

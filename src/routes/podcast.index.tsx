@@ -4,13 +4,16 @@ import { EpisodeCard } from "@/components/episode-card";
 import { HostPortrait } from "@/components/host-portrait";
 import { LivePlayer } from "@/components/live-player";
 import { Button } from "@/components/ui/button";
-import { beats, hosts, publishedEpisodes, show, upcomingEpisodes } from "@/data/show";
+import { beats, hosts, show } from "@/data/show";
+import { loadPublishedEpisodes } from "@/lib/podcast-feed.functions";
 
-export const Route = createFileRoute("/podcast/")({ component: PodcastPage });
+export const Route = createFileRoute("/podcast/")({
+  loader: () => loadPublishedEpisodes(),
+  component: PodcastPage,
+});
 
 function PodcastPage() {
-  const live = publishedEpisodes.length > 0;
-  const queued = upcomingEpisodes.length > 0;
+  const episodes = Route.useLoaderData();
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
@@ -34,9 +37,8 @@ function PodcastPage() {
           <span className="burst w-fit text-sm">Live</span>
           <h2 className="mt-4 font-display text-4xl tracking-wide">On the air</h2>
           <p className="mt-4 text-base leading-relaxed text-muted">
-            The SpaceBat Show, live from Podhome. Hit play on this page. If
-            the booth is quiet, they’re between shows — recorded episodes land
-            here as they publish.
+            The SpaceBat Show, live from Podhome. Hit play on this page. When
+            the recording is posted, it shows up under Episodes.
           </p>
           <LivePlayer />
           <Button asChild className="mt-6 w-fit">
@@ -59,26 +61,26 @@ function PodcastPage() {
         ))}
       </div>
 
-      {live ? (
-        <div className="mt-10 grid gap-5">
-          {publishedEpisodes.map((ep, i) => (
-            <EpisodeCard key={ep.slug} episode={ep} featured={i === 0} />
-          ))}
-        </div>
-      ) : null}
-
-      {queued ? (
-        <>
-          <h2 className={`${live ? "mt-14" : "mt-12"} font-display text-4xl tracking-wide`}>
-            Coming up
-          </h2>
-          <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {upcomingEpisodes.map((ep) => (
-              <EpisodeCard key={ep.slug} episode={ep} />
+      <section id="episodes" className="mt-14">
+        <span className="caption-box">The shelf</span>
+        <h2 className="mt-4 font-display text-4xl tracking-wide">Episodes</h2>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
+          Finished shows, after Podhome posts the recording. The live stream
+          stays up top until then.
+        </p>
+        {episodes.length > 0 ? (
+          <div className="mt-6 grid gap-5">
+            {episodes.map((episode, i) => (
+              <EpisodeCard key={episode.slug} episode={episode} featured={i === 0} />
             ))}
           </div>
-        </>
-      ) : null}
+        ) : (
+          <p className="panel mt-6 bg-paper px-4 py-3 text-sm text-ink">
+            No recordings posted yet. End the live show in Podhome and this
+            list fills in on its own.
+          </p>
+        )}
+      </section>
 
       <section className="mt-16">
         <div className="flex flex-wrap items-end justify-between gap-3">

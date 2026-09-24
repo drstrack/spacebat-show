@@ -46,29 +46,34 @@ export function EpisodeCard({
           </h3>
           <p className="text-sm leading-relaxed text-muted">{episode.teaser}</p>
         </div>
-        <div className="mt-auto flex items-center gap-3 pt-2">
+        <div className="mt-auto flex flex-col gap-3 pt-2">
           {live && episode.listenUrl ? (
-            <a
-              href={episode.listenUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-11 items-center gap-2 border-4 border-ink bg-crimson px-4 font-display text-base tracking-wide text-crimson-fg shadow-[4px_4px_0_0_var(--color-ink)]"
-            >
-              Listen
-              <ArrowUpRight className="size-3.5" />
-            </a>
+            <audio controls preload="none" src={episode.listenUrl} className="w-full" />
           ) : (
             <span className="inline-flex h-11 items-center border-4 border-ink bg-paper px-4 text-sm text-muted">
               On the pad
             </span>
           )}
-          <Link
-            to="/podcast/$slug"
-            params={{ slug: episode.slug }}
-            className="font-display text-base tracking-wide text-crimson hover:underline"
-          >
-            Notes
-          </Link>
+          <div className="flex items-center gap-3">
+            {episode.pageUrl ? (
+              <a
+                href={episode.pageUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-11 items-center gap-2 border-4 border-ink bg-crimson px-4 font-display text-base tracking-wide text-crimson-fg shadow-[4px_4px_0_0_var(--color-ink)]"
+              >
+                Podhome
+                <ArrowUpRight className="size-3.5" />
+              </a>
+            ) : null}
+            <Link
+              to="/podcast/$slug"
+              params={{ slug: episode.slug }}
+              className="font-display text-base tracking-wide text-crimson hover:underline"
+            >
+              Notes
+            </Link>
+          </div>
         </div>
       </div>
     </article>
