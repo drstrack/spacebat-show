@@ -1,5 +1,10 @@
 export type EpisodeStatus = "published" | "upcoming";
 
+export type ShowNoteLink = {
+  label: string;
+  href: string;
+};
+
 export type Episode = {
   slug: string;
   code: string;
@@ -15,6 +20,10 @@ export type Episode = {
   pageUrl?: string;
   status: EpisodeStatus;
   topics: string[];
+  notes: {
+    paragraphs: string[];
+    links: ShowNoteLink[];
+  };
 };
 
 export const show = {

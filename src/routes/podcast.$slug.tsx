@@ -43,7 +43,38 @@ function EpisodePage() {
       <h1 className="mt-4 font-display text-5xl leading-none tracking-wide">
         {episode.title}
       </h1>
-      <p className="mt-4 text-lg leading-relaxed text-muted">{episode.description}</p>
+      <div className="mt-4 space-y-4 text-base leading-relaxed text-muted">
+        {episode.notes.paragraphs.map((paragraph) => (
+          <p key={paragraph.slice(0, 48)}>{paragraph}</p>
+        ))}
+      </div>
+      {episode.notes.links.length > 0 ? (
+        <section className="mt-8">
+          <span className="caption-box">Show notes</span>
+          <ul className="mt-4 divide-y-2 divide-ink border-y-4 border-ink">
+            {episode.notes.links.map((link) => (
+              <li key={link.href} className="py-3">
+                <a
+                  href={link.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-display text-xl tracking-wide text-crimson underline"
+                >
+                  {link.label}
+                </a>
+                <a
+                  href={link.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 block break-all text-sm text-ink underline"
+                >
+                  {link.href}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {episode.listenUrl ? (
         <audio controls preload="none" src={episode.listenUrl} className="mt-8 w-full" />
       ) : null}

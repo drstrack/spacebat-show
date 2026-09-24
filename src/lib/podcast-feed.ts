@@ -19,9 +19,10 @@ export function parsePublishedEpisodes(xml: string): Episode[] {
     const slug = slugFrom(link, title, guid);
     if (seen.has(slug)) continue;
     seen.add(slug);
-    const description = clean(
-      text(block, "itunes:summary") || text(block, "description") || text(block, "content:encoded"),
-    );
+    const rawNotes =
+      text(block, "content:encoded") || text(block, "description") || text(block, "itunes:summary");
+    const notes = parseShowNotes(rawNotes);
+    const description = notes.paragraphs.join("\n\n") || "A SpaceBat episode.";
     const pub = text(block, "pubDate");
     const when = pub ? new Date(pub) : null;
     const number = text(block, "itunes:episode") || String(episodes.length + 1);
@@ -29,8 +30,8 @@ export function parsePublishedEpisodes(xml: string): Episode[] {
       slug,
       code: number.padStart(2, "0"),
       title,
-      teaser: description.slice(0, 180),
-      description: description || "A SpaceBat episode.",
+      teaser: (notes.paragraphs[0] ?? description).slice(0, 180),
+      description,
       date: when && !Number.isNaN(when.getTime()) ? when.toISOString() : "",
       dateLabel:
         when && !Number.isNaN(when.getTime())
@@ -46,6 +47,7 @@ export function parsePublishedEpisodes(xml: string): Episode[] {
       pageUrl: link && !link.includes(STREAM_HOST) ? link : undefined,
       status: "published",
       topics: [],
+      notes,
     });
   }
 
@@ -103,20 +105,35 @@ function slugFrom(link: string, title: string, guid: string): string {
   return fromTitle || guid.slice(0, 12) || "episode";
 }
 
-function clean(value: string): string {
-  return decode(value)
-    .replace(/<[^>]+>/g, " ")
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
+function parseShowNotes(html: string): Episode["notes"] {
+  const list = html.match(/<ul\b[\s\S]*?<\/ul>/i)?.[0] ?? "";
+  const prose = html.replace(/<ul\b[\s\S]*?<\/ul>/i, " ");
+  const paragraphs = decode(prose.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<[^>]+>/g, " "))
+    .split(/\n+/)
+    .map((paragraph) => paragraph.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  const links: Episode["notes"]["links"] = [];
+  for (const item of list.match(/<li\b[\s\S]*?<\/li>/gi) ?? []) {
+    const href = decode(item.match(/href="([^"]+)"/i)?.[1] ?? "").replace(/\s+/g, "");
+    if (!/^https?:\/\//i.test(href)) continue;
+    const label = decode(item.replace(/<a\b[\s\S]*?<\/a>/gi, " ").replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .replace(/:\s*$/, "")
+      .trim();
+    links.push({ label: label || href, href });
+  }
+
+  return { paragraphs, links };
 }
 
 function decode(value: string): string {
   return value
-    .replace(/&/g, "&")
-    .replace(/</g, "<")
-    .replace(/>/g, ">")
-    .replace(/"/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ");
+    .replace(/\u0026amp;/g, "&")
+    .replace(/\u0026lt;/g, "<")
+    .replace(/\u0026gt;/g, ">")
+    .replace(/\u0026quot;/g, '"')
+    .replace(/\u0026#39;|\u0026apos;/g, "'")
+    .replace(/\u0026nbsp;/g, " ")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "");
 }
