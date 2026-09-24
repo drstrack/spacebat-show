@@ -53,6 +53,7 @@ export function LivePlayer() {
       <audio
         ref={audioRef}
         preload="none"
+        className="hidden"
         onPlaying={() => setStatus("playing")}
         onError={() => setStatus("off")}
       />

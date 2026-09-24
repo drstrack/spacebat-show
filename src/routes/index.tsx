@@ -15,7 +15,7 @@ function Home() {
             <img
               src="/images/cover-splash.webp"
               alt="SpaceBat the mascot — a bat in a foam cape over a climbing shuttle."
-              className="aspect-video w-full object-cover object-top"
+              className="aspect-[2/1] w-full object-cover object-[center_35%] sm:aspect-[2.1/1]"
             />
             <span className="burst absolute right-3 top-3 text-sm sm:right-5 sm:top-5">
               Hold on.

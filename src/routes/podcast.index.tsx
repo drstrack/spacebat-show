@@ -23,11 +23,13 @@ function PodcastPage() {
       </p>
 
       <section id="live" className="panel mt-10 overflow-hidden bg-surface md:grid md:grid-cols-2">
-        <img
-          src="/images/cover-splash.webp"
-          alt="SpaceBat flying in orbit."
-          className="aspect-video w-full object-cover object-top md:aspect-auto md:min-h-72 md:border-r-4 md:border-ink"
-        />
+        <div className="relative min-h-56 md:min-h-full">
+          <img
+            src="/images/cover-splash.webp"
+            alt="SpaceBat flying in orbit."
+            className="aspect-[2/1] h-full w-full object-cover object-[center_30%] md:absolute md:inset-0 md:aspect-auto md:border-r-4 md:border-ink"
+          />
+        </div>
         <div className="flex flex-col justify-center bg-paper p-6 sm:p-10">
           <span className="burst w-fit text-sm">Live</span>
           <h2 className="mt-4 font-display text-4xl tracking-wide">On the air</h2>

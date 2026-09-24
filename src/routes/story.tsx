@@ -9,22 +9,22 @@ function StoryPage() {
     <article>
       <header className="mx-auto max-w-6xl px-3 pt-6 sm:px-5">
         <div className="panel overflow-hidden">
-          <div className="grid md:grid-cols-2">
-            <figure className="relative">
+          <div className="grid md:h-[32rem] md:grid-cols-2">
+            <figure className="relative h-64 md:h-full">
               <img
                 src="/images/spacebat-closeup.webp"
                 alt="NASA still of the free-tailed bat clinging to Discovery’s orange tank."
-                className="aspect-[16/10] w-full object-cover md:aspect-auto md:h-full md:min-h-[28rem] md:border-r-4 md:border-ink"
+                className="absolute inset-0 h-full w-full object-cover md:border-r-4 md:border-ink"
               />
               <figcaption className="absolute bottom-3 left-3 caption-box text-sm">
                 NASA · The real one
               </figcaption>
             </figure>
-            <figure className="relative hidden md:block">
+            <figure className="relative hidden h-full md:block">
               <img
                 src="/images/issue-cover.webp"
                 alt="Tongue-in-cheek SpaceBat mascot — a bat in a foam cape punching toward camera."
-                className="h-full min-h-[28rem] w-full object-cover object-top"
+                className="absolute inset-0 h-full w-full object-cover object-[center_20%]"
               />
               <span className="burst absolute right-4 top-4 text-sm">Hold on.</span>
               <figcaption className="absolute bottom-3 left-3 caption-box text-sm">
