@@ -2,7 +2,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { episodeIsLive, episodes, getEpisode } from "@/data/show";
+import { episodeIsLive, episodes, getEpisode, show } from "@/data/show";
 
 export const Route = createFileRoute("/podcast/$slug")({
   loader: ({ params }) => {
@@ -59,7 +59,15 @@ function EpisodePage() {
         </Button>
       ) : (
         <p className="panel mt-8 bg-caption px-4 py-3 text-sm text-ink">
-          Still on the pad. When it publishes, the listen link lands here.
+          Still on the pad. The live booth is on the{" "}
+          <Link to="/podcast" hash="live" className="font-display text-lg tracking-wide text-crimson hover:underline">
+            podcast page
+          </Link>
+          , or{" "}
+          <a href={show.liveStream} className="font-display text-lg tracking-wide text-crimson hover:underline">
+            open the stream
+          </a>
+          .
         </p>
       )}
 

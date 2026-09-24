@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowUpRight } from "lucide-react";
 import { EpisodeCard } from "@/components/episode-card";
 import { HostPortrait } from "@/components/host-portrait";
 import { Button } from "@/components/ui/button";
-import { beats, hosts, publishedEpisodes, upcomingEpisodes } from "@/data/show";
+import { beats, hosts, publishedEpisodes, show, upcomingEpisodes } from "@/data/show";
 
 export const Route = createFileRoute("/podcast/")({ component: PodcastPage });
 
@@ -17,9 +18,39 @@ function PodcastPage() {
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted">
         John Mulligan and Daniel Strack, from a diner booth: comics, movies,
         tech, politics, and markets. Named, tongue in cheek, for the bat that
-        rode Discovery — we even drew him a cape. Episodes post here as
-        listen links when they publish.
+        rode Discovery — we even drew him a cape.
       </p>
+
+      <section id="live" className="panel mt-10 overflow-hidden bg-surface md:grid md:grid-cols-2">
+        <img
+          src="/images/cover-splash.webp"
+          alt="SpaceBat flying in orbit."
+          className="aspect-video w-full object-cover object-top md:aspect-auto md:min-h-72 md:border-r-4 md:border-ink"
+        />
+        <div className="flex flex-col justify-center bg-paper p-6 sm:p-10">
+          <span className="burst w-fit text-sm">Live</span>
+          <h2 className="mt-4 font-display text-4xl tracking-wide">On the air</h2>
+          <p className="mt-4 text-base leading-relaxed text-muted">
+            The SpaceBat Show, live from Podhome. Hit play. If the booth is
+            quiet, they’re between shows — recorded episodes land here as they
+            publish.
+          </p>
+          <audio
+            controls
+            preload="none"
+            src={show.liveStream}
+            className="mt-6 w-full max-w-md"
+          >
+            <a href={show.liveStream}>Listen live</a>
+          </audio>
+          <Button asChild className="mt-6 w-fit">
+            <a href={show.liveStream} target="_blank" rel="noreferrer">
+              Open the stream
+              <ArrowUpRight className="size-4" />
+            </a>
+          </Button>
+        </div>
+      </section>
 
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {beats.map((b) => (
@@ -38,29 +69,7 @@ function PodcastPage() {
             <EpisodeCard key={ep.slug} episode={ep} featured={i === 0} />
           ))}
         </div>
-      ) : (
-        <div className="panel mt-10 overflow-hidden bg-surface md:grid md:grid-cols-2">
-          <img
-            src="/images/cover-splash.webp"
-            alt="SpaceBat flying in orbit."
-            className="aspect-video w-full object-cover object-top md:aspect-auto md:min-h-72 md:border-r-4 md:border-ink"
-          />
-          <div className="flex flex-col justify-center bg-paper p-6 sm:p-10">
-            <span className="burst w-fit text-sm">On the pad</span>
-            <h2 className="mt-4 font-display text-4xl tracking-wide">
-              No episodes out yet.
-            </h2>
-            <p className="mt-4 text-base leading-relaxed text-muted">
-              Comics, movies, tech, politics, markets. When John and Dan drop
-              an episode — Spotify, Apple, YouTube, wherever they post it —
-              the listen link lands on this page.
-            </p>
-            <Button asChild className="mt-8 w-fit">
-              <Link to="/hosts">Meet the crew</Link>
-            </Button>
-          </div>
-        </div>
-      )}
+      ) : null}
 
       {queued ? (
         <>

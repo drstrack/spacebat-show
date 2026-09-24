@@ -33,6 +33,14 @@ export function SiteFooter() {
           <div className="space-y-2">
             <p className="font-display text-base tracking-wide">Follow</p>
             <a
+              href={show.liveStream}
+              target="_blank"
+              rel="noreferrer"
+              className="block text-ink/80 hover:text-crimson"
+            >
+              Listen live
+            </a>
+            <a
               href={show.socials.danX}
               target="_blank"
               rel="noreferrer"

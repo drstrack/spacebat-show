@@ -42,7 +42,9 @@ export function SiteHeader() {
             </Link>
           ))}
           <Button asChild size="sm" className="ml-2">
-            <Link to="/podcast">The podcast</Link>
+            <Link to="/podcast" hash="live">
+              Listen live
+            </Link>
           </Button>
         </nav>
 
@@ -74,6 +76,14 @@ export function SiteHeader() {
                 {l.label}
               </Link>
             ))}
+            <Link
+              to="/podcast"
+              hash="live"
+              onClick={() => setOpen(false)}
+              className="px-3 py-3 font-display text-xl tracking-wide text-crimson"
+            >
+              Listen live
+            </Link>
           </nav>
         </div>
       ) : null}
