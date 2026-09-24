@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { HostPortrait } from "@/components/host-portrait";
+import { LivePlayer } from "@/components/live-player";
 import { Button } from "@/components/ui/button";
 import { beats, hosts, show } from "@/data/show";
 
@@ -27,12 +28,15 @@ function Home() {
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
               <Button size="lg" asChild>
-                <Link to="/podcast">The podcast</Link>
+                <Link to="/podcast" hash="live">
+                  The podcast
+                </Link>
               </Button>
               <Button size="lg" variant="secondary" asChild>
                 <Link to="/story">Why the name</Link>
               </Button>
             </div>
+            <LivePlayer />
           </div>
         </div>
       </header>
