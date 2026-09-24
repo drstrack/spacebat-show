@@ -34,6 +34,7 @@ export const show = {
     danLinkedIn: "https://www.linkedin.com/in/daniel-strack",
     johnLinkedIn: "https://www.linkedin.com/in/john-mulligan-9a8188b1",
     danX: "https://x.com/danielrstrack",
+    showX: "https://x.com/spacebatshow",
   },
   /** Podhome live stream (Icecast). HTTPS — the http URL is the same mount. */
   liveStream: "https://stream.podhome.fm/the-spacebat-show",

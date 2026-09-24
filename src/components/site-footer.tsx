@@ -36,6 +36,14 @@ export function SiteFooter() {
               Listen
             </Link>
             <a
+              href={show.socials.showX}
+              target="_blank"
+              rel="noreferrer"
+              className="block text-ink/80 hover:text-crimson"
+            >
+              @spacebatshow
+            </a>
+            <a
               href={show.socials.danX}
               target="_blank"
               rel="noreferrer"
