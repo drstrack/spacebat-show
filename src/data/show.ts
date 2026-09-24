@@ -51,7 +51,7 @@ export const hosts = {
       { label: "X", href: show.socials.danX },
     ],
     blurb:
-      "Dad. Husband. Eagle Scout. A computer-science kid who found the trading floor, then kept finding new rooms. Dan co-founded the program trading desk at Spear, Leeds & Kellogg, spent sixteen years at Goldman Sachs as vice president then managing director in equities algorithmic trading, and left the Street to make things you can taste and hold — Garden State Distillery, a pork-roll shop, then cybersecurity. He served as executive director at Project Veritas: the search for truth, on the record. He is COO of AMYNA Systems. On X he writes as @danielrstrack: tech geek, wine, No Agenda, Jets, Devils.",
+      "Dad. Husband. Eagle Scout. A computer-science kid who found the trading floor, then kept finding new rooms. Dan co-founded the program trading desk at Spear, Leeds & Kellogg, spent sixteen years at Goldman Sachs as vice president then managing director in equities algorithmic trading, and left the Street to make things you can taste and hold — Garden State Distillery, a pork-roll shop, then cybersecurity. At the distillery he ran back office, sales, and operations. Out of that plant he built WhiskeyOS, the operating system for craft distilleries: one calm record from grain to glass — production, inventory, federal and local excise, and the sales book. Built by a distiller, for distillers, starting in New Jersey. He served as executive director at Project Veritas: the search for truth, on the record. He is COO of AMYNA Systems. On X he writes as @danielrstrack: tech geek, wine, No Agenda, Jets, Devils.",
     experience: [
       {
         title: "Chief Operating Officer",
@@ -59,6 +59,13 @@ export const hosts = {
         dates: "Feb 2024 – Present",
         detail:
           "IoT and OT cybersecurity. Embedded protection at the network edge.",
+      },
+      {
+        title: "Founder",
+        org: "WhiskeyOS",
+        dates: "2026 – Present",
+        detail:
+          "The operating system for craft distilleries. Production, inventory, federal and local excise tax, CRM, and marketing — one record from grain to glass. The still stays analog. The books do not.",
       },
       {
         title: "Co-host",
@@ -70,6 +77,8 @@ export const hosts = {
         title: "Managing Partner",
         org: "Garden State Distillery",
         dates: "2018 – Present",
+        detail:
+          "Business partner. Back office, sales, and operations — the stillhouse work WhiskeyOS is built from.",
       },
       {
         title: "Managing Partner",
@@ -153,6 +162,7 @@ export const hosts = {
       "Co-founded program trading at Spear, Leeds & Kellogg",
       "MD, Goldman Sachs — equities algorithmic trading",
       "Executive Director, Project Veritas — the search for truth",
+      "Founder, WhiskeyOS — grain to glass for craft distilleries",
       "COO, AMYNA Systems · Garden State Distillery",
       "Jets. Devils. Wine. No Agenda.",
     ],
