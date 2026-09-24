@@ -103,6 +103,7 @@ function HostCard({
                 {host.xName}
               </p>
             ) : null}
+            {chips.length > 0 ? (
             <ul className="mt-3 flex flex-wrap gap-2">
               {chips.map((chip) => (
                 <li
@@ -113,6 +114,7 @@ function HostCard({
                 </li>
               ))}
             </ul>
+            ) : null}
             <a
               href={`https://x.com/${host.xHandle}`}
               target="_blank"

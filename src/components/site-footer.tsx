@@ -88,6 +88,9 @@ export function SiteFooter() {
             </div>
             <div className="space-y-2">
               <p className="text-[0.65rem] uppercase tracking-[0.14em] text-ink/50">John</p>
+              <SocialLink href={show.socials.johnX} label="@tma_alpha">
+                <XLogo />
+              </SocialLink>
               <SocialLink href={show.socials.johnLinkedIn} label="LinkedIn">
                 <LinkedInLogo />
               </SocialLink>

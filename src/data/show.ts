@@ -34,6 +34,7 @@ export const show = {
     danLinkedIn: "https://www.linkedin.com/in/daniel-strack",
     johnLinkedIn: "https://www.linkedin.com/in/john-mulligan-9a8188b1",
     danX: "https://x.com/danielrstrack",
+    johnX: "https://x.com/tma_alpha",
     showX: "https://x.com/spacebatshow",
   },
   /** Podhome live stream (Icecast). HTTPS — the http URL is the same mount. */
@@ -187,10 +188,13 @@ export const hosts = {
     location: "New York / New Jersey",
     now: "Goldman Sachs",
     headline: "Goldman Sachs",
-    xHandle: "",
+    xHandle: "tma_alpha",
     xName: "",
     xBio: "",
-    links: [{ label: "LinkedIn", href: show.socials.johnLinkedIn }],
+    links: [
+      { label: "LinkedIn", href: show.socials.johnLinkedIn },
+      { label: "X", href: show.socials.johnX },
+    ],
     blurb:
       "John is Dan’s longtime friend and former colleague. LinkedIn lists him at Goldman Sachs — the Street years that overlap Dan’s, and the other half of a diner-booth argument about comics, movies, tech, politics, and markets.",
     experience: [
