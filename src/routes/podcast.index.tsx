@@ -64,10 +64,6 @@ function PodcastPage() {
       <section id="episodes" className="mt-14">
         <span className="caption-box">The shelf</span>
         <h2 className="mt-4 font-display text-4xl tracking-wide">Episodes</h2>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
-          Finished shows, after Podhome posts the recording. The live stream
-          stays up top until then.
-        </p>
         {episodes.length > 0 ? (
           <div className="mt-6 grid gap-5">
             {episodes.map((episode, i) => (
@@ -75,9 +71,8 @@ function PodcastPage() {
             ))}
           </div>
         ) : (
-          <p className="panel mt-6 bg-paper px-4 py-3 text-sm text-ink">
-            No recordings posted yet. End the live show in Podhome and this
-            list fills in on its own.
+          <p className="panel mt-6 bg-paper px-4 py-6 text-center font-display text-2xl tracking-wide text-ink">
+            No Episodes posted yet
           </p>
         )}
       </section>
