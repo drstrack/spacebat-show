@@ -2,6 +2,10 @@ import type { Episode } from "@/data/show";
 
 const STREAM_HOST = "stream.podhome.fm";
 
+export function feedIsLive(xml: string) {
+  return /<podcast:liveItem\b[^>]*\bstatus="live"/i.test(xml);
+}
+
 export function parsePublishedEpisodes(xml: string): Episode[] {
   const blocks = [
     ...collect(xml, "item"),

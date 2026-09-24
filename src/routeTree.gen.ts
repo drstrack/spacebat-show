@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HostsRouteImport } from './routes/hosts'
+import { Route as ListenRouteImport } from './routes/listen'
 import { Route as StoryRouteImport } from './routes/story'
 import { Route as SubscribeRouteImport } from './routes/subscribe'
 import { Route as EpisodesIndexRouteImport } from './routes/episodes.index'
@@ -26,6 +27,11 @@ const IndexRoute = IndexRouteImport.update({
 const HostsRoute = HostsRouteImport.update({
   id: '/hosts',
   path: '/hosts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ListenRoute = ListenRouteImport.update({
+  id: '/listen',
+  path: '/listen',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StoryRoute = StoryRouteImport.update({
@@ -62,6 +68,7 @@ const PodcastSlugRoute = PodcastSlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/hosts': typeof HostsRoute
+  '/listen': typeof ListenRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/hosts': typeof HostsRoute
+  '/listen': typeof ListenRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/hosts': typeof HostsRoute
+  '/listen': typeof ListenRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/hosts'
+    | '/listen'
     | '/story'
     | '/subscribe'
     | '/episodes/$slug'
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/hosts'
+    | '/listen'
     | '/story'
     | '/subscribe'
     | '/episodes/$slug'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/hosts'
+    | '/listen'
     | '/story'
     | '/subscribe'
     | '/episodes/$slug'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HostsRoute: typeof HostsRoute
+  ListenRoute: typeof ListenRoute
   StoryRoute: typeof StoryRoute
   SubscribeRoute: typeof SubscribeRoute
   EpisodesSlugRoute: typeof EpisodesSlugRoute
@@ -148,6 +161,13 @@ declare module '@tanstack/react-router' {
       path: '/hosts'
       fullPath: '/hosts'
       preLoaderRoute: typeof HostsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/listen': {
+      id: '/listen'
+      path: '/listen'
+      fullPath: '/listen'
+      preLoaderRoute: typeof ListenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/story': {
@@ -198,6 +218,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HostsRoute: HostsRoute,
+  ListenRoute: ListenRoute,
   StoryRoute: StoryRoute,
   SubscribeRoute: SubscribeRoute,
   EpisodesSlugRoute: EpisodesSlugRoute,

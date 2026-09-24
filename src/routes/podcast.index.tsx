@@ -1,10 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowUpRight } from "lucide-react";
 import { EpisodeCard } from "@/components/episode-card";
 import { HostPortrait } from "@/components/host-portrait";
 import { LivePlayer } from "@/components/live-player";
 import { Button } from "@/components/ui/button";
-import { beats, hosts, show } from "@/data/show";
+import { beats, hosts } from "@/data/show";
 import { loadPublishedEpisodes } from "@/lib/podcast-feed.functions";
 
 export const Route = createFileRoute("/podcast/")({
@@ -37,15 +36,11 @@ function PodcastPage() {
           <span className="burst w-fit text-sm">Live</span>
           <h2 className="mt-4 font-display text-4xl tracking-wide">On the air</h2>
           <p className="mt-4 text-base leading-relaxed text-muted">
-            The SpaceBat Show, live from Podhome. Hit play on this page. When
-            the recording is posted, it shows up under Episodes.
+            The SpaceBat Show is Live every Wednesday at 8:30pm EST
           </p>
           <LivePlayer />
           <Button asChild className="mt-6 w-fit">
-            <a href={show.liveStream} target="_blank" rel="noreferrer">
-              Open the stream
-              <ArrowUpRight className="size-4" />
-            </a>
+            <Link to="/listen">Play Latest Episode</Link>
           </Button>
         </div>
       </section>
