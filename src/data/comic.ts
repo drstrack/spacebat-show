@@ -59,7 +59,7 @@ export const chapterOne = {
     },
     {
       id: "flee",
-      image: "/comic/01-factory.jpg",
+      image: "/comic/01-flee.jpg",
       alt: "The women flee and offer no help.",
       thoughts: [
         "Why do I even care what happens to them",
@@ -100,8 +100,8 @@ export const chapterOne = {
     },
     {
       id: "look",
-      image: "/comic/01-truck.jpg",
-      alt: "The truck moves down the highway.",
+      image: "/comic/01-look.jpg",
+      alt: "He watches a blank highway sign from the truck roof.",
       thoughts: [
         "Say they get past how I look",
       ],
@@ -116,16 +116,16 @@ export const chapterOne = {
     },
     {
       id: "pole",
-      image: "/comic/01-truck.jpg",
-      alt: "The bat rides the truck, rehearsing an answer.",
+      image: "/comic/01-pole.jpg",
+      alt: "Close on the bat riding the truck, arm hurt.",
       thoughts: [
         "Oh, well I was saving mankind from utter destruction and the bad guy hit me with a light pole",
       ],
     },
     {
       id: "realwell",
-      image: "/comic/01-truck.jpg",
-      alt: "The truck keeps moving.",
+      image: "/comic/01-realwell.jpg",
+      alt: "The truck pulls away down the empty highway.",
       thoughts: [
         "Yea, like I said, real well",
       ],
@@ -141,8 +141,8 @@ export const chapterOne = {
     },
     {
       id: "lane",
-      image: "/comic/01-leap.jpg",
-      alt: "The bat leaps to the truck in the next lane.",
+      image: "/comic/01-lane.jpg",
+      alt: "The bat leaps between two trucks.",
       thoughts: [
         "At least I’m making good time, damn this hurts",
       ],
@@ -166,8 +166,8 @@ export const chapterOne = {
     },
     {
       id: "security",
-      image: "/comic/01-bags.jpg",
-      alt: "The bat in the baggage area.",
+      image: "/comic/01-security.jpg",
+      alt: "The truck stops at an airport checkpoint.",
       thoughts: [
         "Ok, now I just need to find my flight",
       ],
@@ -182,32 +182,32 @@ export const chapterOne = {
     },
     {
       id: "france",
-      image: "/comic/01-bags.jpg",
-      alt: "Another line of bags.",
+      image: "/comic/01-france.jpg",
+      alt: "A fancier suitcase in the baggage room.",
       thoughts: [
         "France! Oh please Mr. bad guy, don’t hurt anybody, if you like well surrender.",
       ],
     },
     {
       id: "maine",
-      image: "/comic/01-bags.jpg",
-      alt: "Another line of baggage.",
+      image: "/comic/01-maine.jpg",
+      alt: "Another line of bags, one cold and pine-colored.",
       thoughts: [
         "Maine, aaah, Live free or die. Maybe latter",
       ],
     },
     {
       id: "states",
-      image: "/comic/01-bags.jpg",
-      alt: "More baggage rolling past.",
+      image: "/comic/01-states.jpg",
+      alt: "A long row of suitcases rolling past.",
       thoughts: [
         "Texas, New York, Ohio, come on",
       ],
     },
     {
       id: "miami",
-      image: "/comic/01-bags.jpg",
-      alt: "A flamingo on a bag.",
+      image: "/comic/01-miami.jpg",
+      alt: "A flamingo sticker on a bag.",
       thoughts: [
         "That’s it, Miami, close enough.",
       ],
@@ -222,8 +222,8 @@ export const chapterOne = {
     },
     {
       id: "dinner",
-      image: "/comic/01-gate.jpg",
-      alt: "A 747 at the gate.",
+      image: "/comic/01-dinner.jpg",
+      alt: "A closer look at the 747 at the gate.",
       thoughts: [
         "747, yea, wonder what their serving for dinner in first class",
       ],
@@ -238,7 +238,7 @@ export const chapterOne = {
     },
     {
       id: "holdinstead",
-      image: "/comic/01-jetway.jpg",
+      image: "/comic/01-board.jpg",
       alt: "Passengers boarding, seen through the ramp windows.",
       thoughts: [
         "maybe the baggage hold instead, better class of people down there",
@@ -247,31 +247,31 @@ export const chapterOne = {
     {
       id: "comfy",
       image: "/comic/01-hold.jpg",
-      alt: "A dark corner of the cargo hold.",
+      alt: "Inside the cargo hold. The door is shut. He looks through a small window.",
       thoughts: [
         "there’s the spot, nice and comfy.",
       ],
     },
     {
       id: "bleeding",
-      image: "/comic/01-door.jpg",
-      alt: "The cargo door closes.",
+      image: "/comic/01-bleed.jpg",
+      alt: "The cargo door stays shut. He looks out a small window, bleeding.",
       thoughts: [
         "look at me, bleeding, broken, hiding out in a cargo hold.",
       ],
     },
     {
       id: "showbiz",
-      image: "/comic/01-hold.jpg",
-      alt: "Cloth rips in the dim hold.",
+      image: "/comic/01-showbiz.jpg",
+      alt: "He tears the foam cape inside the closed hold, watching through the window.",
       thoughts: [
         "I knew I should have gone into show biz instead",
       ],
     },
     {
       id: "pretend",
-      image: "/comic/01-engine.jpg",
-      alt: "The plane taxis.",
+      image: "/comic/01-taxi.jpg",
+      alt: "The 747 taxis.",
       thoughts: [
         "All I’d have to do then is pretend to be hero.",
       ],
@@ -287,8 +287,8 @@ export const chapterOne = {
     },
     {
       id: "hurt",
-      image: "/comic/01-engine.jpg",
-      alt: "The engine burns.",
+      image: "/comic/01-hot.jpg",
+      alt: "The engine nozzle glows hotter.",
       thoughts: [
         "are you sure I won’t get hurt?",
         "wait, this line looks like it might offend someone",
@@ -296,24 +296,24 @@ export const chapterOne = {
     },
     {
       id: "offend",
-      image: "/comic/01-engine.jpg",
-      alt: "The engine at full thrust.",
+      image: "/comic/01-thrust.jpg",
+      alt: "The 747 rotates off the runway.",
       thoughts: [
         "yeah, lets not offend the bad guys",
       ],
     },
     {
       id: "peace",
-      image: "/comic/01-engine.jpg",
-      alt: "The plane lifts off.",
+      image: "/comic/01-air.jpg",
+      alt: "The 747 is airborne.",
       thoughts: [
         "become an actor and world peace is at your fingertips",
       ],
     },
     {
       id: "latte",
-      image: "/comic/01-face.jpg",
-      alt: "The cargo hold in the dark.",
+      image: "/comic/01-latte.jpg",
+      alt: "In the closed hold, he looks through the small window at the city.",
       thoughts: [
         "just as long as it doesn’t interfere with their latte",
       ],
@@ -328,7 +328,7 @@ export const chapterOne = {
     },
     {
       id: "enemies",
-      image: "/comic/01-city.jpg",
+      image: "/comic/01-blocks.jpg",
       alt: "Ten city blocks at night.",
       thoughts: [
         "they think our enemies will embrace us if we just take the time to understand them",
@@ -352,8 +352,8 @@ export const chapterOne = {
     },
     {
       id: "policies",
-      image: "/comic/01-wallet.jpg",
-      alt: "Bills pulled from the wallet.",
+      image: "/comic/01-gun.jpg",
+      alt: "The gunman takes the money.",
       thoughts: [
         "change our policies",
         "pull our soldiers back",
@@ -361,7 +361,7 @@ export const chapterOne = {
     },
     {
       id: "religion",
-      image: "/comic/01-alley.jpg",
+      image: "/comic/01-eyes.jpg",
       alt: "The victim's eyes.",
       thoughts: [
         "respect their religion",
@@ -385,15 +385,15 @@ export const chapterOne = {
     },
     {
       id: "predators",
-      image: "/comic/01-walk.jpg",
-      alt: "He follows the robber.",
+      image: "/comic/01-follow.jpg",
+      alt: "He follows the robber from above.",
       thoughts: [
         "they are predators and predators don’t change their diets",
       ],
     },
     {
       id: "save",
-      image: "/comic/01-ground.jpg",
+      image: "/comic/01-breath.jpg",
       alt: "The victim's last breath.",
       thoughts: [
         "we can’t save them all",
@@ -401,24 +401,24 @@ export const chapterOne = {
     },
     {
       id: "kill",
-      image: "/comic/01-walk.jpg",
-      alt: "A name and address in the wallet.",
+      image: "/comic/01-name.jpg",
+      alt: "The wallet, with no readable name.",
       thoughts: [
         "but we can certainly kill them all",
       ],
     },
     {
       id: "sleep",
-      image: "/comic/01-face.jpg",
-      alt: "The bat in the hold.",
+      image: "/comic/01-sleep.jpg",
+      alt: "He falls asleep in the closed hold, the small window still lit.",
       thoughts: [
         "I need to get some sleep, big day tomorrow",
       ],
     },
     {
       id: "what",
-      image: "/comic/01-face.jpg",
-      alt: "Close on the bat.",
+      image: "/comic/01-what.jpg",
+      alt: "Close on his face. The cargo door is shut behind him, a small window glowing.",
       thoughts: [
         "I don’t know what’s worse, what I am or knowing what I am",
       ],
