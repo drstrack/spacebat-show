@@ -5,6 +5,10 @@ Mark
   Orange field #E45A12, ink bat #141414.
   Not the yellow-oval bat. Tall ears, cape point, shallow scallops.
 
+Cover
+  SpaceBat-cover-3000.jpg — podcast cover, 3000×3000.
+  The bat sits between the title and the topic bar so neither covers the art.
+
 Upload to X
   Profile photo: x-profile-1024.png (X crops it to a circle)
   Header: x-header-1500x500.jpg
