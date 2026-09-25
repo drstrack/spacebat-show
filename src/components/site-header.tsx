@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { to: "/listen", label: "Podcast" },
-  { to: "/comic", label: "The comic" },
+  { to: "/listen", label: "The Podcast" },
+  { to: "/comic", label: "The Comic" },
   { to: "/story", label: "The name" },
   { to: "/hosts", label: "The crew" },
 ] as const;

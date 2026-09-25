@@ -13,7 +13,7 @@ function ComicCatalog() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
       <span className="caption-box">The rack</span>
-      <h1 className="mt-4 font-display text-5xl tracking-wide">The comic</h1>
+      <h1 className="mt-4 font-display text-5xl tracking-wide">The Comic</h1>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted">
         Present day, 2026. Seventeen years after he came back changed. The
         record of the name stays on its own page. This is the wink.

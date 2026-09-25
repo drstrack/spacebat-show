@@ -60,10 +60,10 @@ export function SiteFooter() {
           <div className="space-y-2">
             <p className="font-display text-base tracking-wide">Show</p>
             <Link to="/podcast" className="block text-ink/80 hover:text-crimson">
-              Podcast
+              The Podcast
             </Link>
             <Link to="/comic" className="block text-ink/80 hover:text-crimson">
-              The comic
+              The Comic
             </Link>
             <Link to="/story" className="block text-ink/80 hover:text-crimson">
               The name

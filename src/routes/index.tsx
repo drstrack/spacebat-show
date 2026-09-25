@@ -29,14 +29,14 @@ function Home() {
             <div className="mt-5 flex flex-wrap gap-3">
               <Button size="lg" asChild>
                 <Link to="/podcast" hash="live">
-                  The podcast
+                  The Podcast
                 </Link>
               </Button>
               <Button size="lg" variant="secondary" asChild>
                 <Link to="/story">Why the name</Link>
               </Button>
               <Button size="lg" variant="secondary" asChild>
-                <Link to="/comic">Comic</Link>
+                <Link to="/comic">The Comic</Link>
               </Button>
             </div>
             <LivePlayer />

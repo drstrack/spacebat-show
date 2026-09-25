@@ -229,7 +229,7 @@ export const chapterOne = {
       image: "/comic/01-dinner.jpg",
       alt: "A closer look at the 747 at the gate.",
       thoughts: [
-        "747, yea, wonder what their serving for dinner in first class",
+        "747, yea, wonder what they're serving for dinner in first class",
       ],
     },
     {
