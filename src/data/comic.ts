@@ -13,7 +13,7 @@ export const chapterOne = {
   code: "01",
   title: "What I Am",
   when: "Present day, 2026",
-  dek: "Seventeen years after he came back changed. He is still moving.",
+  dek: "Seventeen years after he came back changed. The real Bat Superhero.",
   footnote:
     "Issue 01, Chapter One, was written in 2009, after the actual NASA space shuttle bat story. The issues and chapters after this one are new.",
   cover: "/comic/01-wreck.jpg",
