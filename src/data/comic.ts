@@ -109,7 +109,7 @@ export const chapterOne = {
     {
       id: "clerk",
       image: "/comic/01-clerk.jpg",
-      alt: "An imagined hospital clerk.",
+      alt: "A daydream: the bat at a doctor's office with a broken arm.",
       thoughts: [
       ],
       speech: { speaker: "A clerk, in his head", text: "So how did you break this?" },
