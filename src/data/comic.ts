@@ -219,7 +219,7 @@ export const chapterOne = {
     {
       id: "weather",
       image: "/comic/01-gate.jpg",
-      alt: "The bat on a baggage cart at the plane.",
+      alt: "SpaceBat hides among the luggage, ears visible, trying to board unseen.",
       thoughts: [
         "Ah, looks like nice flying weather",
       ],
