@@ -34,10 +34,18 @@ function ChapterOne() {
                 {String(index + 1).padStart(2, "0")}
               </p>
               {panel.speech ? (
-                <div className="absolute left-3 right-12 top-[14%] max-w-sm">
-                  <p className="mb-1 inline-block bg-ink px-1.5 py-0.5 text-[0.65rem] uppercase tracking-[0.14em] text-caption">
-                    {panel.speech.speaker}
-                  </p>
+                <div
+                  className={
+                    panel.speech.place === "lower-left"
+                      ? "absolute bottom-4 left-3 max-w-[16rem]"
+                      : "absolute left-3 right-12 top-[14%] max-w-sm"
+                  }
+                >
+                  {panel.speech.speaker ? (
+                    <p className="mb-1 inline-block bg-ink px-1.5 py-0.5 text-[0.65rem] uppercase tracking-[0.14em] text-caption">
+                      {panel.speech.speaker}
+                    </p>
+                  ) : null}
                   <p className="rounded-[1.5rem] border-4 border-ink bg-white px-4 py-3 font-display text-xl leading-tight tracking-wide text-ink shadow-[4px_4px_0_0_#141414]">
                     {panel.speech.text}
                   </p>

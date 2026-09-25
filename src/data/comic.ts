@@ -1,4 +1,4 @@
-export type ComicSpeech = { speaker: string; text: string };
+export type ComicSpeech = { speaker?: string; text: string; place?: "top" | "lower-left" };
 
 export type ComicPanel = {
   id: string;
@@ -112,7 +112,7 @@ export const chapterOne = {
       alt: "A daydream: the bat at a doctor's office with a broken arm.",
       thoughts: [
       ],
-      speech: { speaker: "A clerk, in his head", text: "So how did you break this?" },
+      speech: { text: "So how did you break this?", place: "lower-left" },
     },
     {
       id: "pole",
