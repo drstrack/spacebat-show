@@ -69,6 +69,10 @@ function ChapterOne() {
           </li>
         ))}
       </ol>
+      <p className="mt-10 border-t-4 border-ink pt-4 text-sm leading-relaxed text-muted">
+        <span className="font-display tracking-wide text-ink">Note. </span>
+        {chapterOne.footnote}
+      </p>
     </article>
   );
 }

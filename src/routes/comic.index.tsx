@@ -50,6 +50,10 @@ function ComicCatalog() {
           <p className="mt-6 font-display text-3xl leading-none tracking-wide">{issueTwo.note}</p>
         </article>
       </div>
+      <p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted">
+        <span className="font-display tracking-wide text-ink">Note. </span>
+        {chapterOne.footnote}
+      </p>
 
       <section className="mt-16">
         <span className="caption-box">The shelf</span>
