@@ -234,8 +234,8 @@ export const chapterOne = {
     },
     {
       id: "chair",
-      image: "/comic/01-jetway.jpg",
-      alt: "The boarding ramp door.",
+      image: "/comic/01-firstclass.jpg",
+      alt: "A daydream: SpaceBat stretched out in a first-class seat.",
       thoughts: [
         "ahh, that big chair, I could really stretch out",
       ],
