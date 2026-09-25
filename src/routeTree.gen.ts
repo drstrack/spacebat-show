@@ -14,6 +14,8 @@ import { Route as HostsRouteImport } from './routes/hosts'
 import { Route as ListenRouteImport } from './routes/listen'
 import { Route as StoryRouteImport } from './routes/story'
 import { Route as SubscribeRouteImport } from './routes/subscribe'
+import { Route as ComicIndexRouteImport } from './routes/comic.index'
+import { Route as ComicWhatIAmRouteImport } from './routes/comic.what-i-am'
 import { Route as EpisodesIndexRouteImport } from './routes/episodes.index'
 import { Route as EpisodesSlugRouteImport } from './routes/episodes.$slug'
 import { Route as PodcastIndexRouteImport } from './routes/podcast.index'
@@ -44,6 +46,16 @@ const SubscribeRoute = SubscribeRouteImport.update({
   path: '/subscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ComicIndexRoute = ComicIndexRouteImport.update({
+  id: '/comic/',
+  path: '/comic/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComicWhatIAmRoute = ComicWhatIAmRouteImport.update({
+  id: '/comic/what-i-am',
+  path: '/comic/what-i-am',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EpisodesIndexRoute = EpisodesIndexRouteImport.update({
   id: '/episodes/',
   path: '/episodes/',
@@ -71,8 +83,10 @@ export interface FileRoutesByFullPath {
   '/listen': typeof ListenRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
+  '/comic/what-i-am': typeof ComicWhatIAmRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
+  '/comic/': typeof ComicIndexRoute
   '/episodes/': typeof EpisodesIndexRoute
   '/podcast/': typeof PodcastIndexRoute
 }
@@ -82,8 +96,10 @@ export interface FileRoutesByTo {
   '/listen': typeof ListenRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
+  '/comic/what-i-am': typeof ComicWhatIAmRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
+  '/comic': typeof ComicIndexRoute
   '/episodes': typeof EpisodesIndexRoute
   '/podcast': typeof PodcastIndexRoute
 }
@@ -94,8 +110,10 @@ export interface FileRoutesById {
   '/listen': typeof ListenRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
+  '/comic/what-i-am': typeof ComicWhatIAmRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
+  '/comic/': typeof ComicIndexRoute
   '/episodes/': typeof EpisodesIndexRoute
   '/podcast/': typeof PodcastIndexRoute
 }
@@ -107,8 +125,10 @@ export interface FileRouteTypes {
     | '/listen'
     | '/story'
     | '/subscribe'
+    | '/comic/what-i-am'
     | '/episodes/$slug'
     | '/podcast/$slug'
+    | '/comic/'
     | '/episodes/'
     | '/podcast/'
   fileRoutesByTo: FileRoutesByTo
@@ -118,8 +138,10 @@ export interface FileRouteTypes {
     | '/listen'
     | '/story'
     | '/subscribe'
+    | '/comic/what-i-am'
     | '/episodes/$slug'
     | '/podcast/$slug'
+    | '/comic'
     | '/episodes'
     | '/podcast'
   id:
@@ -129,8 +151,10 @@ export interface FileRouteTypes {
     | '/listen'
     | '/story'
     | '/subscribe'
+    | '/comic/what-i-am'
     | '/episodes/$slug'
     | '/podcast/$slug'
+    | '/comic/'
     | '/episodes/'
     | '/podcast/'
   fileRoutesById: FileRoutesById
@@ -141,8 +165,10 @@ export interface RootRouteChildren {
   ListenRoute: typeof ListenRoute
   StoryRoute: typeof StoryRoute
   SubscribeRoute: typeof SubscribeRoute
+  ComicWhatIAmRoute: typeof ComicWhatIAmRoute
   EpisodesSlugRoute: typeof EpisodesSlugRoute
   PodcastSlugRoute: typeof PodcastSlugRoute
+  ComicIndexRoute: typeof ComicIndexRoute
   EpisodesIndexRoute: typeof EpisodesIndexRoute
   PodcastIndexRoute: typeof PodcastIndexRoute
 }
@@ -184,6 +210,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/comic/': {
+      id: '/comic/'
+      path: '/comic'
+      fullPath: '/comic/'
+      preLoaderRoute: typeof ComicIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comic/what-i-am': {
+      id: '/comic/what-i-am'
+      path: '/comic/what-i-am'
+      fullPath: '/comic/what-i-am'
+      preLoaderRoute: typeof ComicWhatIAmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/episodes/': {
       id: '/episodes/'
       path: '/episodes'
@@ -221,8 +261,10 @@ const rootRouteChildren: RootRouteChildren = {
   ListenRoute: ListenRoute,
   StoryRoute: StoryRoute,
   SubscribeRoute: SubscribeRoute,
+  ComicWhatIAmRoute: ComicWhatIAmRoute,
   EpisodesSlugRoute: EpisodesSlugRoute,
   PodcastSlugRoute: PodcastSlugRoute,
+  ComicIndexRoute: ComicIndexRoute,
   EpisodesIndexRoute: EpisodesIndexRoute,
   PodcastIndexRoute: PodcastIndexRoute,
 }

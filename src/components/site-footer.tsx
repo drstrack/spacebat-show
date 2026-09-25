@@ -62,6 +62,9 @@ export function SiteFooter() {
             <Link to="/podcast" className="block text-ink/80 hover:text-crimson">
               Podcast
             </Link>
+            <Link to="/comic" className="block text-ink/80 hover:text-crimson">
+              The comic
+            </Link>
             <Link to="/story" className="block text-ink/80 hover:text-crimson">
               The name
             </Link>
@@ -106,7 +109,7 @@ export function SiteFooter() {
       <div className="border-t-4 border-ink bg-ink text-caption">
         <p className="mx-auto max-w-6xl px-4 py-4 text-xs uppercase tracking-[0.12em] sm:px-6">
           Historical launch photographs courtesy NASA, public domain. The cape
-          is a joke. SpaceBat the show is independent of NASA.
+          is a joke. The record is on The name. This is the wink. Independent of NASA.
         </p>
       </div>
     </footer>
