@@ -36,9 +36,11 @@ function ChapterOne() {
               {panel.speech ? (
                 <div
                   className={
-                    panel.speech.place === "lower-left"
-                      ? "absolute bottom-4 left-3 max-w-[16rem]"
-                      : "absolute left-3 right-12 top-[14%] max-w-sm"
+                    panel.speech.place === "bottom"
+                      ? "absolute inset-x-3 bottom-3"
+                      : panel.speech.place === "lower-left"
+                        ? "absolute bottom-4 left-3 max-w-[16rem]"
+                        : "absolute left-3 right-12 top-[14%] max-w-sm"
                   }
                 >
                   {panel.speech.speaker ? (

@@ -1,4 +1,4 @@
-export type ComicSpeech = { speaker?: string; text: string; place?: "top" | "lower-left" };
+export type ComicSpeech = { speaker?: string; text: string; place?: "top" | "lower-left" | "bottom" };
 
 export type ComicPanel = {
   id: string;
@@ -116,11 +116,13 @@ export const chapterOne = {
     },
     {
       id: "pole",
-      image: "/comic/01-pole.jpg",
-      alt: "Close on the bat riding the truck, arm hurt.",
-      thoughts: [
-        "Oh, well I was saving mankind from utter destruction and the bad guy hit me with a light pole",
-      ],
+      image: "/comic/01-reply.jpg",
+      alt: "The same daydream: the bat answers the doctor.",
+      thoughts: [],
+      speech: {
+        text: "Oh, well I was saving mankind from utter destruction and the bad guy hit me with a light pole",
+        place: "bottom",
+      },
     },
     {
       id: "realwell",
