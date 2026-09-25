@@ -111,7 +111,7 @@ function StoryPage() {
           <h2 className="font-display text-4xl tracking-wide">Not the show</h2>
         </div>
         <p className="mt-3 text-sm leading-relaxed text-muted">
-          We like to imagine he got powers. That’s mascot work. The podcast is
+          We like to imagine he got powers. That’s mascot work. The Podcast is
           the five beats.
         </p>
 
@@ -166,7 +166,7 @@ function StoryPage() {
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Button asChild>
-            <Link to="/podcast">The podcast</Link>
+            <Link to="/podcast">The Podcast</Link>
           </Button>
           <Button asChild variant="secondary">
             <Link to="/hosts">The crew</Link>

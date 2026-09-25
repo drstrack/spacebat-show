@@ -17,7 +17,7 @@ function PodcastPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
       <span className="caption-box">The booth</span>
-      <h1 className="mt-4 font-display text-5xl tracking-wide">The podcast</h1>
+      <h1 className="mt-4 font-display text-5xl tracking-wide">The Podcast</h1>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted">
         John Mulligan and Daniel Strack, from a diner booth: comics, movies,
         tech, politics, and markets. Named, tongue in cheek, for the bat that

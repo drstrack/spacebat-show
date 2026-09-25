@@ -35,7 +35,7 @@ function HostsPage() {
           />
           <div className="flex flex-col justify-center bg-paper p-6 sm:p-10">
             <span className="caption-box w-fit">The booth</span>
-            <h2 className="mt-4 font-display text-4xl tracking-wide">The podcast</h2>
+            <h2 className="mt-4 font-display text-4xl tracking-wide">The Podcast</h2>
             <p className="mt-4 text-base leading-relaxed text-muted">
               Comics, movies, technology, politics, and markets. SpaceBat is
               the mascot — a bat that wouldn’t let go. Episodes post when they
