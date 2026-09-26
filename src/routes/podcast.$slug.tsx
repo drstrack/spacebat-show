@@ -43,7 +43,22 @@ function EpisodePage() {
       <h1 className="mt-4 font-display text-5xl leading-none tracking-wide">
         {episode.title}
       </h1>
-      <div className="mt-4 space-y-4 text-base leading-relaxed text-muted">
+      {episode.listenUrl ? (
+        <audio controls preload="none" src={episode.listenUrl} className="mt-6 w-full" />
+      ) : null}
+      {episode.pageUrl ? (
+        <p className="mt-3 text-sm">
+          <a
+            href={episode.pageUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-display text-lg tracking-wide text-crimson hover:underline"
+          >
+            Open on Podhome
+          </a>
+        </p>
+      ) : null}
+      <div className="mt-8 space-y-4 text-base leading-relaxed text-muted">
         {episode.notes.paragraphs.map((paragraph) => (
           <p key={paragraph.slice(0, 48)}>{paragraph}</p>
         ))}
@@ -74,21 +89,6 @@ function EpisodePage() {
             ))}
           </ul>
         </section>
-      ) : null}
-      {episode.listenUrl ? (
-        <audio controls preload="none" src={episode.listenUrl} className="mt-8 w-full" />
-      ) : null}
-      {episode.pageUrl ? (
-        <p className="mt-4 text-sm">
-          <a
-            href={episode.pageUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="font-display text-lg tracking-wide text-crimson hover:underline"
-          >
-            Open on Podhome
-          </a>
-        </p>
       ) : null}
 
       {others.length > 0 ? (
