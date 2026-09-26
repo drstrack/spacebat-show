@@ -62,9 +62,6 @@ export function SiteFooter() {
             <Link to="/podcast" className="block text-ink/80 hover:text-crimson">
               The Podcast
             </Link>
-            <Link to="/comic" className="block text-ink/80 hover:text-crimson">
-              The Comic
-            </Link>
             <Link to="/story" className="block text-ink/80 hover:text-crimson">
               The name
             </Link>
@@ -108,8 +105,7 @@ export function SiteFooter() {
       </div>
       <div className="border-t-4 border-ink bg-ink text-caption">
         <p className="mx-auto max-w-6xl px-4 py-4 text-xs uppercase tracking-[0.12em] sm:px-6">
-          Historical launch photographs courtesy NASA, public domain. The cape
-          is a joke. The record is on The name. This is the wink. Independent of NASA.
+          Historical launch photographs courtesy NASA, public domain. Independent of NASA.
         </p>
       </div>
     </footer>

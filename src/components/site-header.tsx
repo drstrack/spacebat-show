@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { to: "/listen", label: "The Podcast" },
-  { to: "/comic", label: "The Comic" },
   { to: "/story", label: "The name" },
   { to: "/hosts", label: "The crew" },
 ] as const;
@@ -36,8 +35,7 @@ export function SiteHeader() {
               className={cn(
                 "px-3 py-2 font-display text-base tracking-wide text-ink/70 hover:text-ink",
                 (pathname === l.to ||
-                  (l.to === "/listen" && pathname.startsWith("/podcast/")) ||
-                  (l.to === "/comic" && pathname.startsWith("/comic"))) &&
+                  (l.to === "/listen" && pathname.startsWith("/podcast/"))) &&
                   "text-crimson",
               )}
             >
@@ -70,8 +68,7 @@ export function SiteHeader() {
                 className={cn(
                   "px-3 py-3 font-display text-xl tracking-wide text-ink/70",
                   (pathname === l.to ||
-                    (l.to === "/listen" && pathname.startsWith("/podcast/")) ||
-                    (l.to === "/comic" && pathname.startsWith("/comic"))) &&
+                    (l.to === "/listen" && pathname.startsWith("/podcast/"))) &&
                     "text-crimson",
                 )}
               >
