@@ -58,10 +58,6 @@ function HostCard({
   host: (typeof hosts)["dan"];
   tilt: string;
 }) {
-  const chips = host.xBio
-    ? host.xBio.split("|").map((s) => s.trim()).filter(Boolean)
-    : [];
-
   return (
     <article className={cn("panel overflow-hidden bg-surface", tilt)}>
       <HostPortrait host={host} />
@@ -84,48 +80,6 @@ function HostCard({
           </p>
         ) : null}
         <p className="mt-5 text-base leading-relaxed text-muted">{host.blurb}</p>
-
-        {host.xHandle ? (
-          <aside className="panel mt-6 bg-caption p-4">
-            <span className="caption-box">On X</span>
-            <p className="mt-3 font-display text-xl tracking-wide">
-              <a
-                href={`https://x.com/${host.xHandle}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-crimson hover:underline"
-              >
-                @{host.xHandle}
-              </a>
-            </p>
-            {host.xName ? (
-              <p className="mt-1 text-xs uppercase tracking-[0.12em] text-ink/70">
-                {host.xName}
-              </p>
-            ) : null}
-            {chips.length > 0 ? (
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {chips.map((chip) => (
-                <li
-                  key={chip}
-                  className="border-2 border-ink bg-paper px-2 py-1 text-sm leading-snug text-ink"
-                >
-                  {renderMentions(chip)}
-                </li>
-              ))}
-            </ul>
-            ) : null}
-            <a
-              href={`https://x.com/${host.xHandle}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 inline-flex items-center gap-1 font-display text-lg tracking-wide text-crimson hover:underline"
-            >
-              Follow
-              <ArrowUpRight className="size-3.5" />
-            </a>
-          </aside>
-        ) : null}
 
         <div className="mt-8">
           <span className="caption-box">Experience</span>
@@ -194,23 +148,5 @@ function HostCard({
         </div>
       </div>
     </article>
-  );
-}
-
-function renderMentions(text: string) {
-  return text.split(/(@[A-Za-z0-9_]+)/g).map((part, i) =>
-    part.startsWith("@") ? (
-      <a
-        key={`${part}-${i}`}
-        href={`https://x.com/${part.slice(1)}`}
-        target="_blank"
-        rel="noreferrer"
-        className="font-medium text-crimson hover:underline"
-      >
-        {part}
-      </a>
-    ) : (
-      <span key={i}>{part}</span>
-    ),
   );
 }
