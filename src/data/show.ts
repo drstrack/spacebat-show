@@ -37,6 +37,7 @@ export const show = {
     johnX: "https://x.com/tma_alpha",
     showX: "https://x.com/spacebatshow",
   },
+  email: "spacebatshow@gmail.com",
   /** Podhome live stream (Icecast). HTTPS — the http URL is the same mount. */
   liveStream: "https://stream.podhome.fm/the-spacebat-show",
   /** Public RSS. Finished episodes are read from here. */

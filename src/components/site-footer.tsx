@@ -97,7 +97,14 @@ export function SiteFooter() {
             </div>
           </div>
           <div className="space-y-2">
-            <p className="font-display text-base tracking-wide">The booth</p>
+            <p className="font-display text-base tracking-wide">Contact</p>
+            <a
+              href={`mailto:${show.email}`}
+              className="block break-all text-ink/80 hover:text-crimson"
+            >
+              {show.email}
+            </a>
+            <p className="pt-4 font-display text-base tracking-wide">The booth</p>
             <p className="text-ink/80">Comics · Movies · Tech</p>
             <p className="text-ink/80">Politics · Markets</p>
           </div>
