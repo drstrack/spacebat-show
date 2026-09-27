@@ -186,7 +186,7 @@ export const hosts = {
     short: "John",
     role: "Host",
     photo: "/images/john-comic.webp?v=3",
-    location: "New York / New Jersey",
+    location: "Long Island, NY",
     now: "Goldman Sachs",
     headline: "Goldman Sachs",
     xHandle: "tma_alpha",
@@ -197,7 +197,7 @@ export const hosts = {
       { label: "X", href: show.socials.johnX },
     ],
     blurb:
-      "John is Dan’s longtime friend and former colleague. LinkedIn lists him at Goldman Sachs — the Street years that overlap Dan’s, and the other half of a diner-booth argument about comics, movies, tech, politics, and markets.",
+      "John is Dan’s longtime friend and former colleague, on Long Island. LinkedIn lists him at Goldman Sachs — the Street years that overlap Dan’s, and the other half of a diner-booth argument about comics, movies, tech, politics, and markets.",
     experience: [
       {
         title: "Co-host",
