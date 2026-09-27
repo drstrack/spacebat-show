@@ -96,12 +96,12 @@ function StoryPage() {
           </figure>
         </div>
 
-        <blockquote className="panel mt-10 bg-ink p-6 text-caption sm:p-10">
+        <blockquote className="panel mt-10 bg-paper p-6 text-ink sm:p-10">
           <p className="font-display text-3xl leading-snug tracking-wide sm:text-4xl">
             NASA’s line: the animal likely perished quickly during the climb to
             orbit.
           </p>
-          <footer className="mt-4 text-sm uppercase tracking-[0.12em] text-caption/70">
+          <footer className="mt-4 text-sm uppercase tracking-[0.12em] text-ink/70">
             After the tower · the cameras lost him
           </footer>
         </blockquote>

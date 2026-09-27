@@ -186,7 +186,7 @@ export const hosts = {
     short: "John",
     role: "Host",
     photo: "/images/john-comic.webp?v=3",
-    location: "Long Island, NY",
+    location: "Long Island, New York",
     now: "Goldman Sachs",
     headline: "Goldman Sachs",
     xHandle: "tma_alpha",
