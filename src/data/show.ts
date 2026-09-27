@@ -185,7 +185,7 @@ export const hosts = {
     name: "John Mulligan",
     short: "John",
     role: "Host",
-    photo: "/images/john-comic.webp?v=2",
+    photo: "/images/john-comic.webp?v=3",
     location: "New York / New Jersey",
     now: "Goldman Sachs",
     headline: "Goldman Sachs",
