@@ -22,7 +22,7 @@ function StoryPage() {
             </figure>
             <figure className="relative hidden h-full md:block">
               <img
-                src="/images/issue-cover.webp"
+                src="/images/issue-cover.webp?v=2"
                 alt="Tongue-in-cheek SpaceBat mascot — a bat in a foam cape punching toward camera."
                 className="absolute inset-0 h-full w-full object-cover object-[center_20%]"
               />
