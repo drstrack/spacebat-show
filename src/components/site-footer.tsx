@@ -68,6 +68,14 @@ export function SiteFooter() {
             <Link to="/hosts" className="block text-ink/80 hover:text-crimson">
               The crew
             </Link>
+            <a
+              href="https://support.podhome.fm/the-spacebat-show"
+              target="_blank"
+              rel="noreferrer"
+              className="block text-ink/80 hover:text-crimson"
+            >
+              Support
+            </a>
           </div>
           <div className="space-y-4">
             <p className="font-display text-base tracking-wide">Follow</p>
