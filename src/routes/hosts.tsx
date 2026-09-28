@@ -16,8 +16,9 @@ function HostsPage() {
           Two lives. One booth.
         </h1>
         <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted">
-          Friends and former colleagues. The show is comics, movies,
-          technology, politics, and markets. The bat on the cover is a wink.
+          Friends and former colleagues. The podcast came out of their phone
+          calls: comics, movies, technology, politics, and markets. The comic
+          is a separate book.
         </p>
       </header>
 
@@ -37,9 +38,9 @@ function HostsPage() {
             <span className="caption-box w-fit">The booth</span>
             <h2 className="mt-4 font-display text-4xl tracking-wide">The Podcast</h2>
             <p className="mt-4 text-base leading-relaxed text-muted">
-              Comics, movies, technology, politics, and markets. SpaceBat is
-              the mascot — a bat that wouldn’t let go. Episodes post when they
-              publish.
+              Comics, movies, technology, politics, and markets — the phone
+              calls, recorded. Named after SpaceBat. The comic is separate.
+              Episodes post when they publish.
             </p>
             <Button asChild className="mt-8 w-fit">
               <Link to="/podcast">Open the podcast</Link>

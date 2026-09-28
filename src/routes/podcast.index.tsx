@@ -19,9 +19,9 @@ function PodcastPage() {
       <span className="caption-box">The booth</span>
       <h1 className="mt-4 font-display text-5xl tracking-wide">The Podcast</h1>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted">
-        John Mulligan and Daniel Strack, from a diner booth: comics, movies,
-        tech, politics, and markets. Named, tongue in cheek, for the bat that
-        rode Discovery — we even drew him a cape.
+        John Mulligan and Daniel Strack started this from their phone calls:
+        comics, movies, tech, politics, and markets. They named the podcast
+        after SpaceBat. The comic is a different project. Stay tuned.
       </p>
 
       <section id="live" className="panel mt-10 overflow-hidden bg-surface md:grid md:grid-cols-2">

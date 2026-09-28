@@ -23,25 +23,26 @@ function StoryPage() {
             <figure className="relative hidden h-full md:block">
               <img
                 src="/images/issue-cover.webp?v=2"
-                alt="Tongue-in-cheek SpaceBat mascot — a bat in a foam cape punching toward camera."
+                alt="SpaceBat, the comic — a bat in a foam cape punching toward camera."
                 className="absolute inset-0 h-full w-full object-cover object-[center_20%]"
               />
               <span className="burst absolute right-4 top-4 text-sm">Hold on.</span>
               <figcaption className="absolute bottom-3 left-3 caption-box text-sm">
-                The wink
+                The comic
               </figcaption>
             </figure>
           </div>
           <div className="border-t-4 border-ink bg-paper p-6 sm:p-10">
             <span className="caption-box w-fit">The name</span>
             <h1 className="mt-4 max-w-3xl font-display text-5xl leading-none tracking-wide sm:text-6xl">
-              We stole it from a bat.
+              They saw a comic in it.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted">
               Pad 39A, March 15, 2009. A free-tailed bat on Discovery’s orange
-              tank. NASA lost him after the tower. We took the name, drew him
-              a cape, and went back to arguing about comics, movies, tech,
-              politics, and markets.
+              tank. John and Dan thought it would make a comic series. Years
+              later they started a podcast from their phone calls and named it
+              after SpaceBat. The podcast and the comic are separate. The
+              comic is still coming. Stay tuned.
             </p>
           </div>
         </div>
@@ -49,7 +50,7 @@ function StoryPage() {
 
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
         <p className="font-display text-3xl leading-snug tracking-wide text-ink">
-          The real one first. Then the wink.
+          The real one first. Then what they made of it.
         </p>
 
         <div className="mt-10 flex items-center gap-3">
@@ -107,12 +108,12 @@ function StoryPage() {
         </blockquote>
 
         <div className="mt-14 flex items-center gap-3">
-          <span className="caption-box">The wink</span>
-          <h2 className="font-display text-4xl tracking-wide">Not the show</h2>
+          <span className="caption-box">The comic</span>
+          <h2 className="font-display text-4xl tracking-wide">Not the podcast</h2>
         </div>
         <p className="mt-3 text-sm leading-relaxed text-muted">
-          We like to imagine he got powers. That’s mascot work. The Podcast is
-          the five beats.
+          The podcast is the phone calls. The comic is the bat. That book is
+          still being made. Stay tuned.
         </p>
 
         <div className="mt-8 grid gap-4">
@@ -132,17 +133,17 @@ function StoryPage() {
           <figure className="panel overflow-hidden">
             <img
               src="/images/origin-powers.webp"
-              alt="Tongue-in-cheek drawing of the bat picking up a cape in orbit."
+              alt="Drawing of the bat picking up a cape in orbit, for the comic."
               className="aspect-video w-full object-cover"
             />
             <figcaption className="border-t-4 border-ink bg-caption px-3 py-2 text-xs uppercase tracking-[0.12em]">
-              The drawing, not the documentary
+              The comic. Stay tuned.
             </figcaption>
           </figure>
           <figure className="panel overflow-hidden">
             <img
               src="/images/cover-splash.webp"
-              alt="SpaceBat the mascot flying over a climbing shuttle."
+              alt="SpaceBat from the comic, flying over a climbing shuttle."
               className="aspect-video w-full object-cover object-top"
             />
             <figcaption className="border-t-4 border-ink bg-caption px-3 py-2 text-xs uppercase tracking-[0.12em]">
@@ -156,13 +157,14 @@ function StoryPage() {
             “Goodbye and godspeed, magnificent Spacebat.”
           </p>
           <footer className="mt-4 text-sm uppercase tracking-[0.12em] text-ink/70">
-            Gizmodo · March 2009 · we kept the name
+            Gizmodo · March 2009 · they kept the name
           </footer>
         </blockquote>
 
         <p className="mt-10 text-base leading-relaxed text-muted">
-          John and Dan from a diner booth: comics, movies, tech, politics, and
-          markets.
+          John and Dan, from their phone calls: comics, movies, tech, politics,
+          and markets. The podcast is named after SpaceBat. The comic is a
+          separate book.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Button asChild>
@@ -179,7 +181,7 @@ function StoryPage() {
             NASA / Kennedy Space Center launch imagery and memos for STS-119;
             contemporaneous reporting from Space.com, Universe Today, CNN, ABC
             News, The Guardian, and Gizmodo. Photographs of the bat and of
-            Discovery’s liftoff are NASA public-domain images. The cape is
+            Discovery’s liftoff are NASA public-domain images. The comic is
             ours. The show is independent of NASA.
           </p>
         </aside>

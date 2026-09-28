@@ -14,7 +14,7 @@ function Home() {
           <div className="relative">
             <img
               src="/images/cover-splash.webp"
-              alt="SpaceBat the mascot — a bat in a foam cape over a climbing shuttle."
+              alt="SpaceBat from the comic — a bat in a foam cape over a climbing shuttle."
               className="aspect-[2/1] w-full object-cover object-[center_35%] sm:aspect-[2.1/1]"
             />
             <span className="burst absolute right-3 top-3 text-sm sm:right-5 sm:top-5">
@@ -50,8 +50,8 @@ function Home() {
             </h2>
           </div>
           <p className="max-w-sm text-sm leading-relaxed text-muted">
-            If it made them argue over coffee, it belongs on the show. SpaceBat
-            is the mascot. The range is the point.
+            The podcast is the phone calls: comics, movies, tech, politics,
+            markets. The comic is a separate book.
           </p>
         </div>
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -87,16 +87,16 @@ function Home() {
           <div className="flex flex-col justify-center bg-paper p-6 sm:p-10">
             <span className="caption-box w-fit">The name</span>
             <h2 className="mt-4 font-display text-4xl tracking-wide">
-              A bat that wouldn’t let go.
+              They saw a comic in it.
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted">
               March 15, 2009. A Florida free-tailed bat rode Discovery off Pad
-              39A. NASA hoped he would wake and leave. He did not. We stole
-              the name. We even drew him a cape. That’s the joke — not the
-              episode list.
+              39A. John and Dan thought it would make a comic series. Later
+              they started a podcast from their phone calls and named it
+              SpaceBat. The comic is a different project. Stay tuned.
             </p>
             <Button asChild className="mt-8 w-fit" variant="secondary">
-              <Link to="/story">The real one, and the wink</Link>
+              <Link to="/story">The bat, the podcast, the comic</Link>
             </Button>
           </div>
         </div>

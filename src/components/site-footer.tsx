@@ -51,9 +51,9 @@ export function SiteFooter() {
             <span className="font-display text-2xl tracking-wide">SpaceBat</span>
           </div>
           <p className="max-w-xs text-sm leading-relaxed text-ink">
-            A podcast from John Mulligan and Daniel Strack. Comics, movies,
-            tech, politics, markets. Named, tongue in cheek, for the bat that
-            clung to Discovery on March 15, 2009.
+            A podcast from John Mulligan and Daniel Strack, started from their
+            phone calls. Named for the bat they thought would make a comic in
+            2009. The comic is a separate book.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-8 text-sm md:col-span-2 md:grid-cols-3">

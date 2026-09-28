@@ -29,7 +29,7 @@ export type Episode = {
 export const show = {
   name: "SpaceBat",
   tagline: "Hold on.",
-  lede: "Two friends. Comics, movies, tech, politics, markets. Named, tongue in cheek, for a bat that wouldn’t let go.",
+  lede: "The phone calls, recorded. Comics, movies, tech, politics, markets. Named for the bat John and Dan thought would make a comic.",
   socials: {
     danLinkedIn: "https://www.linkedin.com/in/daniel-strack",
     johnLinkedIn: "https://www.linkedin.com/in/john-mulligan-9a8188b1",
@@ -251,14 +251,14 @@ export const storyRecord = [
 
 export const storyLegend = [
   {
-    kicker: "The name",
-    title: "We stole it",
-    body: "Mission Control posted a cartoon of an “Orbital Bat Sensing System.” Later tellings named him Brian. Gizmodo wrote the eulogy NASA would not: goodbye and godspeed, magnificent Spacebat. We took the name. Not as a documentary. As a mascot. A bat that wouldn’t let go is a decent name for a booth that won’t pick a lane.",
+    kicker: "The podcast",
+    title: "The phone calls",
+    body: "John and Dan already talked like this — comics, movies, tech, politics, markets — on the phone. They started a podcast from those calls. They named it after SpaceBat.",
   },
   {
-    kicker: "Tongue in cheek",
-    title: "We gave him a cape",
-    body: "NASA’s line is he likely perished on the climb. We like to imagine he didn’t — powers, a foam cape, a return. That’s the drawing on the cover. It is not the show. The show is comics, movies, tech, politics, and markets.",
+    kicker: "The comic",
+    title: "Stay tuned",
+    body: "In 2009, when the bat clung to Discovery, they thought it would make a comic series. That book is not the podcast. They are making it online. Stay tuned.",
   },
 ];
 
