@@ -19,9 +19,11 @@ function PodcastPage() {
       <span className="caption-box">The booth</span>
       <h1 className="mt-4 font-display text-5xl tracking-wide">The Podcast</h1>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted">
-        John Mulligan and Daniel Strack started this from their phone calls:
-        comics, movies, tech, politics, and markets. They named the podcast
-        after SpaceBat. The comic is a different project. Stay tuned.
+        Named for a bat who held onto a shuttle and rode it toward space — an
+        amazing origin for a new superhero. John Mulligan and Daniel Strack
+        started the podcast from their phone calls: comics, movies, tech,
+        politics, and markets. The comic, where he comes back with powers, is
+        a different project. Stay tuned.
       </p>
 
       <section id="live" className="panel mt-10 overflow-hidden bg-surface md:grid md:grid-cols-2">

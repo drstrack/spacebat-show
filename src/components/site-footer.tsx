@@ -52,8 +52,8 @@ export function SiteFooter() {
           </div>
           <p className="max-w-xs text-sm leading-relaxed text-ink">
             A podcast from John Mulligan and Daniel Strack, started from their
-            phone calls. Named for the bat they thought would make a comic in
-            2009. The comic is a separate book.
+            phone calls. Named for a bat who rode a shuttle into space — the
+            origin of a superhero they are still drawing.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-8 text-sm md:col-span-2 md:grid-cols-3">

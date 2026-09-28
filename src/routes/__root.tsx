@@ -28,7 +28,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "SpaceBat — a podcast from John Mulligan and Daniel Strack, started from their phone calls. Named for the 2009 NASA bat they thought would make a comic. The comic is separate. Stay tuned.",
+          "SpaceBat — John and Dan’s podcast, started from their phone calls and named for a bat who rode Discovery into space. That ride is the origin of a new superhero. The comic is separate. Stay tuned.",
       },
       { name: "theme-color", content: "#f6e7c1" },
     ],

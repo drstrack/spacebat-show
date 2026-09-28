@@ -51,7 +51,7 @@ function Home() {
           </div>
           <p className="max-w-sm text-sm leading-relaxed text-muted">
             The podcast is the phone calls: comics, movies, tech, politics,
-            markets. The comic is a separate book.
+            markets. The comic is the bat who went to space.
           </p>
         </div>
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -87,13 +87,14 @@ function Home() {
           <div className="flex flex-col justify-center bg-paper p-6 sm:p-10">
             <span className="caption-box w-fit">The name</span>
             <h2 className="mt-4 font-display text-4xl tracking-wide">
-              They saw a comic in it.
+              Into space. Then a hero.
             </h2>
             <p className="mt-4 text-base leading-relaxed text-muted">
               March 15, 2009. A Florida free-tailed bat rode Discovery off Pad
-              39A. John and Dan thought it would make a comic series. Later
-              they started a podcast from their phone calls and named it
-              SpaceBat. The comic is a different project. Stay tuned.
+              39A and into the climb. John and Dan thought that was an amazing
+              origin for a new superhero. Later they started a podcast from
+              their phone calls and named it SpaceBat. The comic, where he
+              makes it, is a different project. Stay tuned.
             </p>
             <Button asChild className="mt-8 w-fit" variant="secondary">
               <Link to="/story">The bat, the podcast, the comic</Link>

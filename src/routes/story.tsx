@@ -35,14 +35,16 @@ function StoryPage() {
           <div className="border-t-4 border-ink bg-paper p-6 sm:p-10">
             <span className="caption-box w-fit">The name</span>
             <h1 className="mt-4 max-w-3xl font-display text-5xl leading-none tracking-wide sm:text-6xl">
-              They saw a comic in it.
+              Into space. Then a hero.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted">
               Pad 39A, March 15, 2009. A free-tailed bat on Discovery’s orange
-              tank. John and Dan thought it would make a comic series. Years
-              later they started a podcast from their phone calls and named it
-              after SpaceBat. The podcast and the comic are separate. The
-              comic is still coming. Stay tuned.
+              tank, holding on as the shuttle climbed. John and Dan thought
+              that was an amazing origin: a small animal rides into space and,
+              in the comic, comes back a superhero. Years later they started a
+              podcast from their phone calls and named it after SpaceBat. The
+              podcast and the comic are separate. The comic — the one where he
+              makes it — is still being drawn. Stay tuned.
             </p>
           </div>
         </div>
@@ -50,7 +52,7 @@ function StoryPage() {
 
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
         <p className="font-display text-3xl leading-snug tracking-wide text-ink">
-          The real one first. Then what they made of it.
+          The launch was real. The hero is the fun part.
         </p>
 
         <div className="mt-10 flex items-center gap-3">
@@ -108,12 +110,12 @@ function StoryPage() {
         </blockquote>
 
         <div className="mt-14 flex items-center gap-3">
-          <span className="caption-box">The comic</span>
+          <span className="caption-box">The origin</span>
           <h2 className="font-display text-4xl tracking-wide">Not the podcast</h2>
         </div>
         <p className="mt-3 text-sm leading-relaxed text-muted">
-          The podcast is the phone calls. The comic is the bat. That book is
-          still being made. Stay tuned.
+          NASA’s cameras lose him after the tower. The comic starts there: the
+          climb, the powers, the cape. The podcast is the phone calls.
         </p>
 
         <div className="mt-8 grid gap-4">
@@ -137,7 +139,7 @@ function StoryPage() {
               className="aspect-video w-full object-cover"
             />
             <figcaption className="border-t-4 border-ink bg-caption px-3 py-2 text-xs uppercase tracking-[0.12em]">
-              The comic. Stay tuned.
+              The origin. Stay tuned.
             </figcaption>
           </figure>
           <figure className="panel overflow-hidden">
@@ -162,9 +164,9 @@ function StoryPage() {
         </blockquote>
 
         <p className="mt-10 text-base leading-relaxed text-muted">
-          John and Dan, from their phone calls: comics, movies, tech, politics,
-          and markets. The podcast is named after SpaceBat. The comic is a
-          separate book.
+          A bat goes to space and comes back a hero. That is the comic. John
+          and Dan’s podcast is the phone calls — comics, movies, tech,
+          politics, and markets — named after him.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Button asChild>

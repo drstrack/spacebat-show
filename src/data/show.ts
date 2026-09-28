@@ -29,7 +29,7 @@ export type Episode = {
 export const show = {
   name: "SpaceBat",
   tagline: "Hold on.",
-  lede: "The phone calls, recorded. Comics, movies, tech, politics, markets. Named for the bat John and Dan thought would make a comic.",
+  lede: "A bat rode a shuttle into space. John and Dan called that a superhero. The phone calls became the podcast.",
   socials: {
     danLinkedIn: "https://www.linkedin.com/in/daniel-strack",
     johnLinkedIn: "https://www.linkedin.com/in/john-mulligan-9a8188b1",
@@ -251,14 +251,24 @@ export const storyRecord = [
 
 export const storyLegend = [
   {
+    kicker: "The ride",
+    title: "Past the tower",
+    body: "He could not fly off. A wildlife specialist, watching the video, thought the left wing was broken. So he held the orange foam through countdown — warm on the infrared, about seventy degrees — and rode Discovery at least as far as the tower. After that the cameras lost him. That is already an origin.",
+  },
+  {
+    kicker: "The hero",
+    title: "SpaceBat",
+    body: "John and Dan’s version is the fun one. He does not fall off. The climb does something to him. He comes back with powers, a foam cape, and a name. SpaceBat. A new superhero whose first page is a real launch.",
+  },
+  {
     kicker: "The podcast",
     title: "The phone calls",
-    body: "John and Dan already talked like this — comics, movies, tech, politics, markets — on the phone. They started a podcast from those calls. They named it after SpaceBat.",
+    body: "The show is not that story. John and Dan already talked like this — comics, movies, tech, politics, markets — on the phone. They started a podcast from those calls and named it after him.",
   },
   {
     kicker: "The comic",
     title: "Stay tuned",
-    body: "In 2009, when the bat clung to Discovery, they thought it would make a comic series. That book is not the podcast. They are making it online. Stay tuned.",
+    body: "The origin lives in the comic, and the comic is its own book. They are making it online. Stay tuned.",
   },
 ];
 
