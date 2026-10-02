@@ -102,6 +102,36 @@ test("does not duplicate x:creator tags", () => {
   assert.equal(twice.split('property="x:creator:id"').length - 1, 1);
 });
 
+test("a page share override replaces the site card with the episode image", () => {
+  const html = `<html><head><title>SpaceBat</title>
+    <meta name="spacebat:og-title" content="Episode 0: Grok Bots">
+    <meta name="spacebat:og-description" content="A bat-signal test.">
+    <meta name="spacebat:og-image" content="https://assets.podhome.fm/cover.jpg">
+    <meta name="spacebat:og-image:width" content="3000">
+    <meta name="spacebat:og-image:height" content="3000">
+    <meta name="spacebat:og-url" content="https://www.spacebatshow.net/podcast/episode-zero">
+  </head></html>`;
+  const out = injectGrokPwaHead(html, {
+    host: "www.spacebatshow.net",
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-episode-")),
+    site: { title: "SpaceBat", description: "The home blurb", card: "custom", image: "/og.jpg" },
+  });
+  assert.match(out, /property="og:title" content="Episode 0: Grok Bots"/);
+  assert.match(out, /property="og:description" content="A bat-signal test\."/);
+  assert.match(out, /property="og:image" content="https:\/\/assets\.podhome\.fm\/cover\.jpg"/);
+  assert.doesNotMatch(out, /\/og\.jpg/);
+  assert.match(out, /property="og:image:width" content="3000"/);
+  assert.match(out, /name="twitter:image" content="https:\/\/assets\.podhome\.fm\/cover\.jpg"/);
+  assert.match(out, /property="og:url" content="https:\/\/www\.spacebatshow\.net\/podcast\/episode-zero"/);
+  const twice = injectGrokPwaHead(out, {
+    host: "www.spacebatshow.net",
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-episode-")),
+    site: { title: "SpaceBat", description: "The home blurb", card: "custom", image: "/og.jpg" },
+  });
+  assert.equal(twice.split('property="og:image"').length - 1, 1);
+  assert.match(twice, /assets\.podhome\.fm\/cover\.jpg/);
+});
+
 test("platform chrome overwrites share-card metas and always sets og:title", () => {
   const html =
     '<html><head><title>Hello World</title><meta property="og:title" content="Old"><meta name="twitter:card" content="summary"></head></html>';

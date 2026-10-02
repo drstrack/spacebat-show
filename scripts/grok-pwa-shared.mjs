@@ -207,6 +207,11 @@ export function readGrokProjectId() {
   return String(fromProcess ?? "").trim();
 }
 
+export function readGrokExtensionsEnabled() {
+  const fromProcess = typeof process !== "undefined" ? process.env?.VITE_GROK_EXTENSIONS : "";
+  return String(fromProcess ?? "").trim() !== "0";
+}
+
 export function readXCreator() {
   const fromProcess = typeof process !== "undefined" ? process.env?.X_CREATOR : "";
   return String(fromProcess ?? "").trim();
@@ -234,6 +239,7 @@ export function grokExtensionsHeadTags(projectId = readGrokProjectId()) {
   if (projectId) {
     tags.push(`<meta name="grok-project-id" content="${id}">`);
   }
+  if (!readGrokExtensionsEnabled()) return tags;
   tags.push(
     `<script src="${GROK_EXTENSIONS_SCRIPT_SRC}"${
       projectId ? ` data-project-id="${id}"` : ""
@@ -333,46 +339,99 @@ function applyCustomCardFromFs(site, cwd) {
   return { ...site, card: "custom", image: disk };
 }
 
+export function pageShareOverride(html) {
+  const read = (name) => {
+    const tags = String(html ?? "").match(/<meta\b[^>]*>/gi) ?? [];
+    for (const tag of tags) {
+      const key = tag.match(/\b(?:name|property)\s*=\s*["']([^"']+)["']/i)?.[1];
+      if (String(key ?? "").toLowerCase() !== name) continue;
+      const content = tag.match(/\bcontent\s*=\s*["']([^"']*)["']/i)?.[1];
+      return content ? unescapeHtml(content).trim() : "";
+    }
+    return "";
+  };
+  const image = read("spacebat:og-image");
+  const title = read("spacebat:og-title");
+  const description = read("spacebat:og-description");
+  const width = read("spacebat:og-image:width");
+  const height = read("spacebat:og-image:height");
+  const url = read("spacebat:og-url");
+  if (!image && !title && !description && !url) return null;
+  return { image, title, description, width, height, url };
+}
+
+function absoluteShareImage(image, publicHost) {
+  const value = String(image ?? "").trim();
+  if (/^https:\/\//i.test(value)) return value;
+  if (value.startsWith("/") && publicHost) return `https://${publicHost}${value}`;
+  return "";
+}
+
 export function grokOgHeadTags({
   host = "",
   appName = DEFAULT_APP_NAME,
   site = {},
   documentTitle = "",
   cwd = process.cwd(),
+  page = null,
 } = {}) {
-  const title = resolveOgTitle(site, appName, host, documentTitle);
+  const title =
+    String(page?.title ?? "").trim() || resolveOgTitle(site, appName, host, documentTitle);
   const publicHost = resolvePublicHost(host);
   const tags = [
     `<meta name="twitter:card" content="summary_large_image">`,
     `<meta property="og:title" content="${escapeHtml(title)}">`,
   ];
-  const description = String(site.description ?? "").trim();
+  const description =
+    String(page?.description ?? "").trim() || String(site.description ?? "").trim();
   if (description) {
     tags.push(`<meta property="og:description" content="${escapeHtml(description)}">`);
   }
   if (String(site.type ?? "").toLowerCase() === "x:game") {
     tags.push(`<meta property="og:type" content="x:game">`);
   }
-  if (publicHost) {
+  const pageImage = page?.image ? absoluteShareImage(page.image, publicHost) : "";
+  if (pageImage || publicHost) {
     const asset = resolveOgCardAsset(site, cwd);
     const custom = Boolean(asset);
-    let image = custom
-      ? `https://${publicHost}${asset.startsWith("/") ? asset : `/${asset}`}`
-      : `${ogServiceUrl()}/v1/card.png?host=${encodeURIComponent(publicHost)}&title=${encodeURIComponent(title)}`;
-    const color = !custom ? placeholderCardColor(site) : "";
-    if (color) image += `&color=${encodeURIComponent(color)}`;
-    tags.push(`<meta property="og:image" content="${escapeHtml(image)}">`);
-    tags.push(`<meta property="og:image:width" content="1200">`);
-    tags.push(`<meta property="og:image:height" content="630">`);
+    let image = pageImage;
+    if (!image && publicHost) {
+      image = custom
+        ? `https://${publicHost}${asset.startsWith("/") ? asset : `/${asset}`}`
+        : `${ogServiceUrl()}/v1/card.png?host=${encodeURIComponent(publicHost)}&title=${encodeURIComponent(title)}`;
+      const color = !custom ? placeholderCardColor(site) : "";
+      if (color) image += `&color=${encodeURIComponent(color)}`;
+    }
+    if (image) {
+      tags.push(`<meta property="og:image" content="${escapeHtml(image)}">`);
+      tags.push(
+        `<meta property="og:image:width" content="${escapeHtml(pageImage ? page?.width || "3000" : "1200")}">`,
+      );
+      tags.push(
+        `<meta property="og:image:height" content="${escapeHtml(pageImage ? page?.height || "3000" : "630")}">`,
+      );
+      if (pageImage) tags.push(`<meta name="twitter:image" content="${escapeHtml(image)}">`);
+    }
     const banner = String(site.banner ?? "").trim();
-    if (banner) {
+    if (banner && publicHost) {
       const bannerUrl = `https://${publicHost}${banner.startsWith("/") ? banner : `/${banner}`}`;
       tags.push(`<meta property="x:game:image" content="${escapeHtml(bannerUrl)}">`);
       tags.push(`<meta property="x:game:image:width" content="1200">`);
       tags.push(`<meta property="x:game:image:height" content="264">`);
     }
   }
+  const pageUrl = String(page?.url ?? "").trim();
+  if (/^https:\/\//i.test(pageUrl)) {
+    tags.push(`<meta property="og:url" content="${escapeHtml(pageUrl)}">`);
+  }
   return tags;
+}
+
+function stripGrokExtensionsScript(html) {
+  return String(html).replace(
+    /<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/grok-app-builder\/extensions\.js[^"']*["'][^>]*>\s*<\/script>/gi,
+    "",
+  );
 }
 
 export function stripShareMetaTags(html) {
@@ -426,13 +485,15 @@ export function injectGrokPwaHead(html, ctx = {}) {
   if (typeof html !== "string") return html;
   const { site, projectId, creator, creatorId, host, cwd } = normalizeHeadContext(ctx);
   const documentTitle = titleFromDocument(html);
+  const page = pageShareOverride(html);
   const appName = resolveOgTitle(
     site,
     ctx.appName ?? DEFAULT_APP_NAME,
     host,
-    documentTitle,
+    page?.title || documentTitle,
   );
   let next = stripShareMetaTags(html);
+  if (!readGrokExtensionsEnabled()) next = stripGrokExtensionsScript(next);
 
   const missing = grokPwaHeadTags(appName)
     .filter(([key]) => {
@@ -444,10 +505,10 @@ export function injectGrokPwaHead(html, ctx = {}) {
 
   next = insertAfterHeadOpen(
     next,
-    grokOgHeadTags({ host, appName, site, documentTitle, cwd }).join(""),
+    grokOgHeadTags({ host, appName, site, documentTitle, cwd, page }).join(""),
   );
 
-  if (!next.includes("/grok-app-builder/extensions.js")) {
+  if (readGrokExtensionsEnabled() && !next.includes("/grok-app-builder/extensions.js")) {
     missing.push(...grokExtensionsHeadTags(projectId));
   } else if (projectId && !next.includes('name="grok-project-id"')) {
     missing.push(`<meta name="grok-project-id" content="${escapeHtml(projectId)}">`);

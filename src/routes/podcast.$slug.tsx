@@ -17,6 +17,24 @@ export const Route = createFileRoute("/podcast/$slug")({
     };
   },
   component: EpisodePage,
+  head: ({ loaderData }) => {
+    const episode = loaderData?.episode;
+    if (!episode) return { meta: [] };
+    const title = `Episode ${episode.code}: ${episode.title}`;
+    const description = episode.teaser || episode.description;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { name: "spacebat:og-title", content: title },
+        { name: "spacebat:og-description", content: description },
+        { name: "spacebat:og-image", content: episode.cover },
+        { name: "spacebat:og-image:width", content: "3000" },
+        { name: "spacebat:og-image:height", content: "3000" },
+        { name: "spacebat:og-url", content: `https://www.spacebatshow.net/podcast/${episode.slug}` },
+      ],
+    };
+  },
 });
 
 function EpisodePage() {
