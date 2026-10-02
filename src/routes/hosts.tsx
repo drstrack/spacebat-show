@@ -23,7 +23,7 @@ function HostsPage() {
         </p>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-4 overflow-x-hidden px-4 pb-8 sm:px-6 md:grid-cols-2 md:overflow-visible">
+      <section className="mx-auto grid max-w-6xl items-start gap-4 overflow-x-hidden px-4 pb-8 sm:px-6 md:grid-cols-2 md:overflow-visible">
         <HostCard host={hosts.john} tilt="md:-rotate-1" />
         <HostCard host={hosts.dan} tilt="md:rotate-1" />
       </section>
