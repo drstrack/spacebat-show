@@ -69,10 +69,31 @@ export function EpisodeCard({
             <Link
               to="/podcast/$slug"
               params={{ slug: episode.slug }}
+              hash="notes"
               className="font-display text-base tracking-wide text-crimson hover:underline"
             >
               Notes
             </Link>
+            {episode.chaptersUrl ? (
+              <Link
+                to="/podcast/$slug"
+                params={{ slug: episode.slug }}
+                hash="chapters"
+                className="font-display text-base tracking-wide text-crimson hover:underline"
+              >
+                Chapters
+              </Link>
+            ) : null}
+            {episode.clips.length > 0 ? (
+              <Link
+                to="/podcast/$slug"
+                params={{ slug: episode.slug }}
+                hash="clips"
+                className="font-display text-base tracking-wide text-crimson hover:underline"
+              >
+                Clips
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>

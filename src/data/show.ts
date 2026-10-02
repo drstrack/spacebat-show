@@ -5,6 +5,20 @@ export type ShowNoteLink = {
   href: string;
 };
 
+export type EpisodeChapter = {
+  start: number;
+  title: string;
+  url?: string;
+  image?: string;
+};
+
+export type EpisodeClip = {
+  start: number;
+  duration: number;
+  title?: string;
+  text: string;
+};
+
 export type Episode = {
   slug: string;
   code: string;
@@ -18,6 +32,9 @@ export type Episode = {
   listenUrl?: string;
   /** Podhome episode page, when the recording is posted. */
   pageUrl?: string;
+  /** Podcasting 2.0 chapters JSON, fetched on the episode page. */
+  chaptersUrl?: string;
+  clips: EpisodeClip[];
   status: EpisodeStatus;
   topics: string[];
   notes: {

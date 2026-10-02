@@ -1,4 +1,4 @@
-import type { Episode } from "@/data/show";
+import type { Episode, EpisodeChapter, EpisodeClip } from "@/data/show";
 
 const STREAM_HOST = "stream.podhome.fm";
 
@@ -50,6 +50,8 @@ export function parsePublishedEpisodes(xml: string): Episode[] {
       cover: imageUrl(block) || "/cover/SpaceBat-cover-3000.jpg",
       listenUrl: audio,
       pageUrl: link && !link.includes(STREAM_HOST) ? link : undefined,
+      chaptersUrl: chaptersUrl(block),
+      clips: parseClips(block),
       status: "published",
       topics: [],
       notes,
@@ -76,6 +78,47 @@ function episodeCode(title: string, rawNumber: string, when: Date | null, fallba
   }
   const number = rawNumber || fallback;
   return number === "0" ? "0" : number.padStart(2, "0");
+}
+
+function chaptersUrl(block: string): string | undefined {
+  const tag = block.match(/<podcast:chapters\b[^>]*>/i)?.[0] ?? "";
+  const url = attr(tag, "url");
+  return url.startsWith("https://") ? url : undefined;
+}
+
+function parseClips(block: string): EpisodeClip[] {
+  const tags = block.match(/<podcast:soundbite\b[\s\S]*?<\/podcast:soundbite>/gi) ?? [];
+  return tags
+    .map((tag) => {
+      const start = Number(attr(tag, "startTime"));
+      const duration = Number(attr(tag, "duration"));
+      const title = attr(tag, "title");
+      const quote = decode(text(tag, "podcast:soundbite")).replace(/\s+/g, " ").trim();
+      return {
+        start,
+        duration: Number.isFinite(duration) ? duration : 0,
+        title: title || undefined,
+        text: quote,
+      };
+    })
+    .filter((clip) => Number.isFinite(clip.start))
+    .sort((a, b) => a.start - b.start);
+}
+
+export function parseChapters(json: unknown): EpisodeChapter[] {
+  const list = (json as { chapters?: unknown })?.chapters;
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((chapter) => {
+      const row = chapter as { startTime?: unknown; title?: unknown; url?: unknown; img?: unknown };
+      const start = Number(row.startTime);
+      const title = typeof row.title === "string" ? row.title.trim() : "";
+      const url = typeof row.url === "string" && row.url.startsWith("http") ? row.url : undefined;
+      const image = typeof row.img === "string" && row.img.startsWith("http") ? row.img : undefined;
+      return { start, title, url, image };
+    })
+    .filter((chapter) => chapter.title && Number.isFinite(chapter.start))
+    .sort((a, b) => a.start - b.start);
 }
 
 function textHasNumber(code: string) {

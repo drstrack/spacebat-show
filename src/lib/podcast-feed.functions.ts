@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { Episode } from "@/data/show";
 import { show } from "@/data/show";
-import { feedIsLive, parsePublishedEpisodes } from "@/lib/podcast-feed";
+import { feedIsLive, parseChapters, parsePublishedEpisodes } from "@/lib/podcast-feed";
 
 let cache: { at: number; episodes: Episode[]; live: boolean } | null = null;
 const TTL_MS = 60_000;
@@ -44,3 +44,24 @@ export const loadListenTarget = createServerFn({ method: "GET" }).handler(async 
     return { live: false, slug: cache?.episodes[0]?.slug ?? null };
   }
 });
+
+const CHAPTER_HOST = "assets.podhome.fm";
+
+/** Podcasting 2.0 chapters for one posted episode. */
+export const loadEpisodeChapters = createServerFn({ method: "GET" })
+  .validator((slug: string) => slug)
+  .handler(async ({ data: slug }) => {
+    const feed = await readFeed();
+    const url = feed?.episodes.find((episode) => episode.slug === slug)?.chaptersUrl;
+    if (!url) return [];
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return [];
+    }
+    if (parsed.protocol !== "https:" || parsed.hostname !== CHAPTER_HOST) return [];
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) return [];
+    return parseChapters(await res.json());
+  });
