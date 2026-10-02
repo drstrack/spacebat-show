@@ -20,7 +20,10 @@ export const Route = createFileRoute("/podcast/$slug")({
   head: ({ loaderData }) => {
     const episode = loaderData?.episode;
     if (!episode) return { meta: [] };
-    const title = `Episode ${episode.code}: ${episode.title}`;
+    const alreadyNamed = new RegExp(`\\bepisode\\s*(?:${episode.code}|zero)\\b`, "i").test(
+      episode.title,
+    );
+    const title = alreadyNamed ? episode.title : `Episode ${episode.code}: ${episode.title}`;
     const description = episode.teaser || episode.description;
     return {
       meta: [
