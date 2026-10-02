@@ -29,10 +29,11 @@ export function parsePublishedEpisodes(xml: string): Episode[] {
     const description = notes.paragraphs.join("\n\n") || "A SpaceBat episode.";
     const pub = text(block, "pubDate");
     const when = pub ? new Date(pub) : null;
-    const number = text(block, "itunes:episode") || String(episodes.length + 1);
+    const rawNumber = text(block, "itunes:episode");
+    const code = episodeCode(title, rawNumber, when, String(episodes.length + 1));
     episodes.push({
       slug,
-      code: number.padStart(2, "0"),
+      code,
       title,
       teaser: (notes.paragraphs[0] ?? description).slice(0, 180),
       description,
@@ -60,6 +61,21 @@ export function parsePublishedEpisodes(xml: string): Episode[] {
     if (!textHasNumber(episode.code)) episode.code = String(episodes.length - index).padStart(2, "0");
   });
   return episodes;
+}
+
+function episodeCode(title: string, rawNumber: string, when: Date | null, fallback: string) {
+  if (/\bepisode\s*(zero|0)\b/i.test(title)) return "0";
+  if (when && !Number.isNaN(when.getTime())) {
+    const label = when.toLocaleDateString("en-US", {
+      month: "numeric",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "America/New_York",
+    });
+    if (label === "9/23/2026" || label === "6/23/2026") return "0";
+  }
+  const number = rawNumber || fallback;
+  return number === "0" ? "0" : number.padStart(2, "0");
 }
 
 function textHasNumber(code: string) {
