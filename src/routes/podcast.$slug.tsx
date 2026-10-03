@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useRef } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { loadEpisodeChapters, loadPublishedEpisodes } from "@/lib/podcast-feed.functions";
 import type { EpisodeChapter, EpisodeClip } from "@/data/show";
 import { Badge } from "@/components/ui/badge";
@@ -104,8 +104,7 @@ function EpisodePage() {
       </div>
 
       {chapters.length > 0 ? (
-        <section id="chapters" className="mt-10 scroll-mt-24">
-          <span className="caption-box">Chapters</span>
+        <Fold id="chapters" label="Chapters" count={chapters.length}>
           <ul className="mt-4 divide-y-2 divide-ink border-y-4 border-ink">
             {chapters.map((chapter) => (
               <li key={`${chapter.start}-${chapter.title}`}>
@@ -113,12 +112,11 @@ function EpisodePage() {
               </li>
             ))}
           </ul>
-        </section>
+        </Fold>
       ) : null}
 
       {episode.clips.length > 0 ? (
-        <section id="clips" className="mt-10 scroll-mt-24">
-          <span className="caption-box">Clips</span>
+        <Fold id="clips" label="Clips" count={episode.clips.length}>
           <ul className="mt-4 divide-y-2 divide-ink border-y-4 border-ink">
             {episode.clips.map((clip) => (
               <li key={`${clip.start}-${clip.duration}`}>
@@ -126,12 +124,11 @@ function EpisodePage() {
               </li>
             ))}
           </ul>
-        </section>
+        </Fold>
       ) : null}
 
       {episode.notes.links.length > 0 ? (
-        <section id="notes" className="mt-10 scroll-mt-24">
-          <span className="caption-box">Show notes</span>
+        <Fold id="notes" label="Show notes" count={episode.notes.links.length}>
           <ul className="mt-4 divide-y-2 divide-ink border-y-4 border-ink">
             {episode.notes.links.map((link) => (
               <li key={link.href} className="py-3">
@@ -154,7 +151,7 @@ function EpisodePage() {
               </li>
             ))}
           </ul>
-        </section>
+        </Fold>
       ) : null}
 
       {others.length > 0 ? (
@@ -184,6 +181,47 @@ function EpisodePage() {
         </section>
       ) : null}
     </article>
+  );
+}
+
+function Fold({
+  id,
+  label,
+  count,
+  children,
+}: {
+  id: string;
+  label: string;
+  count: number;
+  children: ReactNode;
+}) {
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const sync = () => {
+      if (window.location.hash === `#${id}` && detailsRef.current) detailsRef.current.open = true;
+    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, [id]);
+
+  return (
+    <details
+      id={id}
+      ref={detailsRef}
+      className="mt-10 scroll-mt-24"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
+        <span className="caption-box">{label}</span>
+        <span className="font-display text-base tracking-wide text-crimson">
+          {open ? "Close" : `Show ${count}`}
+        </span>
+      </summary>
+      {children}
+    </details>
   );
 }
 
