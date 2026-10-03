@@ -14,7 +14,7 @@ function Home() {
           <div className="relative">
             <img
               src="/images/cover-splash.webp"
-              alt="SpaceBat from the comic — a bat in a foam cape over a climbing shuttle."
+              alt="SpaceBat from the comic — a bat in a winged cape over a climbing shuttle."
               className="aspect-[2/1] w-full object-cover object-[center_35%] sm:aspect-[2.1/1]"
             />
             <span className="burst absolute right-3 top-3 text-sm sm:right-5 sm:top-5">

@@ -275,7 +275,7 @@ export const storyLegend = [
   {
     kicker: "The hero",
     title: "SpaceBat",
-    body: "John and Dan’s version is the fun one. He does not fall off. The climb does something to him. He comes back with powers, a foam cape, and a name. SpaceBat. A new superhero whose first page is a real launch.",
+    body: "John and Dan’s version is the fun one. He does not fall off. The climb does something to him. He comes back with powers, a winged cape, and a name. SpaceBat. A new superhero whose first page is a real launch.",
   },
   {
     kicker: "The podcast",
