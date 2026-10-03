@@ -10,8 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AccountRouteImport } from './routes/account'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as HostsRouteImport } from './routes/hosts'
 import { Route as ListenRouteImport } from './routes/listen'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as StoryRouteImport } from './routes/story'
 import { Route as SubscribeRouteImport } from './routes/subscribe'
 import { Route as EpisodesIndexRouteImport } from './routes/episodes.index'
@@ -24,6 +27,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HostsRoute = HostsRouteImport.update({
   id: '/hosts',
   path: '/hosts',
@@ -32,6 +45,11 @@ const HostsRoute = HostsRouteImport.update({
 const ListenRoute = ListenRouteImport.update({
   id: '/listen',
   path: '/listen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StoryRoute = StoryRouteImport.update({
@@ -67,8 +85,11 @@ const PodcastSlugRoute = PodcastSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
+  '/admin': typeof AdminRoute
   '/hosts': typeof HostsRoute
   '/listen': typeof ListenRoute
+  '/login': typeof LoginRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -78,8 +99,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
+  '/admin': typeof AdminRoute
   '/hosts': typeof HostsRoute
   '/listen': typeof ListenRoute
+  '/login': typeof LoginRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -90,8 +114,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
+  '/admin': typeof AdminRoute
   '/hosts': typeof HostsRoute
   '/listen': typeof ListenRoute
+  '/login': typeof LoginRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -103,8 +130,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account'
+    | '/admin'
     | '/hosts'
     | '/listen'
+    | '/login'
     | '/story'
     | '/subscribe'
     | '/episodes/$slug'
@@ -114,8 +144,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/account'
+    | '/admin'
     | '/hosts'
     | '/listen'
+    | '/login'
     | '/story'
     | '/subscribe'
     | '/episodes/$slug'
@@ -125,8 +158,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/account'
+    | '/admin'
     | '/hosts'
     | '/listen'
+    | '/login'
     | '/story'
     | '/subscribe'
     | '/episodes/$slug'
@@ -137,8 +173,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRoute: typeof AccountRoute
+  AdminRoute: typeof AdminRoute
   HostsRoute: typeof HostsRoute
   ListenRoute: typeof ListenRoute
+  LoginRoute: typeof LoginRoute
   StoryRoute: typeof StoryRoute
   SubscribeRoute: typeof SubscribeRoute
   EpisodesSlugRoute: typeof EpisodesSlugRoute
@@ -156,6 +195,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/hosts': {
       id: '/hosts'
       path: '/hosts'
@@ -168,6 +221,13 @@ declare module '@tanstack/react-router' {
       path: '/listen'
       fullPath: '/listen'
       preLoaderRoute: typeof ListenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/story': {
@@ -217,8 +277,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRoute: AccountRoute,
+  AdminRoute: AdminRoute,
   HostsRoute: HostsRoute,
   ListenRoute: ListenRoute,
+  LoginRoute: LoginRoute,
   StoryRoute: StoryRoute,
   SubscribeRoute: SubscribeRoute,
   EpisodesSlugRoute: EpisodesSlugRoute,
