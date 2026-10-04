@@ -1,7 +1,22 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
 
 /** Which database backend is active. */
-export type DbSource = "neon" | "pglite";
+export type DbSource = "turso" | "neon" | "pglite";
+
+function findTurso(): { url: string; token: string } | null {
+  if (typeof process === "undefined") return null;
+  const keys = Object.keys(process.env).filter(
+    (key) => key === "TURSO_DATABASE_URL" || key.endsWith("_TURSO_DATABASE_URL"),
+  );
+  const urlKey = keys.find((key) => /spacebat/i.test(key)) ?? keys[0];
+  if (!urlKey) return null;
+  const url = process.env[urlKey]?.trim();
+  const token = process.env[urlKey.replace(/DATABASE_URL$/, "AUTH_TOKEN")]?.trim();
+  if (!url || !token) return null;
+  return { url, token };
+}
+
+export const tursoConfig = findTurso();
 
 // An empty/whitespace DATABASE_URL (an easy misconfig in deploy UIs) must mean
 // "unset" — otherwise production would silently run on the PGLite fallback.
@@ -11,12 +26,10 @@ const databaseUrl =
   rawDatabaseUrl && rawDatabaseUrl.trim() ? rawDatabaseUrl : undefined;
 
 /**
- * Active backend: real **Neon** when `DATABASE_URL` is set (deployed / configured
- * sandbox), otherwise a local embedded **PGLite** (Postgres compiled to WASM) so
- * the app has a working database even with nothing configured — the live preview
- * included. Swap in Neon later by just setting `DATABASE_URL`; no code changes.
+ * Active backend: **Turso** when a marketplace `TURSO_DATABASE_URL` pair is set,
+ * **Neon** when `DATABASE_URL` is set, otherwise embedded **PGLite**.
  */
-export const dbSource: DbSource = databaseUrl ? "neon" : "pglite";
+export const dbSource: DbSource = tursoConfig ? "turso" : databaseUrl ? "neon" : "pglite";
 
 /**
  * Minimal shared SQL surface, satisfied by both Neon and PGLite. Both the
@@ -169,6 +182,62 @@ async function createPgliteSql(): Promise<Sql> {
 
 let sqlPromise: Promise<Sql> | null = null;
 
+/** Postgres migration files also run on Turso, which is SQLite. */
+function toSqlite(sqlText: string): string {
+  return sqlText
+    .replace(/\btimestamptz\b/gi, "text")
+    .replace(/\bboolean\b/gi, "integer")
+    .replace(/\bbigserial\b/gi, "integer")
+    .replace(/\bdate\b/gi, "text")
+    .replace(/\bdefault\s+true\b/gi, "default 1")
+    .replace(/\bdefault\s+false\b/gi, "default 0")
+    .replace(/\bdefault\s+now\(\)/gi, "default (datetime('now'))")
+    .replace(/\bdefault\s+current_date\b/gi, "default (date('now'))")
+    .replace(/\bnow\(\)/gi, "datetime('now')");
+}
+
+function sqlStatements(sqlText: string): string[] {
+  return sqlText
+    .split(/;\s*(?:\r?\n|$)/)
+    .map((part) => part.trim())
+    .filter((part) => part && !part.split("\n").every((line) => !line.trim() || line.trim().startsWith("--")));
+}
+
+async function createTursoSql(): Promise<Sql> {
+  if (!tursoConfig) throw new Error("Turso is not configured");
+  const { createClient } = await import("@libsql/client");
+  const client = createClient({ url: tursoConfig.url, authToken: tursoConfig.token });
+  await client.execute(
+    "create table if not exists _migrations (name text primary key, applied_at text not null default (datetime('now')))",
+  );
+  const migrations = import.meta.glob("/migrations/*.sql", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }) as Record<string, string>;
+  const doneRows = await client.execute("select name from _migrations");
+  const done = doneRows.rows.map((row) => String(row.name));
+  for (const { name, path } of pendingMigrations(Object.keys(migrations), done)) {
+    for (const statement of sqlStatements(toSqlite(migrations[path]))) {
+      await client.execute(statement);
+    }
+    await client.execute({ sql: "insert into _migrations (name) values (?)", args: [name] });
+  }
+  return toSql(async <T>(text: string, params: unknown[]) => {
+    const result = await client.execute({
+      sql: text.replace(/\$\d+/g, "?"),
+      args: params.map((value) => {
+        if (value === undefined || value === null) return null;
+        if (typeof value === "boolean") return value ? 1 : 0;
+        if (value instanceof Date) return value.toISOString();
+        if (typeof value === "number" || typeof value === "string" || typeof value === "bigint") return value;
+        return String(value);
+      }),
+    });
+    return result.rows as unknown as T[];
+  });
+}
+
 async function createSql(): Promise<Sql> {
   if (typeof window !== "undefined") {
     throw new Error(
@@ -176,7 +245,7 @@ async function createSql(): Promise<Sql> {
         "or a server route loader, never from client code.",
     );
   }
-  return dbSource === "neon" ? createNeonSql() : createPgliteSql();
+  return dbSource === "turso" ? createTursoSql() : dbSource === "neon" ? createNeonSql() : createPgliteSql();
 }
 
 /**
@@ -220,7 +289,7 @@ export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite
  * module kick it off immediately (see bottom of file).
  */
 export function ensureDbReady(): Promise<void> {
-  if (dbSource !== "pglite") return Promise.resolve();
+  if (dbSource === "neon") return Promise.resolve();
   return getSql().then(() => undefined);
 }
 
@@ -229,7 +298,7 @@ export function ensureDbReady(): Promise<void> {
 const globalBoot = globalThis as typeof globalThis & {
   __pgBootstrapPromise__?: Promise<void>;
 };
-if (typeof window === "undefined" && dbSource === "pglite") {
+if (typeof window === "undefined" && dbSource !== "neon") {
   globalBoot.__pgBootstrapPromise__ ??= ensureDbReady().catch((err) => {
     globalBoot.__pgBootstrapPromise__ = undefined;
     console.error("[db] PGLite bootstrap failed:", err);

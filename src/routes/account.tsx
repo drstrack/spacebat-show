@@ -52,8 +52,8 @@ function AccountPage() {
       <p className="mt-2 text-sm text-muted">{account.email}</p>
       {!account.durable ? (
         <p className="mt-4 border-4 border-ink bg-caption px-4 py-3 text-sm text-ink">
-          Accounts on this host aren’t being stored yet. A Postgres database still has to
-          be connected before sign-ups stick.
+          Accounts on this host aren’t being stored yet. Connect the Turso database
+          and sign-ups will stick.
         </p>
       ) : null}
       <form onSubmit={save} className="mt-8 space-y-3">
