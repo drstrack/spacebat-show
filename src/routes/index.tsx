@@ -35,6 +35,9 @@ function Home() {
               <Button size="lg" variant="secondary" asChild>
                 <Link to="/story">Why the name</Link>
               </Button>
+              <Button size="lg" variant="ghost" asChild>
+                <Link to="/merch">The shop</Link>
+              </Button>
             </div>
             <LivePlayer />
           </div>

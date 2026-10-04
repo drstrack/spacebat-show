@@ -68,6 +68,9 @@ export function SiteFooter() {
             <Link to="/hosts" className="block text-ink/80 hover:text-crimson">
               The crew
             </Link>
+            <Link to="/merch" className="block text-ink/80 hover:text-crimson">
+              The shop
+            </Link>
             <Link to="/account" className="block text-ink/80 hover:text-crimson">
               Account
             </Link>
