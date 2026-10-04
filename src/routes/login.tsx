@@ -64,8 +64,8 @@ function LoginPage() {
         {mode === "up" ? "Create an account" : "Sign in"}
       </h1>
       <p className="mt-3 text-sm leading-relaxed text-muted">
-        Listeners get podcast alerts, the letter, and a note when merch drops.
-        The shop isn’t open yet.
+        Listeners pick podcast alerts, the newsletter, and merch drops. New accounts
+        are listeners. The shop isn’t open yet.
       </p>
       <div className="mt-6 flex gap-2">
         <Button type="button" size="sm" variant={mode === "up" ? "primary" : "ghost"} onClick={() => setMode("up")}>
@@ -115,8 +115,8 @@ function LoginPage() {
             <ListToggle
               checked={lists.showLetter}
               onChange={(showLetter) => setLists({ ...lists, showLetter })}
-              title="The letter"
-              detail="Comics, the booth, and what John and Dan are reading."
+              title="Newsletter"
+              detail="Show news, comics, and what John and Dan are reading."
             />
             <ListToggle
               checked={lists.merchLetter}

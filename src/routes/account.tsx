@@ -21,7 +21,7 @@ function AccountPage() {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 sm:px-6">
         <h1 className="font-display text-5xl tracking-wide">Sign in first</h1>
-        <p className="mt-3 text-sm text-muted">Accounts hold your alerts, the letter, and merch.</p>
+        <p className="mt-3 text-sm text-muted">Accounts hold podcast alerts, the newsletter, and merch drops.</p>
         <Button asChild className="mt-6">
           <Link to="/login">Sign in</Link>
         </Button>
@@ -52,8 +52,8 @@ function AccountPage() {
       <p className="mt-2 text-sm text-muted">{account.email}</p>
       {!account.durable ? (
         <p className="mt-4 border-4 border-ink bg-caption px-4 py-3 text-sm text-ink">
-          Accounts on this host aren’t being stored yet. A database still has to be connected
-          before sign-ups stick.
+          Accounts on this host aren’t being stored yet. A Postgres database still has to
+          be connected before sign-ups stick.
         </p>
       ) : null}
       <form onSubmit={save} className="mt-8 space-y-3">
@@ -72,8 +72,8 @@ function AccountPage() {
             setSaved(false);
             setLists({ ...lists, showLetter });
           }}
-          title="The letter"
-          detail="Comics, the booth, and what John and Dan are reading."
+          title="Newsletter"
+          detail="Show news, comics, and what John and Dan are reading."
         />
         <Toggle
           checked={lists.merchLetter}
@@ -92,7 +92,7 @@ function AccountPage() {
           </Button>
           {account.role === "admin" ? (
             <Button asChild variant="secondary">
-              <Link to="/admin">Analytics</Link>
+              <Link to="/admin">Back end</Link>
             </Button>
           ) : null}
           <Button

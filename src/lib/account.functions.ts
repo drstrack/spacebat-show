@@ -136,7 +136,8 @@ export type Analytics = {
   joinedWeek: number;
   visitsWeek: number;
   pages: { path: string; visits: number }[];
-  people: {
+    people: {
+    userId: string;
     name: string;
     email: string;
     role: string;
@@ -144,6 +145,7 @@ export type Analytics = {
     showLetter: boolean;
     merchLetter: boolean;
     joined: string;
+    locked: boolean;
   }[];
 };
 
@@ -185,12 +187,12 @@ export const loadAnalytics = createServerFn({ method: "GET" }).handler(async ():
         order by n desc
         limit 8
       `,
-      sql<ProfileRow>`
-        select u.name, u.email, m.role, m.podcast_alerts, m.show_letter, m.merch_letter, m.created_at
+      sql<{ user_id: string } & ProfileRow>`
+        select m.user_id, u.name, u.email, m.role, m.podcast_alerts, m.show_letter, m.merch_letter, m.created_at
         from member_profile m
         join "user" u on u.id = m.user_id
         order by m.created_at desc
-        limit 25
+        limit 50
       `,
     ]);
 
@@ -203,13 +205,88 @@ export const loadAnalytics = createServerFn({ method: "GET" }).handler(async ():
       visitsWeek: countOf(visits[0]),
       pages: pages.map((page) => ({ path: page.path, visits: Number(page.n) })),
       people: people.map((person) => ({
+        userId: person.user_id,
         name: person.name ?? "",
         email: person.email ?? "",
-        role: person.role,
+        role: person.role === "admin" ? "admin" : "listener",
         podcastAlerts: Boolean(person.podcast_alerts),
         showLetter: Boolean(person.show_letter),
         merchLetter: Boolean(person.merch_letter),
         joined: joinedLabel(person.created_at),
+        locked: adminEmails().has((person.email ?? "").toLowerCase()),
       })),
     };
   });
+
+export const updateMember = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: {
+    userId: string;
+    role?: "admin" | "listener";
+    lists?: MemberLists;
+    remove?: boolean;
+  }) => {
+    if (!input?.userId || typeof input.userId !== "string") throw new Error("Missing account.");
+    if (input.role && input.role !== "admin" && input.role !== "listener") {
+      throw new Error("Pick admin or listener.");
+    }
+    if (input.lists) {
+      const lists = input.lists;
+      if (
+        typeof lists.podcastAlerts !== "boolean" ||
+        typeof lists.showLetter !== "boolean" ||
+        typeof lists.merchLetter !== "boolean"
+      ) {
+        throw new Error("Choose the lists again.");
+      }
+    }
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const sql = await getSql();
+    const mine = await sql<{ role: string }>`
+      select role from member_profile where user_id = ${context.userId}
+    `;
+    if (mine[0]?.role !== "admin") throw new Error("Crew only.");
+
+    const rows = await sql<{ email: string; role: string }>`
+      select u.email, m.role
+      from member_profile m
+      join "user" u on u.id = m.user_id
+      where m.user_id = ${data.userId}
+    `;
+    const target = rows[0];
+    if (!target) throw new Error("No such account.");
+    const locked = adminEmails().has((target.email ?? "").toLowerCase());
+
+    if (data.remove) {
+      if (locked || data.userId === context.userId) throw new Error("That account stays.");
+      await sql`delete from "user" where id = ${data.userId}`;
+      return { ok: true };
+    }
+
+    if (data.role) {
+      if (locked && data.role !== "admin") throw new Error("The show account stays admin.");
+      if (data.userId === context.userId && data.role !== "admin") {
+        throw new Error("You can’t remove your own admin access.");
+      }
+      await sql`
+        update member_profile set role = ${data.role}, updated_at = now()
+        where user_id = ${data.userId}
+      `;
+    }
+
+    if (data.lists) {
+      await sql`
+        update member_profile set
+          podcast_alerts = ${data.lists.podcastAlerts},
+          show_letter = ${data.lists.showLetter},
+          merch_letter = ${data.lists.merchLetter},
+          updated_at = now()
+        where user_id = ${data.userId}
+      `;
+    }
+
+    return { ok: true };
+  });
+
