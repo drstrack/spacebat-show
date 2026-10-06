@@ -27,11 +27,11 @@ function PodcastPage() {
       </p>
 
       <section id="live" className="panel mt-10 overflow-hidden bg-surface md:grid md:grid-cols-2">
-        <div className="relative min-h-56 md:min-h-full">
+        <div className="relative md:h-full">
           <img
             src="/images/cover-splash.webp"
             alt="SpaceBat flying in orbit."
-            className="aspect-[2/1] h-full w-full object-cover object-[center_30%] md:absolute md:inset-0 md:aspect-auto md:border-r-4 md:border-ink"
+            className="aspect-[2/1] w-full object-cover object-[center_30%] md:absolute md:inset-0 md:aspect-auto md:h-full md:border-r-4 md:border-ink"
           />
         </div>
         <div className="flex flex-col justify-center bg-paper p-6 sm:p-10">
