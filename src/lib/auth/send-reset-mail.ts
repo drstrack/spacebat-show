@@ -1,8 +1,13 @@
-/** Sends the Better Auth reset link through Resend. */
+/** Sends the Better Auth reset link through Resend.
+ *
+ * noreply@spacebatshow.net is not a verified Resend sender yet (DKIM exists,
+ * SPF/return-path do not). Until the domain is verified, fall back to
+ * onboarding@resend.dev, which can deliver to the Resend account inbox.
+ */
 export async function sendPasswordReset(to: string, url: string) {
   const key = process.env.RESEND_API_KEY?.trim();
   const from =
-    process.env.RESET_FROM?.trim() || "SpaceBat Show <noreply@spacebatshow.net>";
+    process.env.RESET_FROM?.trim() || "SpaceBat Show <onboarding@resend.dev>";
   if (!key) {
     throw new Error("Password reset email is not configured");
   }
@@ -21,6 +26,9 @@ export async function sendPasswordReset(to: string, url: string) {
     }),
   });
   if (!response.ok) {
-    throw new Error("Could not send the reset email");
+    const detail = await response.text();
+    throw new Error(
+      `Could not send the reset email (${response.status}): ${detail.slice(0, 240)}`,
+    );
   }
 }
