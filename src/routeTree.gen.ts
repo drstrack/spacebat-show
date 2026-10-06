@@ -16,6 +16,7 @@ import { Route as HostsRouteImport } from './routes/hosts'
 import { Route as ListenRouteImport } from './routes/listen'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MerchRouteImport } from './routes/merch'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StoryRouteImport } from './routes/story'
 import { Route as SubscribeRouteImport } from './routes/subscribe'
 import { Route as EpisodesIndexRouteImport } from './routes/episodes.index'
@@ -57,6 +58,11 @@ const LoginRoute = LoginRouteImport.update({
 const MerchRoute = MerchRouteImport.update({
   id: '/merch',
   path: '/merch',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StoryRoute = StoryRouteImport.update({
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/listen': typeof ListenRoute
   '/login': typeof LoginRoute
   '/merch': typeof MerchRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -119,6 +126,7 @@ export interface FileRoutesByTo {
   '/listen': typeof ListenRoute
   '/login': typeof LoginRoute
   '/merch': typeof MerchRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   '/listen': typeof ListenRoute
   '/login': typeof LoginRoute
   '/merch': typeof MerchRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -154,6 +163,7 @@ export interface FileRouteTypes {
     | '/listen'
     | '/login'
     | '/merch'
+    | '/reset-password'
     | '/story'
     | '/subscribe'
     | '/episodes/$slug'
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/listen'
     | '/login'
     | '/merch'
+    | '/reset-password'
     | '/story'
     | '/subscribe'
     | '/episodes/$slug'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/listen'
     | '/login'
     | '/merch'
+    | '/reset-password'
     | '/story'
     | '/subscribe'
     | '/episodes/$slug'
@@ -203,6 +215,7 @@ export interface RootRouteChildren {
   ListenRoute: typeof ListenRoute
   LoginRoute: typeof LoginRoute
   MerchRoute: typeof MerchRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   StoryRoute: typeof StoryRoute
   SubscribeRoute: typeof SubscribeRoute
   EpisodesSlugRoute: typeof EpisodesSlugRoute
@@ -261,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/merch'
       fullPath: '/merch'
       preLoaderRoute: typeof MerchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/story': {
@@ -323,6 +343,7 @@ const rootRouteChildren: RootRouteChildren = {
   ListenRoute: ListenRoute,
   LoginRoute: LoginRoute,
   MerchRoute: MerchRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   StoryRoute: StoryRoute,
   SubscribeRoute: SubscribeRoute,
   EpisodesSlugRoute: EpisodesSlugRoute,

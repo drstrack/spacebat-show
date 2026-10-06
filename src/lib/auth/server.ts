@@ -211,7 +211,24 @@ export const auth = betterAuth({
   session: { cookieCache: { enabled: true, maxAge: 300 } },
 
   // Local email/password — toggled only via `./email-password` (not a plugin).
-  ...(emailAndPasswordEnabled ? { emailAndPassword: { enabled: true } } : {}),
+  ...(emailAndPasswordEnabled
+    ? {
+        emailAndPassword: {
+          enabled: true,
+          revokeSessionsOnPasswordReset: true,
+          sendResetPassword: async ({
+            user,
+            url,
+          }: {
+            user: { email: string };
+            url: string;
+          }) => {
+            const { sendPasswordReset } = await import("./send-reset-mail");
+            await sendPasswordReset(user.email, url);
+          },
+        },
+      }
+    : {}),
 
   // `__Host-` prefixed cookies: the browser REFUSES any same-named cookie that
   // carries a `Domain` attribute, so a sibling `*.grok.me` app cannot "toss" a

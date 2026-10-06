@@ -103,6 +103,17 @@ function LoginPage() {
             minLength={8}
           />
         </label>
+        {mode === "in" ? (
+          <p className="text-sm">
+            <Link
+              to="/reset-password"
+              search={{ token: "", error: "" }}
+              className="text-crimson hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </p>
+        ) : null}
         {mode === "up" ? (
           <fieldset className="space-y-3">
             <legend className="font-display text-lg tracking-wide">Lists</legend>
