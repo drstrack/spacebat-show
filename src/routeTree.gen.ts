@@ -23,6 +23,7 @@ import { Route as EpisodesIndexRouteImport } from './routes/episodes.index'
 import { Route as EpisodesSlugRouteImport } from './routes/episodes.$slug'
 import { Route as PodcastIndexRouteImport } from './routes/podcast.index'
 import { Route as PodcastSlugRouteImport } from './routes/podcast.$slug'
+import { Route as ApiAlertsRunRouteImport } from './routes/api/alerts/run'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -95,6 +96,11 @@ const PodcastSlugRoute = PodcastSlugRouteImport.update({
   path: '/podcast/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAlertsRunRoute = ApiAlertsRunRouteImport.update({
+  id: '/api/alerts/run',
+  path: '/api/alerts/run',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/podcast/$slug': typeof PodcastSlugRoute
   '/episodes/': typeof EpisodesIndexRoute
   '/podcast/': typeof PodcastIndexRoute
+  '/api/alerts/run': typeof ApiAlertsRunRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/podcast/$slug': typeof PodcastSlugRoute
   '/episodes': typeof EpisodesIndexRoute
   '/podcast': typeof PodcastIndexRoute
+  '/api/alerts/run': typeof ApiAlertsRunRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/podcast/$slug': typeof PodcastSlugRoute
   '/episodes/': typeof EpisodesIndexRoute
   '/podcast/': typeof PodcastIndexRoute
+  '/api/alerts/run': typeof ApiAlertsRunRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/podcast/$slug'
     | '/episodes/'
     | '/podcast/'
+    | '/api/alerts/run'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/podcast/$slug'
     | '/episodes'
     | '/podcast'
+    | '/api/alerts/run'
     | '/api/auth/$'
   id:
     | '__root__'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/podcast/$slug'
     | '/episodes/'
     | '/podcast/'
+    | '/api/alerts/run'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
@@ -222,6 +234,7 @@ export interface RootRouteChildren {
   PodcastSlugRoute: typeof PodcastSlugRoute
   EpisodesIndexRoute: typeof EpisodesIndexRoute
   PodcastIndexRoute: typeof PodcastIndexRoute
+  ApiAlertsRunRoute: typeof ApiAlertsRunRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -325,6 +338,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PodcastSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/alerts/run': {
+      id: '/api/alerts/run'
+      path: '/api/alerts/run'
+      fullPath: '/api/alerts/run'
+      preLoaderRoute: typeof ApiAlertsRunRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -350,6 +370,7 @@ const rootRouteChildren: RootRouteChildren = {
   PodcastSlugRoute: PodcastSlugRoute,
   EpisodesIndexRoute: EpisodesIndexRoute,
   PodcastIndexRoute: PodcastIndexRoute,
+  ApiAlertsRunRoute: ApiAlertsRunRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

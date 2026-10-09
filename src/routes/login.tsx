@@ -121,7 +121,7 @@ function LoginPage() {
               checked={lists.podcastAlerts}
               onChange={(podcastAlerts) => setLists({ ...lists, podcastAlerts })}
               title="Podcast alerts"
-              detail="A note when a new episode is posted."
+              detail="A morning note on a scheduled show day, and another when the episode is posted."
             />
             <ListToggle
               checked={lists.showLetter}

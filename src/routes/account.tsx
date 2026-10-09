@@ -64,7 +64,7 @@ function AccountPage() {
             setLists({ ...lists, podcastAlerts });
           }}
           title="Podcast alerts"
-          detail="A note when a new episode is posted."
+          detail="A morning note on a scheduled show day, and another when the episode is posted."
         />
         <Toggle
           checked={lists.showLetter}
