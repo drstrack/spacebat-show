@@ -113,13 +113,13 @@ function greeting(name: string) {
 function morningNote(session: ScheduledShow) {
   const site = origin();
   return {
-    subject: "The SpaceBat Show is on today",
+    subject: "We're on today",
     text:
-      `The SpaceBat Show is scheduled live today.\n\n` +
+      `John and Dan are live today. The bat signal is up.\n\n` +
       `${session.title}\n` +
       `${formatShowWhen(session.start)}\n\n` +
-      `Listen on the site:\n${site}/podcast#live\n\n` +
-      `You asked for podcast alerts. Turn them off in your account:\n${site}/account\n`,
+      `Come listen with us:\n${site}/podcast#live\n\n` +
+      `You asked for these notes. Turn them off anytime:\n${site}/account\n`,
   };
 }
 
