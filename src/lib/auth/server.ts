@@ -230,6 +230,17 @@ export const auth = betterAuth({
       }
     : {}),
 
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          const { notifyNewAccount } = await import("./notify-signup");
+          await notifyNewAccount({ email: user.email, name: user.name });
+        },
+      },
+    },
+  },
+
   // `__Host-` prefixed cookies: the browser REFUSES any same-named cookie that
   // carries a `Domain` attribute, so a sibling `*.grok.me` app cannot "toss" a
   // `Domain=.grok.me` session cookie onto this app. `__Host-` requires Secure +
