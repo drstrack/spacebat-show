@@ -21,6 +21,8 @@ function LoginPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [lists, setLists] = useState<MemberLists>(emptyLists);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -30,6 +32,10 @@ function LoginPage() {
     setError("");
     if (password.length < 8) {
       setError("Use at least 8 characters.");
+      return;
+    }
+    if (mode === "up" && password !== confirm) {
+      setError("Those passwords don’t match.");
       return;
     }
     setPending(true);
@@ -93,9 +99,20 @@ function LoginPage() {
           />
         </label>
         <label className="block space-y-2">
-          <span className="font-display text-lg tracking-wide">Password</span>
+          <span className="flex items-center justify-between">
+            <span className="font-display text-lg tracking-wide">Password</span>
+            {mode === "up" ? (
+              <button
+                type="button"
+                className="text-sm text-crimson hover:underline"
+                onClick={() => setShowPassword((shown) => !shown)}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            ) : null}
+          </span>
           <Input
-            type="password"
+            type={mode === "up" && showPassword ? "text" : "password"}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete={mode === "up" ? "new-password" : "current-password"}
@@ -103,6 +120,19 @@ function LoginPage() {
             minLength={8}
           />
         </label>
+        {mode === "up" ? (
+          <label className="block space-y-2">
+            <span className="font-display text-lg tracking-wide">Confirm password</span>
+            <Input
+              type={showPassword ? "text" : "password"}
+              value={confirm}
+              onChange={(event) => setConfirm(event.target.value)}
+              autoComplete="new-password"
+              required
+              minLength={8}
+            />
+          </label>
+        ) : null}
         {mode === "in" ? (
           <p className="text-sm">
             <Link
