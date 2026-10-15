@@ -22,9 +22,9 @@ function StoryPage() {
             </figure>
             <figure className="relative hidden h-full md:block">
               <img
-                src="/images/issue-cover.webp?v=2"
-                alt="SpaceBat, the comic — a bat in a winged cape punching toward camera."
-                className="absolute inset-0 h-full w-full object-cover object-[center_55%]"
+                src="/images/story-hold-on.webp"
+                alt="SpaceBat from the comic, fist forward in a blue suit and orange cape, above a climbing shuttle."
+                className="absolute inset-0 h-full w-full object-cover"
               />
               <span className="burst absolute right-4 top-4 text-sm">Hold on.</span>
               <figcaption className="absolute bottom-3 left-3 caption-box text-sm">
