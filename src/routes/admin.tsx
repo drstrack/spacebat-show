@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/admin")({
   loader: () => loadAnalytics(),
+  staleTime: 0,
+  preloadStaleTime: 0,
   component: AdminPage,
 });
 

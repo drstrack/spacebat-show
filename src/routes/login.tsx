@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { authClient } from "@/lib/auth/client";
 import { saveLists, type MemberLists } from "@/lib/account.functions";
@@ -16,7 +16,6 @@ const emptyLists: MemberLists = {
 };
 
 function LoginPage() {
-  const navigate = useNavigate();
   const [mode, setMode] = useState<"in" | "up">("up");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -55,7 +54,8 @@ function LoginPage() {
         });
         if (signInError) throw new Error(friendly(signInError.message));
       }
-      await navigate({ to: "/account" });
+      // A client navigation reuses the signed-out /account loader and asks for another sign-in.
+      window.location.assign("/account");
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn’t go through.");
     } finally {

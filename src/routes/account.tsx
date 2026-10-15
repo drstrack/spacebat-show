@@ -6,16 +6,25 @@ import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/account")({
   loader: () => loadAccount(),
+  // The signed-out result must not stay fresh across a sign-in.
+  staleTime: 0,
+  preloadStaleTime: 0,
   component: AccountPage,
 });
 
 function AccountPage() {
   const account = Route.useLoaderData();
   const navigate = useNavigate();
+  const accountKey = account?.email ?? "";
+  const [syncedKey, setSyncedKey] = useState(accountKey);
   const [lists, setLists] = useState<MemberLists | null>(account?.lists ?? null);
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  if (accountKey !== syncedKey) {
+    setSyncedKey(accountKey);
+    setLists(account?.lists ?? null);
+  }
 
   if (!account || !lists) {
     return (
