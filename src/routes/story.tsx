@@ -24,7 +24,7 @@ function StoryPage() {
               <img
                 src="/images/issue-cover.webp?v=2"
                 alt="SpaceBat, the comic — a bat in a winged cape punching toward camera."
-                className="absolute inset-0 h-full w-full object-cover object-[center_68%]"
+                className="absolute inset-0 h-full w-full object-cover object-[center_55%]"
               />
               <span className="burst absolute right-4 top-4 text-sm">Hold on.</span>
               <figcaption className="absolute bottom-3 left-3 caption-box text-sm">
