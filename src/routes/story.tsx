@@ -20,13 +20,12 @@ function StoryPage() {
                 NASA · The real one
               </figcaption>
             </figure>
-            <figure className="relative hidden h-full md:block">
+            <figure className="relative h-72 md:h-full">
               <img
-                src="/images/issue-cover.webp?v=2"
-                alt="SpaceBat, the comic — a bat in a winged cape punching toward camera."
-                className="absolute inset-0 h-full w-full object-cover object-[center_20%]"
+                src="/images/hold-on-tank.webp"
+                alt="Comic drawing of SpaceBat clinging to Discovery’s orange tank, cape flying, yelling hold on."
+                className="absolute inset-0 h-full w-full object-cover object-[100%_42%]"
               />
-              <span className="burst absolute right-4 top-4 text-sm">Hold on.</span>
               <figcaption className="absolute bottom-3 left-3 caption-box text-sm">
                 The comic
               </figcaption>
