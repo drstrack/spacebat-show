@@ -50,7 +50,9 @@ export function MessageMenu({
   const [purge, setPurge] = useState(false);
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuBox, setMenuBox] = useState<{ top: number; left: number } | null>(null);
+  const [menuBox, setMenuBox] = useState<{ top: number; left: number; maxHeight: number } | null>(
+    null,
+  );
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -64,12 +66,23 @@ export function MessageMenu({
     const panel = panelRef.current;
     if (!button || !panel) return;
     const rect = button.getBoundingClientRect();
+    const composer = document.querySelector("[data-chat-composer]");
+    let floor: number | undefined;
+    if (composer instanceof HTMLElement) {
+      const box = composer.getBoundingClientRect();
+      if (box.height > 0 && box.top > rect.bottom) floor = box.top;
+    }
     const next = placeMenuBox(
       { top: rect.top, bottom: rect.bottom, left: rect.left },
       { width: panel.offsetWidth, height: panel.offsetHeight },
       { width: window.innerWidth, height: window.innerHeight },
+      floor == null ? undefined : { bottom: floor },
     );
-    setMenuBox((prev) => (prev && prev.top === next.top && prev.left === next.left ? prev : next));
+    setMenuBox((prev) =>
+      prev && prev.top === next.top && prev.left === next.left && prev.maxHeight === next.maxHeight
+        ? prev
+        : next,
+    );
   }, []);
 
   useLayoutEffect(() => {
@@ -197,7 +210,7 @@ export function MessageMenu({
               className="fixed z-50 flex max-h-[min(70vh,24rem)] min-w-36 flex-col overflow-y-auto border-4 border-ink bg-paper p-1 shadow-[4px_4px_0_0_var(--color-ink)]"
               style={
                 menuBox
-                  ? { top: menuBox.top, left: menuBox.left }
+                  ? { top: menuBox.top, left: menuBox.left, maxHeight: menuBox.maxHeight }
                   : { top: 0, left: 0, visibility: "hidden" }
               }
             >

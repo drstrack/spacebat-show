@@ -20,6 +20,12 @@ test("menu flips above the last message when the feed is at the bottom", () => {
   assert.ok(box.top + menu.height <= 560);
 });
 
+test("menu flips above the composer instead of covering it", () => {
+  const box = placeMenuBox({ top: 400, bottom: 420, left: 24 }, menu, phone, { bottom: 460 });
+  assert.equal(box.top, 400 - 4 - menu.height);
+  assert.ok(box.top + box.maxHeight <= 460);
+});
+
 test("menu stays inside a 375px viewport when the button is near the right edge", () => {
   const box = placeMenuBox({ top: 200, bottom: 220, left: 300 }, menu, phone);
   assert.equal(box.left, 375 - 8 - menu.width);

@@ -12,6 +12,8 @@ export type ChatMe = {
   member: ChatMember | null;
   isAdmin: boolean;
   durable: boolean;
+  /** True only when the server has GIPHY_API_KEY. The key itself never leaves the server. */
+  gifSearch: boolean;
 };
 
 export type ChatMessage = {

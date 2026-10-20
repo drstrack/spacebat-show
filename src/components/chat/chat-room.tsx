@@ -16,6 +16,9 @@ import {
 import { MAX_BODY_LENGTH, normalizeBody, validateHandle } from "@/lib/chat/limits";
 import { CHAT_RULES } from "@/lib/chat/rules";
 import { isRemoved } from "@/lib/chat/types";
+import { EmojiPicker } from "@/components/chat/emoji-picker";
+import { GifPicker } from "@/components/chat/gif-picker";
+import { MessageBody } from "@/components/chat/message-body";
 import { MessageMenu } from "@/components/chat/message-actions";
 
 const DEFAULT_POLL_MS = 4_000;
@@ -139,8 +142,10 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   const [loadingEarlier, setLoadingEarlier] = useState(false);
   const [historyReady, setHistoryReady] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showImages, setShowImages] = useState(true);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const draftRef = useRef<HTMLTextAreaElement>(null);
   const stickRef = useRef(true);
   const lastIdRef = useRef(0);
   const preserveRef = useRef<number | null>(null);
@@ -158,6 +163,11 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
 
   useEffect(() => {
     setMounted(true);
+    try {
+      setShowImages(localStorage.getItem("spacebat-chat-show-images") !== "0");
+    } catch {
+      setShowImages(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -466,6 +476,33 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
     }
   }
 
+  function insertDraft(text: string) {
+    const el = draftRef.current;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? draft.length;
+    const next = `${draft.slice(0, start)}${text}${draft.slice(end)}`;
+    const caret = start + text.length;
+    setDraft(next);
+    requestAnimationFrame(() => {
+      const node = draftRef.current;
+      if (!node) return;
+      node.focus();
+      node.setSelectionRange(caret, caret);
+    });
+  }
+
+  function toggleImages() {
+    setShowImages((current) => {
+      const next = !current;
+      try {
+        localStorage.setItem("spacebat-chat-show-images", next ? "1" : "0");
+      } catch {
+        /* the toggle still applies for this visit */
+      }
+      return next;
+    });
+  }
+
   function onDraftKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
@@ -487,7 +524,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
         <p className="caption-box">The room</p>
         <h1 className="mt-3 font-display text-5xl leading-none tracking-wide">SpaceBat Chat</h1>
         <p className="mt-2 text-sm text-muted">
-          Listeners only. Plain text, and new posts show up every few seconds.
+          Listeners only. New posts show up every few seconds.
         </p>
       </header>
 
@@ -598,6 +635,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
                   key={row.key}
                   row={row}
                   isAdmin={Boolean(me?.isAdmin)}
+                  showImages={showImages}
                   onDelete={(id) => void onDelete(id)}
                   onRemove={markRemoved}
                   onError={setSendError}
@@ -617,46 +655,66 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
           </div>
 
           {me?.member?.muted ? (
-            <p className="mt-3 border-4 border-ink bg-surface px-4 py-4 text-base">
+            <p
+              data-chat-composer=""
+              className="mt-3 border-4 border-ink bg-surface px-4 py-4 text-base"
+            >
               You're muted until {formatChatTime(me.member.mutedUntilMs ?? Date.now())}.
             </p>
           ) : (
-          <form onSubmit={onSend} className="mt-3">
-            {reconnecting ? <p className="mb-2 text-sm text-muted">Reconnecting…</p> : null}
-            <label className="block">
-              <span className="sr-only">Message</span>
-              <textarea
-                value={draft}
-                onChange={(event) => {
-                  setDraft(event.target.value);
-                  setSendError("");
-                }}
-                onKeyDown={onDraftKeyDown}
-                disabled={me?.member?.muted}
-                rows={3}
-                placeholder={me?.member ? `Message as ${me.member.handle}` : "Message"}
-                className="w-full resize-none border-4 border-ink bg-ivory px-3 py-2 text-base text-ink placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson disabled:opacity-50"
-              />
-            </label>
-            <div className="mt-2 flex items-center justify-between gap-3">
-              {showCount ? (
-                <p
-                  className={
-                    count > MAX_BODY_LENGTH ? "text-sm text-crimson" : "text-sm text-muted"
-                  }
-                >
-                  {count}/{MAX_BODY_LENGTH}
-                </p>
-              ) : (
-                <p className="text-sm text-muted">Enter sends. Shift+Enter adds a line.</p>
-              )}
-              <Button type="submit" disabled={sending || Boolean(me?.member?.muted)}>
-                {sending ? "Sending" : "Send"}
-              </Button>
-            </div>
-            {notice ? <p className="mt-2 text-sm text-ink">{notice}</p> : null}
-            {sendError ? <p className="mt-2 text-sm text-crimson">{sendError}</p> : null}
-          </form>
+            <form data-chat-composer="" onSubmit={onSend} className="mt-3">
+              {reconnecting ? <p className="mb-2 text-sm text-muted">Reconnecting…</p> : null}
+              <label className="block">
+                <span className="sr-only">Message</span>
+                <textarea
+                  ref={draftRef}
+                  value={draft}
+                  onChange={(event) => {
+                    setDraft(event.target.value);
+                    setSendError("");
+                  }}
+                  onKeyDown={onDraftKeyDown}
+                  disabled={me?.member?.muted}
+                  rows={3}
+                  placeholder={me?.member ? `Message as ${me.member.handle}` : "Message"}
+                  className="w-full resize-none border-4 border-ink bg-ivory px-3 py-2 text-base text-ink placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson disabled:opacity-50"
+                />
+              </label>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <EmojiPicker onInsert={insertDraft} />
+                  {me?.gifSearch ? <GifPicker onInsert={insertDraft} /> : null}
+                  <button
+                    type="button"
+                    aria-pressed={showImages}
+                    onClick={toggleImages}
+                    className={
+                      showImages
+                        ? "text-xs text-ink underline-offset-2 hover:underline"
+                        : "text-xs text-muted line-through"
+                    }
+                  >
+                    Show images and GIFs
+                  </button>
+                </div>
+                {showCount ? (
+                  <p
+                    className={
+                      count > MAX_BODY_LENGTH ? "text-sm text-crimson" : "text-sm text-muted"
+                    }
+                  >
+                    {count}/{MAX_BODY_LENGTH}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted">Enter sends. Shift+Enter adds a line.</p>
+                )}
+                <Button type="submit" disabled={sending || Boolean(me?.member?.muted)}>
+                  {sending ? "Sending" : "Send"}
+                </Button>
+              </div>
+              {notice ? <p className="mt-2 text-sm text-ink">{notice}</p> : null}
+              {sendError ? <p className="mt-2 text-sm text-crimson">{sendError}</p> : null}
+            </form>
           )}
           {me?.member?.muted && (notice || sendError) ? (
             <div className="mt-2">
@@ -673,6 +731,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
 function MessageRow({
   row,
   isAdmin,
+  showImages,
   onDelete,
   onRemove,
   onError,
@@ -680,6 +739,7 @@ function MessageRow({
 }: {
   row: FeedRow;
   isAdmin: boolean;
+  showImages: boolean;
   onDelete: (id: number) => void;
   onRemove: (id: number) => void;
   onError: (message: string) => void;
@@ -694,7 +754,7 @@ function MessageRow({
             {formatChatTime(row.createdMs)}
           </time>
         </header>
-        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">{row.body}</p>
+        <MessageBody body={row.body} showImages={showImages} />
       </article>
     );
   }
@@ -709,7 +769,7 @@ function MessageRow({
           {formatChatTime(row.createdMs)}
         </time>
       </header>
-      <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">{row.body}</p>
+      <MessageBody body={row.body} showImages={showImages} />
       {row.mine && row.kind === "text" ? (
         <button
           type="button"

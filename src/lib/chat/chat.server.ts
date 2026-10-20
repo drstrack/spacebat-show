@@ -1,7 +1,9 @@
 import { dbSource, getSql, type Sql } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { containsBlockedWord } from "@/lib/chat/blockwords";
+import { gifSearchEnabled } from "@/lib/chat/gifs.server";
 import { canPost, normalizeBody, POST_WINDOW_MS, validateHandle } from "@/lib/chat/limits";
+import { CHAT_NEW_MEMBER_LINK_DELAY_MIN, countUrls, MAX_URLS_PER_MESSAGE } from "@/lib/chat/render";
 import { activeBlockwords } from "@/lib/chat/moderation.server";
 import { CHAT_RULES_VERSION } from "@/lib/chat/rules";
 import type { ChatList, ChatListItem, ChatMe, ChatMember, ChatMessage } from "@/lib/chat/types";
@@ -18,6 +20,7 @@ type MemberRow = {
   rules_accepted_ms: number | string | bigint | null;
   muted_until_ms: number | string | bigint | null;
   banned_ms: number | string | bigint | null;
+  created_ms: number | string | bigint | null;
 };
 
 type MessageRow = {
@@ -85,7 +88,7 @@ async function callerIsAdmin(sql: Sql, userId: string): Promise<boolean> {
 
 async function loadMember(sql: Sql, userId: string): Promise<MemberRow | null> {
   const rows = await sql<MemberRow>`
-    select handle, rules_version, rules_accepted_ms, muted_until_ms, banned_ms
+    select handle, rules_version, rules_accepted_ms, muted_until_ms, banned_ms, created_ms
     from chat_member
     where user_id = ${userId}
   `;
@@ -144,6 +147,7 @@ export async function getChatMe(userId: string): Promise<ChatMe> {
     member: row ? toMember(row) : null,
     isAdmin,
     durable: dbSource !== "pglite",
+    gifSearch: gifSearchEnabled(),
   };
 }
 
@@ -244,6 +248,14 @@ export async function postChat(
   if (!normalized.ok) throw new Error(normalized.error);
   const blocked = containsBlockedWord(normalized.body, await activeBlockwords(sql));
   if (blocked) throw new Error("That message can't be posted.");
+  const urls = countUrls(normalized.body);
+  if (urls > MAX_URLS_PER_MESSAGE) throw new Error("Too many links in one message.");
+  if (urls > 0 && CHAT_NEW_MEMBER_LINK_DELAY_MIN > 0 && !(await callerIsAdmin(sql, userId))) {
+    const created = num(member.created_ms);
+    if (Date.now() - created < CHAT_NEW_MEMBER_LINK_DELAY_MIN * 60_000) {
+      throw new Error("New here? Links unlock after 10 minutes.");
+    }
+  }
 
   const [lastRows, countRows] = await Promise.all([
     sql<{ created_ms: number | string | bigint | null }>`
