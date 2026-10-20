@@ -19,6 +19,7 @@ import { Route as MerchRouteImport } from './routes/merch'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StoryRouteImport } from './routes/story'
 import { Route as SubscribeRouteImport } from './routes/subscribe'
+import { Route as ChatIndexRouteImport } from './routes/chat.index'
 import { Route as EpisodesIndexRouteImport } from './routes/episodes.index'
 import { Route as EpisodesSlugRouteImport } from './routes/episodes.$slug'
 import { Route as PodcastIndexRouteImport } from './routes/podcast.index'
@@ -76,6 +77,11 @@ const SubscribeRoute = SubscribeRouteImport.update({
   path: '/subscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatIndexRoute = ChatIndexRouteImport.update({
+  id: '/chat/',
+  path: '/chat/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EpisodesIndexRoute = EpisodesIndexRouteImport.update({
   id: '/episodes/',
   path: '/episodes/',
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/subscribe': typeof SubscribeRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
+  '/chat/': typeof ChatIndexRoute
   '/episodes/': typeof EpisodesIndexRoute
   '/podcast/': typeof PodcastIndexRoute
   '/api/alerts/run': typeof ApiAlertsRunRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/subscribe': typeof SubscribeRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
+  '/chat': typeof ChatIndexRoute
   '/episodes': typeof EpisodesIndexRoute
   '/podcast': typeof PodcastIndexRoute
   '/api/alerts/run': typeof ApiAlertsRunRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/subscribe': typeof SubscribeRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
+  '/chat/': typeof ChatIndexRoute
   '/episodes/': typeof EpisodesIndexRoute
   '/podcast/': typeof PodcastIndexRoute
   '/api/alerts/run': typeof ApiAlertsRunRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/episodes/$slug'
     | '/podcast/$slug'
+    | '/chat/'
     | '/episodes/'
     | '/podcast/'
     | '/api/alerts/run'
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/episodes/$slug'
     | '/podcast/$slug'
+    | '/chat'
     | '/episodes'
     | '/podcast'
     | '/api/alerts/run'
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/episodes/$slug'
     | '/podcast/$slug'
+    | '/chat/'
     | '/episodes/'
     | '/podcast/'
     | '/api/alerts/run'
@@ -232,6 +244,7 @@ export interface RootRouteChildren {
   SubscribeRoute: typeof SubscribeRoute
   EpisodesSlugRoute: typeof EpisodesSlugRoute
   PodcastSlugRoute: typeof PodcastSlugRoute
+  ChatIndexRoute: typeof ChatIndexRoute
   EpisodesIndexRoute: typeof EpisodesIndexRoute
   PodcastIndexRoute: typeof PodcastIndexRoute
   ApiAlertsRunRoute: typeof ApiAlertsRunRoute
@@ -310,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat/': {
+      id: '/chat/'
+      path: '/chat'
+      fullPath: '/chat/'
+      preLoaderRoute: typeof ChatIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/episodes/': {
       id: '/episodes/'
       path: '/episodes'
@@ -368,6 +388,7 @@ const rootRouteChildren: RootRouteChildren = {
   SubscribeRoute: SubscribeRoute,
   EpisodesSlugRoute: EpisodesSlugRoute,
   PodcastSlugRoute: PodcastSlugRoute,
+  ChatIndexRoute: ChatIndexRoute,
   EpisodesIndexRoute: EpisodesIndexRoute,
   PodcastIndexRoute: PodcastIndexRoute,
   ApiAlertsRunRoute: ApiAlertsRunRoute,

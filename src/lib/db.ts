@@ -1,17 +1,22 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
+import { pickTursoKeys } from "./turso-keys";
 
 /** Which database backend is active. */
 export type DbSource = "turso" | "neon" | "pglite";
 
+export { pickTursoKeys } from "./turso-keys";
+
+/**
+ * Preview (`VERCEL_ENV=preview`) reads only `PREVIEW_TURSO_*`, so a preview
+ * deploy cannot open the production database. Production ignores `PREVIEW_*`.
+ * Local dev keeps the previous key preference. See `pickTursoKeys`.
+ */
 function findTurso(): { url: string; token: string } | null {
   if (typeof process === "undefined") return null;
-  const keys = Object.keys(process.env).filter(
-    (key) => key === "TURSO_DATABASE_URL" || key.endsWith("_TURSO_DATABASE_URL"),
-  );
-  const urlKey = keys.find((key) => /spacebat/i.test(key)) ?? keys[0];
-  if (!urlKey) return null;
-  const url = process.env[urlKey]?.trim();
-  const token = process.env[urlKey.replace(/DATABASE_URL$/, "AUTH_TOKEN")]?.trim();
+  const picked = pickTursoKeys(process.env);
+  if (!picked) return null;
+  const url = process.env[picked.urlKey]?.trim();
+  const token = process.env[picked.tokenKey]?.trim();
   if (!url || !token) return null;
   return { url, token };
 }

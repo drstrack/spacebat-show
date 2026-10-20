@@ -71,6 +71,9 @@ export function SiteFooter() {
             <Link to="/merch" className="block text-ink/80 hover:text-crimson">
               The shop
             </Link>
+            <Link to="/chat" className="block text-ink/80 hover:text-crimson">
+              Chat
+            </Link>
             <Link to="/account" className="block text-ink/80 hover:text-crimson">
               Account
             </Link>

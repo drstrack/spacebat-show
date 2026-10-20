@@ -10,8 +10,18 @@ const links = [
   { to: "/story", label: "The name" },
   { to: "/hosts", label: "The crew" },
   { to: "/merch", label: "The shop" },
+  { to: "/chat", label: "Chat" },
   { to: "/account", label: "Account" },
 ] as const;
+
+function linkIsCurrent(pathname: string, to: string) {
+  return (
+    pathname === to ||
+    pathname === `${to}/` ||
+    (to === "/listen" && pathname.startsWith("/podcast/")) ||
+    (to === "/chat" && pathname.startsWith("/chat"))
+  );
+}
 
 export function SiteHeader() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -36,9 +46,7 @@ export function SiteHeader() {
               to={l.to}
               className={cn(
                 "px-3 py-2 font-display text-base tracking-wide text-ink/70 hover:text-ink",
-                (pathname === l.to ||
-                  (l.to === "/listen" && pathname.startsWith("/podcast/"))) &&
-                  "text-crimson",
+                linkIsCurrent(pathname, l.to) && "text-crimson",
               )}
             >
               {l.label}
@@ -69,9 +77,7 @@ export function SiteHeader() {
                 onClick={() => setOpen(false)}
                 className={cn(
                   "px-3 py-3 font-display text-xl tracking-wide text-ink/70",
-                  (pathname === l.to ||
-                    (l.to === "/listen" && pathname.startsWith("/podcast/"))) &&
-                    "text-crimson",
+                  linkIsCurrent(pathname, l.to) && "text-crimson",
                 )}
               >
                 {l.label}

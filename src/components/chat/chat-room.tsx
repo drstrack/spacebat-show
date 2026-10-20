@@ -1,0 +1,657 @@
+import { Link } from "@tanstack/react-router";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import {
+  deleteOwnMessage,
+  getChatMe,
+  joinChat,
+  listChat,
+  postChat,
+  type ChatListItem,
+  type ChatMe,
+} from "@/lib/chat/chat.functions";
+import { MAX_BODY_LENGTH, normalizeBody, validateHandle } from "@/lib/chat/limits";
+import { CHAT_RULES } from "@/lib/chat/rules";
+import { isRemoved } from "@/lib/chat/types";
+
+const DEFAULT_POLL_MS = 4_000;
+const IDLE_POLL_MS = 15_000;
+const IDLE_AFTER_MS = 120_000;
+const MAX_BACKOFF_MS = 60_000;
+const NEAR_BOTTOM_PX = 80;
+const COUNT_AT = 800;
+
+type FeedRow =
+  | {
+      key: string;
+      pending: true;
+      nonce: string;
+      handle: string;
+      body: string;
+      createdMs: number;
+    }
+  | { key: string; pending: false; id: number; deleted: true }
+  | {
+      key: string;
+      pending: false;
+      id: number;
+      deleted: false;
+      handle: string;
+      body: string;
+      createdMs: number;
+      kind: "text" | "system";
+      mine: boolean;
+    };
+
+function errorText(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === "object" && err && "message" in err && typeof err.message === "string") {
+    return err.message;
+  }
+  return fallback;
+}
+
+function isUnauthorized(err: unknown): boolean {
+  return errorText(err, "") === "Unauthorized";
+}
+
+function formatChatTime(ms: number, now = Date.now()): string {
+  const date = new Date(ms);
+  const current = new Date(now);
+  const sameDay =
+    date.getFullYear() === current.getFullYear() &&
+    date.getMonth() === current.getMonth() &&
+    date.getDate() === current.getDate();
+  return new Intl.DateTimeFormat(
+    undefined,
+    sameDay
+      ? { hour: "numeric", minute: "2-digit" }
+      : { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" },
+  ).format(date);
+}
+
+function toFeedRow(item: ChatListItem): FeedRow {
+  if (isRemoved(item)) return { key: `id:${item.id}`, pending: false, id: item.id, deleted: true };
+  return {
+    key: `id:${item.id}`,
+    pending: false,
+    id: item.id,
+    deleted: false,
+    handle: item.handle,
+    body: item.body,
+    createdMs: item.createdMs,
+    kind: item.kind,
+    mine: item.mine,
+  };
+}
+
+function mergeRows(current: FeedRow[], incoming: ChatListItem[]): FeedRow[] {
+  const incomingIds = new Set(incoming.map((item) => item.id));
+  const next = current.filter((row) => row.pending || !incomingIds.has(row.id));
+  for (const item of incoming) next.push(toFeedRow(item));
+  next.sort((a, b) => {
+    if (a.pending && b.pending) return a.createdMs - b.createdMs;
+    if (a.pending) return 1;
+    if (b.pending) return -1;
+    return a.id - b.id;
+  });
+  return next;
+}
+
+function oldestId(rows: FeedRow[]): number | null {
+  let oldest: number | null = null;
+  for (const row of rows) {
+    if (row.pending) continue;
+    if (oldest == null || row.id < oldest) oldest = row.id;
+  }
+  return oldest;
+}
+
+function newestId(items: ChatListItem[]): number {
+  return items.reduce((max, item) => Math.max(max, item.id), 0);
+}
+
+export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
+  const { user, isPending } = useCurrentUserState();
+  const userId = user?.id ?? null;
+  const [phase, setPhase] = useState<"loading" | "signedOut" | "join" | "banned" | "ready">(
+    "loading",
+  );
+  const [me, setMe] = useState<ChatMe | null>(null);
+  const [rows, setRows] = useState<FeedRow[]>([]);
+  const [handle, setHandle] = useState("");
+  const [accepted, setAccepted] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [sendError, setSendError] = useState("");
+  const [reconnecting, setReconnecting] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [hasEarlier, setHasEarlier] = useState(false);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
+  const [historyReady, setHistoryReady] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const stickRef = useRef(true);
+  const lastIdRef = useRef(0);
+  const preserveRef = useRef<number | null>(null);
+  const listTail = useRef(Promise.resolve());
+  const sendingRef = useRef(false);
+
+  const enqueue = useCallback(<T,>(task: () => Promise<T>) => {
+    const run = listTail.current.then(task, task);
+    listTail.current = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || isPending) return;
+    if (!userId) {
+      setPhase("signedOut");
+      return;
+    }
+    let cancelled = false;
+    setPhase("loading");
+    void getChatMe()
+      .then((next) => {
+        if (cancelled) return;
+        setMe(next);
+        setHandle(next.member?.handle ?? "");
+        if (next.member?.banned) setPhase("banned");
+        else if (!next.member?.rulesAccepted) setPhase("join");
+        else setPhase("ready");
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        if (isUnauthorized(err)) {
+          setPhase("signedOut");
+          return;
+        }
+        setFormError(errorText(err, "Couldn’t open the room."));
+        setPhase("join");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isPending, mounted, userId]);
+
+  useEffect(() => {
+    setRows([]);
+    setHistoryReady(false);
+    setHasEarlier(false);
+    setShowNew(false);
+    lastIdRef.current = 0;
+  }, [userId]);
+
+  useEffect(() => {
+    if (phase !== "ready") return;
+    let stopped = false;
+    let timer = 0;
+    let idleSince = Date.now();
+    let baseMs = DEFAULT_POLL_MS;
+    let failures = 0;
+    let sawHistory = false;
+    let scheduled = false;
+
+    const waitMs = () => {
+      if (failures > 0) return Math.min(DEFAULT_POLL_MS * 2 ** failures, MAX_BACKOFF_MS);
+      if (Date.now() - idleSince >= IDLE_AFTER_MS) return IDLE_POLL_MS;
+      return baseMs;
+    };
+
+    const arm = () => {
+      window.clearTimeout(timer);
+      if (stopped || scheduled || document.visibilityState === "hidden") return;
+      timer = window.setTimeout(() => {
+        run();
+      }, waitMs());
+    };
+
+    const run = () => {
+      if (stopped || scheduled || document.visibilityState === "hidden") return;
+      scheduled = true;
+      window.clearTimeout(timer);
+      void enqueue(async () => {
+        try {
+          if (stopped || document.visibilityState === "hidden") return;
+          const result = sawHistory
+            ? await listChat({ data: { after: lastIdRef.current } })
+            : await listChat({ data: {} });
+          if (stopped) return;
+          if (typeof result.nextPollMs === "number" && result.nextPollMs > 0) {
+            baseMs = result.nextPollMs;
+          }
+          if (!sawHistory) {
+            const newest = newestId(result.messages);
+            if (newest > lastIdRef.current) lastIdRef.current = newest;
+            stickRef.current = true;
+            setRows((current) =>
+              mergeRows(
+                current.filter((row) => row.pending),
+                result.messages,
+              ),
+            );
+            setHasEarlier(result.messages.length >= 50);
+            setShowNew(false);
+            setHistoryReady(true);
+            sawHistory = true;
+          } else if (result.messages.length > 0) {
+            const newest = newestId(result.messages);
+            if (newest > lastIdRef.current) lastIdRef.current = newest;
+            idleSince = Date.now();
+            const away = !stickRef.current;
+            setRows((current) => mergeRows(current, result.messages));
+            if (away) setShowNew(true);
+          }
+          failures = 0;
+          setReconnecting(false);
+          setFormError("");
+        } catch (err) {
+          if (stopped) return;
+          if (isUnauthorized(err)) {
+            setPhase("signedOut");
+            return;
+          }
+          failures += 1;
+          setReconnecting(true);
+          if (!sawHistory) setFormError(errorText(err, "Couldn’t load messages."));
+        } finally {
+          scheduled = false;
+          if (!stopped && document.visibilityState !== "hidden") arm();
+        }
+      });
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        window.clearTimeout(timer);
+        return;
+      }
+      void run();
+    };
+
+    const onKey = () => {
+      const wasIdle = Date.now() - idleSince >= IDLE_AFTER_MS;
+      idleSince = Date.now();
+      if (wasIdle && failures === 0 && document.visibilityState === "visible") arm();
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("keydown", onKey);
+    if (document.visibilityState !== "hidden") void run();
+
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [enqueue, phase]);
+
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (preserveRef.current != null) {
+      el.scrollTop = el.scrollHeight - preserveRef.current;
+      preserveRef.current = null;
+      return;
+    }
+    if (stickRef.current) el.scrollTop = el.scrollHeight;
+  }, [rows]);
+
+  function onScroll() {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickRef.current = distance < NEAR_BOTTOM_PX;
+    if (stickRef.current) setShowNew(false);
+  }
+
+  function scrollToLatest() {
+    stickRef.current = true;
+    setShowNew(false);
+    const el = scrollerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+
+  async function loadEarlier() {
+    const before = oldestId(rows);
+    if (before == null || loadingEarlier) return;
+    setLoadingEarlier(true);
+    const el = scrollerRef.current;
+    const preserve = el ? el.scrollHeight - el.scrollTop : null;
+    try {
+      const result = await enqueue(() => listChat({ data: { before } }));
+      preserveRef.current = preserve;
+      setRows((current) => mergeRows(current, result.messages));
+      if (result.messages.length < 50) setHasEarlier(false);
+    } catch (err) {
+      if (isUnauthorized(err)) setPhase("signedOut");
+      else setSendError(errorText(err, "Couldn’t load earlier messages."));
+    } finally {
+      setLoadingEarlier(false);
+    }
+  }
+
+  async function onJoin(event: FormEvent) {
+    event.preventDefault();
+    const parsed = validateHandle(handle, me?.isAdmin ?? false);
+    if (!parsed.ok) {
+      setFormError(parsed.error);
+      return;
+    }
+    if (!accepted) {
+      setFormError("Accept the room rules to join.");
+      return;
+    }
+    setJoining(true);
+    setFormError("");
+    try {
+      const member = await joinChat({ data: { handle: parsed.handle, acceptRules: true } });
+      setMe((current) => (current ? { ...current, member } : current));
+      setHandle(member.handle);
+      setPhase(member.banned ? "banned" : "ready");
+    } catch (err) {
+      if (isUnauthorized(err)) setPhase("signedOut");
+      else setFormError(errorText(err, "Couldn’t join the room."));
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  async function onSend(event: FormEvent) {
+    event.preventDefault();
+    if (sendingRef.current || me?.member?.muted) return;
+    const normalized = normalizeBody(draft);
+    if (!normalized.ok) {
+      setSendError(normalized.error);
+      return;
+    }
+    const nonce = crypto.randomUUID();
+    const optimistic: FeedRow = {
+      key: `pending:${nonce}`,
+      pending: true,
+      nonce,
+      handle: me?.member?.handle ?? "You",
+      body: normalized.body,
+      createdMs: Date.now(),
+    };
+    sendingRef.current = true;
+    setSending(true);
+    setSendError("");
+    stickRef.current = true;
+    setDraft("");
+    setRows((current) => [...current, optimistic]);
+    try {
+      const saved = await postChat({ data: { body: normalized.body, nonce } });
+      if (saved.id > lastIdRef.current) lastIdRef.current = saved.id;
+      setRows((current) =>
+        mergeRows(
+          current.filter((row) => !(row.pending && row.nonce === nonce)),
+          [saved],
+        ),
+      );
+    } catch (err) {
+      setRows((current) => current.filter((row) => !(row.pending && row.nonce === nonce)));
+      setDraft((current) => current || normalized.body);
+      if (isUnauthorized(err)) setPhase("signedOut");
+      else setSendError(errorText(err, "Couldn’t send that."));
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
+  }
+
+  async function onDelete(id: number) {
+    const previous = rows.find((row) => !row.pending && row.id === id) ?? null;
+    setRows((current) =>
+      current.map((row) =>
+        !row.pending && row.id === id ? { key: row.key, pending: false, id, deleted: true } : row,
+      ),
+    );
+    try {
+      await deleteOwnMessage({ data: { id } });
+    } catch (err) {
+      if (previous) {
+        setRows((current) =>
+          current.map((row) => (!row.pending && row.id === id ? previous : row)),
+        );
+      }
+      setSendError(errorText(err, "Couldn’t remove that."));
+    }
+  }
+
+  function onDraftKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      event.currentTarget.form?.requestSubmit();
+    }
+  }
+
+  const counted = normalizeBody(draft);
+  const count = counted.ok ? counted.body.length : draft.trim().length;
+  const showCount = count >= COUNT_AT || draft.length >= COUNT_AT;
+  const shell =
+    layout === "popout"
+      ? "flex h-dvh flex-col bg-paper"
+      : "mx-auto flex w-full max-w-3xl flex-col px-4 py-6 sm:px-6 sm:py-8";
+
+  return (
+    <section className={shell}>
+      <header className={layout === "popout" ? "border-b-4 border-ink px-4 py-3" : ""}>
+        <p className="caption-box">The room</p>
+        <h1 className="mt-3 font-display text-5xl leading-none tracking-wide">Chat</h1>
+        <p className="mt-2 text-sm text-muted">
+          Listeners only. Plain text, and new posts show up every few seconds.
+        </p>
+      </header>
+
+      {me && !me.durable ? (
+        <p className="mt-4 border-4 border-ink bg-caption px-4 py-3 text-sm text-ink">
+          This preview isn't connected to a database, so messages may vanish.
+        </p>
+      ) : null}
+
+      {phase === "loading" || !mounted || isPending ? (
+        <p className="mt-8 text-sm text-muted">Opening the room…</p>
+      ) : null}
+
+      {phase === "signedOut" && mounted && !isPending ? (
+        <div className="mt-8">
+          <h2 className="font-display text-3xl tracking-wide">Sign in first</h2>
+          <p className="mt-2 text-sm text-muted">The room is for listeners with an account.</p>
+          <Button asChild className="mt-6">
+            <Link to="/login">Sign in</Link>
+          </Button>
+        </div>
+      ) : null}
+
+      {phase === "banned" ? (
+        <p className="mt-8 border-4 border-ink bg-surface px-4 py-4 text-base">
+          You can't post in the room.
+        </p>
+      ) : null}
+
+      {phase === "join" ? (
+        <form onSubmit={onJoin} className="mt-6 space-y-4">
+          <label className="block">
+            <span className="font-display text-2xl tracking-wide">Your name in the room</span>
+            <Input
+              className="mt-2"
+              value={handle}
+              onChange={(event) => setHandle(event.target.value)}
+              autoComplete="off"
+              maxLength={40}
+              required
+            />
+          </label>
+          <fieldset className="border-4 border-ink bg-surface px-4 py-4">
+            <legend className="px-1 font-display text-2xl tracking-wide">Room rules</legend>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+              {CHAT_RULES.map((rule) => (
+                <li key={rule}>{rule}</li>
+              ))}
+            </ul>
+            <label className="mt-4 flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1 size-5 accent-[#9b1b30]"
+                checked={accepted}
+                onChange={(event) => setAccepted(event.target.checked)}
+                required
+              />
+              <span>I accept these rules.</span>
+            </label>
+          </fieldset>
+          {formError ? <p className="text-sm text-crimson">{formError}</p> : null}
+          <Button type="submit" disabled={joining}>
+            {joining ? "Joining" : "Join the room"}
+          </Button>
+        </form>
+      ) : null}
+
+      {phase === "ready" ? (
+        <div
+          className={
+            layout === "popout"
+              ? "flex min-h-0 flex-1 flex-col"
+              : "mt-4 flex h-[min(42rem,calc(100dvh-14rem))] flex-col"
+          }
+        >
+          <div className="relative min-h-0 flex-1 border-4 border-ink bg-ivory">
+            <div
+              ref={scrollerRef}
+              onScroll={onScroll}
+              className="h-full space-y-3 overflow-y-auto px-3 py-3"
+              style={{ overflowAnchor: "none" }}
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions"
+            >
+              {hasEarlier ? (
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={loadingEarlier}
+                    onClick={() => void loadEarlier()}
+                  >
+                    {loadingEarlier ? "Loading" : "Load earlier"}
+                  </Button>
+                </div>
+              ) : null}
+              {!historyReady && !formError ? (
+                <p className="text-sm text-muted">Opening the room…</p>
+              ) : null}
+              {historyReady && rows.length === 0 ? (
+                <p className="text-sm text-muted">The room is quiet. Say something.</p>
+              ) : null}
+              {formError ? <p className="text-sm text-crimson">{formError}</p> : null}
+              {rows.map((row) => (
+                <MessageRow key={row.key} row={row} onDelete={(id) => void onDelete(id)} />
+              ))}
+            </div>
+            {showNew ? (
+              <button
+                type="button"
+                onClick={scrollToLatest}
+                className="absolute bottom-3 left-1/2 -translate-x-1/2 border-4 border-ink bg-caption px-3 py-1 font-display text-base tracking-wide text-ink"
+              >
+                New messages ↓
+              </button>
+            ) : null}
+          </div>
+
+          <form onSubmit={onSend} className="mt-3">
+            {me?.member?.muted ? <p className="mb-2 text-sm text-ink">You’re muted.</p> : null}
+            {reconnecting ? <p className="mb-2 text-sm text-muted">Reconnecting…</p> : null}
+            <label className="block">
+              <span className="sr-only">Message</span>
+              <textarea
+                value={draft}
+                onChange={(event) => {
+                  setDraft(event.target.value);
+                  setSendError("");
+                }}
+                onKeyDown={onDraftKeyDown}
+                disabled={me?.member?.muted}
+                rows={3}
+                placeholder={me?.member ? `Message as ${me.member.handle}` : "Message"}
+                className="w-full resize-none border-4 border-ink bg-ivory px-3 py-2 text-base text-ink placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson disabled:opacity-50"
+              />
+            </label>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              {showCount ? (
+                <p
+                  className={
+                    count > MAX_BODY_LENGTH ? "text-sm text-crimson" : "text-sm text-muted"
+                  }
+                >
+                  {count}/{MAX_BODY_LENGTH}
+                </p>
+              ) : (
+                <p className="text-sm text-muted">Enter sends. Shift+Enter adds a line.</p>
+              )}
+              <Button type="submit" disabled={sending || Boolean(me?.member?.muted)}>
+                {sending ? "Sending" : "Send"}
+              </Button>
+            </div>
+            {sendError ? <p className="mt-2 text-sm text-crimson">{sendError}</p> : null}
+          </form>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function MessageRow({ row, onDelete }: { row: FeedRow; onDelete: (id: number) => void }) {
+  if (row.pending) {
+    return (
+      <article className="border-2 border-dashed border-ink/40 px-3 py-2">
+        <header className="flex items-baseline justify-between gap-3">
+          <span className="font-display text-xl tracking-wide text-crimson">{row.handle}</span>
+          <time className="text-xs text-muted" dateTime={new Date(row.createdMs).toISOString()}>
+            {formatChatTime(row.createdMs)}
+          </time>
+        </header>
+        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">{row.body}</p>
+      </article>
+    );
+  }
+  if (row.deleted) {
+    return <p className="text-sm text-muted">message removed</p>;
+  }
+  return (
+    <article className="border-2 border-ink/20 px-3 py-2">
+      <header className="flex items-baseline justify-between gap-3">
+        <span className="font-display text-xl tracking-wide text-crimson">{row.handle}</span>
+        <time className="text-xs text-muted" dateTime={new Date(row.createdMs).toISOString()}>
+          {formatChatTime(row.createdMs)}
+        </time>
+      </header>
+      <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">{row.body}</p>
+      {row.mine && row.kind === "text" ? (
+        <button
+          type="button"
+          onClick={() => onDelete(row.id)}
+          className="mt-1 text-xs text-muted underline-offset-2 hover:text-crimson hover:underline"
+        >
+          Delete
+        </button>
+      ) : null}
+    </article>
+  );
+}
