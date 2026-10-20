@@ -3,10 +3,18 @@ import { getSessionUser } from "@/lib/auth/verify.server";
 import { containsBlockedWord } from "@/lib/chat/blockwords";
 import { gifSearchEnabled } from "@/lib/chat/gifs.server";
 import { canPost, normalizeBody, POST_WINDOW_MS, validateHandle } from "@/lib/chat/limits";
+import { refreshLive } from "@/lib/chat/live.server";
 import { CHAT_NEW_MEMBER_LINK_DELAY_MIN, countUrls, MAX_URLS_PER_MESSAGE } from "@/lib/chat/render";
 import { activeBlockwords } from "@/lib/chat/moderation.server";
 import { CHAT_RULES_VERSION } from "@/lib/chat/rules";
-import type { ChatList, ChatListItem, ChatMe, ChatMember, ChatMessage } from "@/lib/chat/types";
+import type {
+  ChatList,
+  ChatListItem,
+  ChatLive,
+  ChatMe,
+  ChatMember,
+  ChatMessage,
+} from "@/lib/chat/types";
 
 const ROOM = "main";
 const NEXT_POLL_MS = 4_000;
@@ -202,10 +210,16 @@ export async function listChat(
     readMessages(sql, userId, input),
     callerIsAdmin(sql, userId),
   ]);
+  let live: ChatLive = { isLive: false, sinceMs: null, source: null };
+  try {
+    live = await refreshLive();
+  } catch {
+    live = { isLive: false, sinceMs: null, source: null };
+  }
   return {
     messages: rows.map((row) => toListItem(row, isAdmin)),
-    nextPollMs: NEXT_POLL_MS,
-    live: null,
+    nextPollMs: live.isLive ? 4_000 : NEXT_POLL_MS,
+    live,
   };
 }
 

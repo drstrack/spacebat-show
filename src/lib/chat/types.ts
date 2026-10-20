@@ -27,15 +27,24 @@ export type ChatMessage = {
   authorId?: string;
 };
 
-/** A removed row has no body. `live` is the hook for a later live-show alert. */
+/** A removed row has no body. */
 export type ChatRemoved = { id: number; deleted: true };
 
 export type ChatListItem = ChatMessage | ChatRemoved;
 
+export type ChatLiveSource = "stream" | "feed" | "manual";
+
+/** What the room is showing right now. `source` is how it was decided. */
+export type ChatLive = {
+  isLive: boolean;
+  sinceMs: number | null;
+  source: ChatLiveSource | null;
+};
+
 export type ChatList = {
   messages: ChatListItem[];
   nextPollMs: number;
-  live: null;
+  live: ChatLive;
 };
 
 export function isRemoved(item: ChatListItem): item is ChatRemoved {

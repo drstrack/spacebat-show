@@ -17,13 +17,18 @@ import {
 } from "@/lib/chat/chat.functions";
 import { MAX_BODY_LENGTH, normalizeBody, validateHandle } from "@/lib/chat/limits";
 import { CHAT_RULES } from "@/lib/chat/rules";
-import { isRemoved } from "@/lib/chat/types";
-import { OpenPopoutButton } from "@/components/chat/open-popout-button";
 import { EmojiPicker } from "@/components/chat/emoji-picker";
 import { GifPicker } from "@/components/chat/gif-picker";
+import { LiveBanner } from "@/components/chat/live-banner";
 import { MessageBody } from "@/components/chat/message-body";
 import { MessageMenu } from "@/components/chat/message-actions";
+import { OnAirControl } from "@/components/chat/on-air-control";
+import { OpenPopoutButton } from "@/components/chat/open-popout-button";
+import { SystemMessage } from "@/components/chat/system-message";
+import { adminDeleteMessage } from "@/lib/chat/moderation.functions";
+import { isRemoved, type ChatLive } from "@/lib/chat/types";
 
+const LIVE_TITLE_PREFIX = "🔴 LIVE · ";
 const DEFAULT_POLL_MS = 4_000;
 const IDLE_POLL_MS = 15_000;
 const IDLE_AFTER_MS = 120_000;
@@ -146,6 +151,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   const [historyReady, setHistoryReady] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showImages, setShowImages] = useState(true);
+  const [live, setLive] = useState<ChatLive | null>(null);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef<HTMLTextAreaElement>(null);
@@ -153,6 +159,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   const [popoutElsewhere, setPopoutElsewhere] = useState(false);
   const stickRef = useRef(true);
   const lastIdRef = useRef(0);
+  const liveRef = useRef(false);
   const preserveRef = useRef<number | null>(null);
   const listTail = useRef(Promise.resolve());
   const sendingRef = useRef(false);
@@ -206,13 +213,30 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
     };
   }, [isPending, mounted, userId]);
 
+  const rememberLive = useCallback((next: ChatLive | null | undefined) => {
+    const liveNow = next ?? { isLive: false, sinceMs: null, source: null };
+    liveRef.current = liveNow.isLive;
+    setLive(liveNow);
+    if (typeof document === "undefined") return;
+    if (liveNow.isLive) {
+      if (!document.title.startsWith(LIVE_TITLE_PREFIX)) {
+        document.title = `${LIVE_TITLE_PREFIX}${document.title}`;
+      }
+      return;
+    }
+    if (document.title.startsWith(LIVE_TITLE_PREFIX)) {
+      document.title = document.title.slice(LIVE_TITLE_PREFIX.length);
+    }
+  }, []);
+
   useEffect(() => {
     setRows([]);
     setHistoryReady(false);
     setHasEarlier(false);
     setShowNew(false);
     lastIdRef.current = 0;
-  }, [userId]);
+    rememberLive(null);
+  }, [rememberLive, userId]);
 
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
@@ -260,7 +284,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
 
     const waitMs = () => {
       if (failures > 0) return Math.min(DEFAULT_POLL_MS * 2 ** failures, MAX_BACKOFF_MS);
-      if (Date.now() - idleSince >= IDLE_AFTER_MS) return IDLE_POLL_MS;
+      if (!liveRef.current && Date.now() - idleSince >= IDLE_AFTER_MS) return IDLE_POLL_MS;
       return baseMs;
     };
 
@@ -283,6 +307,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
             ? await listChat({ data: { after: lastIdRef.current } })
             : await listChat({ data: {} });
           if (stopped) return;
+          rememberLive(result.live);
           if (typeof result.nextPollMs === "number" && result.nextPollMs > 0) {
             baseMs = result.nextPollMs;
           }
@@ -362,7 +387,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("keydown", onKey);
     };
-  }, [enqueue, layout, phase, popoutElsewhere]);
+  }, [enqueue, layout, phase, popoutElsewhere, rememberLive]);
 
   useLayoutEffect(() => {
     const el = scrollerRef.current;
@@ -399,6 +424,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
     try {
       const result = await enqueue(() => listChat({ data: { before } }));
       preserveRef.current = preserve;
+      rememberLive(result.live);
       setRows((current) => mergeRows(current, result.messages));
       if (result.messages.length < 50) setHasEarlier(false);
     } catch (err) {
@@ -496,6 +522,21 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
     );
   }
 
+  async function onDeleteSystem(id: number) {
+    const previous = rows.find((row) => !row.pending && row.id === id) ?? null;
+    markRemoved(id);
+    try {
+      await adminDeleteMessage({ data: { id } });
+    } catch (err) {
+      if (previous) {
+        setRows((current) =>
+          current.map((row) => (!row.pending && row.id === id ? previous : row)),
+        );
+      }
+      setSendError(errorText(err, "Couldn’t remove that."));
+    }
+  }
+
   async function onDelete(id: number) {
     const previous = rows.find((row) => !row.pending && row.id === id) ?? null;
     setRows((current) =>
@@ -576,23 +617,36 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   return (
     <section className={shell}>
       {layout === "popout" ? (
-        <header className="flex items-center gap-2 border-b-4 border-ink px-3 py-2">
-          <BatMark className="size-8 border-2 border-ink" />
-          <div className="min-w-0 flex-1">
-            <h1 className="font-display text-xl leading-none tracking-wide">SpaceBat Chat</h1>
-            {me?.member?.handle ? (
-              <p className="truncate text-xs text-muted">{me.member.handle}</p>
-            ) : null}
+        <header className="border-b-4 border-ink">
+          <div className="flex items-center gap-2 px-3 py-2">
+            <BatMark className="size-8 border-2 border-ink" />
+            <div className="min-w-0 flex-1">
+              <h1 className="font-display text-xl leading-none tracking-wide">SpaceBat Chat</h1>
+              {me?.member?.handle ? (
+                <p className="truncate text-xs text-muted">{me.member.handle}</p>
+              ) : null}
+            </div>
+            <LivePlayer compact />
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener"
+              className="shrink-0 text-sm text-crimson hover:underline"
+            >
+              Open full site
+            </a>
           </div>
-          <LivePlayer compact />
-          <a
-            href="/"
-            target="_blank"
-            rel="noopener"
-            className="shrink-0 text-sm text-crimson hover:underline"
-          >
-            Open full site
-          </a>
+          {me?.isAdmin ? (
+            <div className="px-3 pb-2">
+              <OnAirControl live={live} onChange={rememberLive} />
+            </div>
+          ) : null}
+          {live?.isLive ? (
+            <LiveBanner
+              placement="bar"
+              sinceLabel={live.sinceMs == null ? null : formatChatTime(live.sinceMs)}
+            />
+          ) : null}
         </header>
       ) : (
         <header>
@@ -602,6 +656,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
             Listeners only. New posts show up every few seconds.
           </p>
           <OpenPopoutButton />
+          {me?.isAdmin ? <OnAirControl live={live} onChange={rememberLive} /> : null}
         </header>
       )}
 
@@ -692,6 +747,14 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
               : "mt-4 flex h-[min(42rem,calc(100dvh-14rem))] flex-col"
           }
         >
+          {layout === "page" && live?.isLive ? (
+            <div className="mb-3">
+              <LiveBanner
+                placement="room"
+                sinceLabel={live.sinceMs == null ? null : formatChatTime(live.sinceMs)}
+              />
+            </div>
+          ) : null}
           <div className="relative min-h-0 flex-1 border-4 border-ink bg-ivory">
             <div
               ref={scrollerRef}
@@ -729,6 +792,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
                   isAdmin={Boolean(me?.isAdmin)}
                   showImages={showImages}
                   onDelete={(id) => void onDelete(id)}
+                  onDeleteSystem={(id) => void onDeleteSystem(id)}
                   onRemove={markRemoved}
                   onError={setSendError}
                   onNotice={setNotice}
@@ -825,6 +889,7 @@ function MessageRow({
   isAdmin,
   showImages,
   onDelete,
+  onDeleteSystem,
   onRemove,
   onError,
   onNotice,
@@ -833,6 +898,7 @@ function MessageRow({
   isAdmin: boolean;
   showImages: boolean;
   onDelete: (id: number) => void;
+  onDeleteSystem: (id: number) => void;
   onRemove: (id: number) => void;
   onError: (message: string) => void;
   onNotice: (message: string) => void;
@@ -852,6 +918,22 @@ function MessageRow({
   }
   if (row.deleted) {
     return <p className="text-sm text-muted">message removed</p>;
+  }
+  if (row.kind === "system") {
+    return (
+      <div className="flex flex-col items-center gap-1">
+        <SystemMessage body={row.body} />
+        {isAdmin ? (
+          <button
+            type="button"
+            onClick={() => onDeleteSystem(row.id)}
+            className="text-xs text-muted underline-offset-2 hover:text-crimson hover:underline"
+          >
+            Remove
+          </button>
+        ) : null}
+      </div>
+    );
   }
   return (
     <article className="border-2 border-ink/20 px-3 py-2">

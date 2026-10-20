@@ -48,6 +48,14 @@ test("chat moderation migration stays additive", () => {
   assert.match(sql, /if not exists chat_report_open_idx/);
 });
 
+test("chat live migration stays additive", () => {
+  const sql = readFileSync("migrations/0006_chat_live.sql", "utf8");
+  assert.equal(/\bdate\b/i.test(sql), false);
+  assert.equal(/\bboolean\b/i.test(sql), false);
+  assert.equal(/\btimestamptz\b/i.test(sql), false);
+  assert.match(sql, /create table if not exists chat_live_state/);
+});
+
 test("chat migration avoids words toSqlite rewrites", () => {
   const sql = readFileSync("migrations/0004_chat.sql", "utf8");
   assert.equal(/\bdate\b/i.test(sql), false);

@@ -12,6 +12,7 @@ import type { ChatList, ChatMember, ChatMe, ChatMessage } from "@/lib/chat/types
 export type {
   ChatList,
   ChatListItem,
+  ChatLive,
   ChatMe,
   ChatMember,
   ChatMessage,
