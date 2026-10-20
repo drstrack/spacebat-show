@@ -198,7 +198,10 @@ async function createPgliteSql(): Promise<Sql> {
       // statement can't leave a file half-applied but untracked.
       await pg.transaction(async (tx) => {
         await tx.exec(migrations[path]);
-        await tx.query("insert into _migrations (name) values ($1)", [name]);
+        await tx.query(
+          "insert into _migrations (name) values ($1) on conflict (name) do nothing",
+          [name],
+        );
       });
     }
   };
@@ -270,7 +273,12 @@ async function createTursoSql(): Promise<Sql> {
     for (const statement of sqlStatements(toSqlite(migrations[path]))) {
       await client.execute(statement);
     }
-    await client.execute({ sql: "insert into _migrations (name) values (?)", args: [name] });
+    // Two cold starts can both see the file as pending. The SQL is idempotent;
+    // the bookkeeping insert must not fail the second one with a unique error.
+    await client.execute({
+      sql: "insert or ignore into _migrations (name) values (?)",
+      args: [name],
+    });
   }
   return toSql(
     async <T>(text: string, params: unknown[]) => {

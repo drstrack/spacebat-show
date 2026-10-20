@@ -24,6 +24,8 @@ import {
   validateHandle,
 } from "@/lib/chat/limits";
 import { CHAT_RULES } from "@/lib/chat/rules";
+import { AttachmentView } from "@/components/chat/attachment-view";
+import { AttachmentDraft, ComposerAttach } from "@/components/chat/composer-attach";
 import { EmojiPicker } from "@/components/chat/emoji-picker";
 import { GifPicker } from "@/components/chat/gif-picker";
 import { LiveBanner } from "@/components/chat/live-banner";
@@ -33,7 +35,7 @@ import { OnAirControl } from "@/components/chat/on-air-control";
 import { OpenPopoutButton } from "@/components/chat/open-popout-button";
 import { SystemMessage } from "@/components/chat/system-message";
 import { adminDeleteMessage } from "@/lib/chat/moderation.functions";
-import { isRemoved, type ChatLive } from "@/lib/chat/types";
+import { isRemoved, type ChatAttachment, type ChatLive } from "@/lib/chat/types";
 
 const LIVE_TITLE_PREFIX = "🔴 LIVE · ";
 const DEFAULT_POLL_MS = 4_000;
@@ -51,6 +53,7 @@ type FeedRow =
       handle: string;
       body: string;
       createdMs: number;
+      attachment: ChatAttachment | null;
     }
   | { key: string; pending: false; id: number; deleted: true }
   | {
@@ -64,6 +67,7 @@ type FeedRow =
       kind: "text" | "system";
       mine: boolean;
       authorId?: string;
+      attachment: ChatAttachment | null;
     };
 
 function errorText(err: unknown, fallback: string): string {
@@ -106,6 +110,7 @@ function toFeedRow(item: ChatListItem): FeedRow {
     kind: item.kind,
     mine: item.mine,
     authorId: item.authorId,
+    attachment: item.attachment,
   };
 }
 
@@ -147,6 +152,10 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   const [accepted, setAccepted] = useState(false);
   const [draft, setDraft] = useState("");
   const [gifReady, setGifReady] = useState<GifHit | null>(null);
+  const [attachment, setAttachment] = useState<ChatAttachment | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const removeUploadRef = useRef<(() => void) | null>(null);
   const [sending, setSending] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [cooldownTick, setCooldownTick] = useState(0);
@@ -487,14 +496,22 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   }
 
   async function submitDraft() {
-    if (sendingRef.current || me?.member?.muted || Date.now() < cooldownUntilRef.current) return;
+    if (sendingRef.current || uploadBusy || me?.member?.muted || Date.now() < cooldownUntilRef.current) {
+      return;
+    }
     const raw = draftRef.current?.value ?? draft;
-    const normalized = normalizeBody(raw);
+    const trimmed = raw.trim();
+    if (!trimmed && !attachment) {
+      setSendError("Write a message first.");
+      return;
+    }
+    const normalized = trimmed ? normalizeBody(raw) : { ok: true as const, body: "" };
     if (!normalized.ok) {
       setSendError(normalized.error);
       return;
     }
     const nonce = crypto.randomUUID();
+    const sentAttachment = attachment;
     const optimistic: FeedRow = {
       key: `pending:${nonce}`,
       pending: true,
@@ -502,6 +519,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
       handle: me?.member?.handle ?? "You",
       body: normalized.body,
       createdMs: Date.now(),
+      attachment: sentAttachment,
     };
     sendingRef.current = true;
     setSending(true);
@@ -509,7 +527,9 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
     stickRef.current = true;
     setRows((current) => [...current, optimistic]);
     try {
-      const saved = await postChat({ data: { body: normalized.body, nonce } });
+      const saved = await postChat({
+        data: { body: normalized.body, nonce, uploadId: sentAttachment?.id },
+      });
       if (saved.id > lastIdRef.current) lastIdRef.current = saved.id;
       setRows((current) =>
         mergeRows(
@@ -519,6 +539,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
       );
       setDraft((current) => (current === raw ? "" : current));
       setGifReady(null);
+      setAttachment((current) => (current?.id === sentAttachment?.id ? null : current));
     } catch (err) {
       setRows((current) => current.filter((row) => !(row.pending && row.nonce === nonce)));
       if (isUnauthorized(err)) setPhase("signedOut");
@@ -834,6 +855,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
                   row={row}
                   isAdmin={Boolean(me?.isAdmin)}
                   showImages={showImages}
+                  blobHost={me?.blobHost ?? null}
                   onDelete={(id) => void onDelete(id)}
                   onDeleteSystem={(id) => void onDeleteSystem(id)}
                   onRemove={markRemoved}
@@ -863,6 +885,11 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
           ) : (
             <form data-chat-composer="" onSubmit={onSend} className="mt-3 min-w-0">
               {reconnecting ? <p className="mb-2 text-sm text-muted">Reconnecting…</p> : null}
+              <AttachmentDraft
+                attachment={attachment}
+                progress={uploadProgress}
+                onRemove={() => removeUploadRef.current?.()}
+              />
               {gifReady && draft.includes(`https://i.giphy.com/${gifReady.id}.gif`) ? (
                 <div className="mb-2 flex items-center gap-3 border-4 border-ink bg-caption px-3 py-2">
                   <img
@@ -901,6 +928,15 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
                       }}
                     />
                   ) : null}
+                  <ComposerAttach
+                    enabled={Boolean(me?.uploads)}
+                    attachment={attachment}
+                    onAttachment={setAttachment}
+                    onError={setSendError}
+                    onBusy={setUploadBusy}
+                    onProgress={setUploadProgress}
+                    removeRef={removeUploadRef}
+                  />
                   <button
                     type="button"
                     aria-pressed={showImages}
@@ -927,7 +963,9 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
                 )}
                 <Button
                   type="submit"
-                  disabled={sending || Boolean(me?.member?.muted) || cooldownLeft > 0}
+                  disabled={
+                    sending || uploadBusy || Boolean(me?.member?.muted) || cooldownLeft > 0
+                  }
                 >
                   {sending ? "Sending" : "Send"}
                 </Button>
@@ -952,6 +990,7 @@ function MessageRow({
   row,
   isAdmin,
   showImages,
+  blobHost,
   onDelete,
   onDeleteSystem,
   onRemove,
@@ -961,6 +1000,7 @@ function MessageRow({
   row: FeedRow;
   isAdmin: boolean;
   showImages: boolean;
+  blobHost: string | null;
   onDelete: (id: number) => void;
   onDeleteSystem: (id: number) => void;
   onRemove: (id: number) => void;
@@ -977,6 +1017,9 @@ function MessageRow({
           </time>
         </header>
         <MessageBody body={row.body} showImages={showImages} />
+        {row.attachment ? (
+          <AttachmentView attachment={row.attachment} blobHost={blobHost} showImages={showImages} />
+        ) : null}
       </article>
     );
   }
@@ -1008,6 +1051,9 @@ function MessageRow({
         </time>
       </header>
       <MessageBody body={row.body} showImages={showImages} />
+      {row.attachment ? (
+        <AttachmentView attachment={row.attachment} blobHost={blobHost} showImages={showImages} />
+      ) : null}
       {row.mine && row.kind === "text" ? (
         <button
           type="button"

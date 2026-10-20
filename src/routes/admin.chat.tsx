@@ -7,16 +7,20 @@ import {
   adminRemoveBlockword,
   adminUnban,
   adminUnmute,
+  adminDeleteChatUpload,
   listAudit,
   listBlockwords,
+  listChatUploads,
   listReports,
   listSanctions,
   resolveReport,
   type AuditEntry,
   type BlockwordEntry,
+  type ListedUpload,
   type ReportGroup,
   type SanctionedMember,
 } from "@/lib/chat/moderation.functions";
+import { formatBytes } from "@/lib/chat/uploads";
 export const Route = createFileRoute("/admin/chat")({
   head: () => ({
     meta: [{ title: "SpaceBat Chat — Crew" }, { name: "robots", content: "noindex" }],
@@ -46,6 +50,7 @@ function AdminChatPage() {
   const [sanctions, setSanctions] = useState<SanctionedMember[] | null>(null);
   const [words, setWords] = useState<BlockwordEntry[] | null>(null);
   const [audit, setAudit] = useState<AuditEntry[] | null>(null);
+  const [uploads, setUploads] = useState<ListedUpload[] | null>(null);
   const [error, setError] = useState("");
   const [denied, setDenied] = useState(false);
   const [busy, setBusy] = useState("");
@@ -54,16 +59,18 @@ function AdminChatPage() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [nextReports, nextSanctions, nextWords, nextAudit] = await Promise.all([
+      const [nextReports, nextSanctions, nextWords, nextAudit, nextUploads] = await Promise.all([
         listReports(),
         listSanctions(),
         listBlockwords(),
         listAudit({ data: {} }),
+        listChatUploads(),
       ]);
       setReports(nextReports);
       setSanctions(nextSanctions);
       setWords(nextWords);
       setAudit(nextAudit);
+      setUploads(nextUploads);
       setDenied(false);
     } catch (err) {
       const message = errorText(err);
@@ -259,6 +266,45 @@ function AdminChatPage() {
                   Remove
                 </Button>
               ) : null}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="font-display text-3xl tracking-wide">Uploads</h2>
+        {uploads?.length === 0 ? <p className="mt-3 text-sm text-muted">No files in the room.</p> : null}
+        <ul className="mt-4 space-y-3">
+          {uploads?.map((file) => (
+            <li key={file.id} className="flex min-w-0 items-center gap-3 border-2 border-ink bg-ivory px-3 py-2">
+              {file.kind === "image" ? (
+                <img
+                  src={file.url}
+                  alt=""
+                  className="size-12 shrink-0 border-2 border-ink object-cover"
+                />
+              ) : (
+                <span className="flex size-12 shrink-0 items-center justify-center border-2 border-ink text-lg" aria-hidden="true">
+                  📎
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm">{file.name}</p>
+                <p className="text-xs text-muted">
+                  {file.handle} · {formatBytes(file.size)} · {formatWhen(file.createdMs)}
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={busy === `upload:${file.id}`}
+                onClick={() =>
+                  void run(`upload:${file.id}`, () => adminDeleteChatUpload({ data: { id: file.id } }))
+                }
+              >
+                Delete
+              </Button>
             </li>
           ))}
         </ul>
