@@ -227,7 +227,7 @@ export function blobPublicHost(input: { storeId?: string | null; token?: string 
   const configured = input.storeId?.trim();
   const storeId = configured ? normalizeStoreId(configured) : storeIdFromToken(input.token);
   if (!storeId || !/^[a-z0-9]+$/i.test(storeId)) return null;
-  return `${storeId}.public.blob.vercel-storage.com`;
+  return `${storeId}.public.blob.vercel-storage.com`.toLowerCase();
 }
 
 function normalizeStoreId(storeId: string): string {
@@ -244,7 +244,7 @@ export function isTrustedBlobUrl(url: string, host: string | null): boolean {
   if (!host) return false;
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "https:" && parsed.hostname === host;
+    return parsed.protocol === "https:" && parsed.hostname === host.toLowerCase();
   } catch {
     return false;
   }

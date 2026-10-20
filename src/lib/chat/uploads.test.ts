@@ -74,6 +74,12 @@ describe("classifyUpload", () => {
 describe("blob host", () => {
   it("uses the configured store id, not a wildcard", () => {
     assert.equal(blobPublicHost({ storeId: "store_abc123" }), HOST);
+    const mixed = blobPublicHost({ storeId: "store_oPkdVHib8ZiDIyBf" });
+    assert.equal(mixed, "opkdvhib8zidiybf.public.blob.vercel-storage.com");
+    assert.equal(
+      isTrustedBlobUrl("https://oPkdVHib8ZiDIyBf.public.blob.vercel-storage.com/chat/a.png", mixed),
+      true,
+    );
     assert.equal(
       blobPublicHost({ token: "vercel_blob_rw_abc123_secret" }),
       HOST,
