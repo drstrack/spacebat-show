@@ -20,10 +20,18 @@ export function bindLibsql(
 
 function libsqlArg(value: unknown): null | number | string | bigint {
   if (value === undefined || value === null) return null;
-  if (typeof value === "boolean") return value ? 1 : 0;
+  if (typeof value === "boolean") return value ? 1n : 0n;
   if (value instanceof Date) return value.toISOString();
-  if (typeof value === "number" || typeof value === "string" || typeof value === "bigint") {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new Error("SQL arguments must be finite numbers");
+    }
+    // Hrana sends a JS number as a float. A bigint is a 64-bit integer, which
+    // matches `created_ms bigint` instead of making Turso compare a REAL.
+    if (Number.isSafeInteger(value)) return BigInt(value);
     return value;
   }
+  if (typeof value === "string") return value;
   return String(value);
 }

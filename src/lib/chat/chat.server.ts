@@ -2,8 +2,15 @@ import { dbSource, getSql, type Sql } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { containsBlockedWord } from "@/lib/chat/blockwords";
 import { gifSearchEnabled } from "@/lib/chat/gifs.server";
-import { normalizeBody, validateHandle } from "@/lib/chat/limits";
-import { POST_INSERT_SQL, postInsertParams } from "@/lib/chat/post-insert";
+import { normalizeBody, slowDownMessage, validateHandle } from "@/lib/chat/limits";
+import {
+  PLAIN_INSERT_SQL,
+  postInsertParams,
+  postInsertSql,
+  rateDecision,
+  rateSnapshotSql,
+  type RateRow,
+} from "@/lib/chat/post-insert";
 import { refreshLive } from "@/lib/chat/live.server";
 import { CHAT_NEW_MEMBER_LINK_DELAY_MIN, countUrls, MAX_URLS_PER_MESSAGE } from "@/lib/chat/render";
 import { activeBlockwords } from "@/lib/chat/moderation.server";
@@ -272,23 +279,54 @@ export async function postChat(
     }
   }
 
-  // Same timestamp is stored and compared, so a 3000ms gap is allowed and
-  // anything shorter is refused. See POST_INSERT_SQL.
-  const createdMs = Date.now();
-  const inserted = await sql.query<{ id: number | string | bigint }>(
-    POST_INSERT_SQL,
-    postInsertParams(ROOM, userId, normalized.body, createdMs),
+  // The clock is the database's, not this isolate's Date.now(). The gap and the
+  // per-minute cap are applied to that reading in rateDecision.
+  const dialect = dbSource === "turso" ? "sqlite" : "postgres";
+  const decision = await readRate(sql, dialect, userId);
+  if (decision.waitMs != null) throw new Error(slowDownMessage(decision.waitMs));
+
+  const createdMs = decision.nowMs;
+  let saved = await sql.query<InsertedRow>(
+    postInsertSql(dialect),
+    postInsertParams(ROOM, userId, normalized.body, createdMs, decision.lastMs),
   );
-  const id = num(inserted[0]?.id);
-  if (!id) throw new Error("Slow down a sec.");
+  if (!num(saved[0]?.id)) {
+    const again = await readRate(sql, dialect, userId);
+    if (again.lastMs === createdMs) {
+      saved = await sql.query<InsertedRow>(
+        `select id, created_ms from chat_message
+         where room = $1 and user_id = $2 and kind = 'text' and created_ms = $3
+         order by id desc limit 1`,
+        [ROOM, userId, createdMs],
+      );
+    } else if (again.waitMs != null) {
+      throw new Error(slowDownMessage(again.waitMs));
+    } else {
+      saved = await sql.query<InsertedRow>(PLAIN_INSERT_SQL, [
+        ROOM,
+        userId,
+        normalized.body,
+        again.nowMs,
+      ]);
+    }
+  }
+  const id = num(saved[0]?.id);
+  if (!id) throw new Error(slowDownMessage(decision.waitMs ?? 1_000));
   return {
     id,
     handle: member.handle,
     body: normalized.body,
-    createdMs,
+    createdMs: num(saved[0]?.created_ms) || createdMs,
     kind: "text",
     mine: true,
   };
+}
+
+type InsertedRow = { id: number | string | bigint; created_ms?: number | string | bigint };
+
+async function readRate(sql: Sql, dialect: "sqlite" | "postgres", userId: string) {
+  const rows = await sql.query<RateRow>(rateSnapshotSql(dialect), [userId, ROOM]);
+  return rateDecision(rows);
 }
 
 export async function deleteOwnMessage(

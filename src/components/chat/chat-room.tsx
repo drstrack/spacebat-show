@@ -16,7 +16,7 @@ import {
   type ChatMe,
 } from "@/lib/chat/chat.functions";
 import type { GifHit } from "@/lib/chat/gifs.functions";
-import { MAX_BODY_LENGTH, normalizeBody, validateHandle } from "@/lib/chat/limits";
+import { MAX_BODY_LENGTH, normalizeBody, slowDownSeconds, validateHandle } from "@/lib/chat/limits";
 import { CHAT_RULES } from "@/lib/chat/rules";
 import { EmojiPicker } from "@/components/chat/emoji-picker";
 import { GifPicker } from "@/components/chat/gif-picker";
@@ -142,6 +142,8 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   const [draft, setDraft] = useState("");
   const [gifReady, setGifReady] = useState<GifHit | null>(null);
   const [sending, setSending] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [cooldownTick, setCooldownTick] = useState(0);
   const [joining, setJoining] = useState(false);
   const [formError, setFormError] = useState("");
   const [sendError, setSendError] = useState("");
@@ -165,6 +167,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   const preserveRef = useRef<number | null>(null);
   const listTail = useRef(Promise.resolve());
   const sendingRef = useRef(false);
+  const cooldownUntilRef = useRef(0);
 
   const enqueue = useCallback(<T,>(task: () => Promise<T>) => {
     const run = listTail.current.then(task, task);
@@ -174,6 +177,20 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
     );
     return run;
   }, []);
+
+  useEffect(() => {
+    if (!cooldownUntil) return;
+    const timer = window.setInterval(() => {
+      if (Date.now() >= cooldownUntilRef.current) {
+        cooldownUntilRef.current = 0;
+        setCooldownUntil(0);
+        setSendError((current) => (slowDownSeconds(current) != null ? "" : current));
+        return;
+      }
+      setCooldownTick(Date.now());
+    }, 200);
+    return () => window.clearInterval(timer);
+  }, [cooldownUntil]);
 
   useEffect(() => {
     setMounted(true);
@@ -464,7 +481,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   }
 
   async function submitDraft() {
-    if (sendingRef.current || me?.member?.muted) return;
+    if (sendingRef.current || me?.member?.muted || Date.now() < cooldownUntilRef.current) return;
     const raw = draftRef.current?.value ?? draft;
     const normalized = normalizeBody(raw);
     if (!normalized.ok) {
@@ -500,7 +517,15 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
       setRows((current) => current.filter((row) => !(row.pending && row.nonce === nonce)));
       if (isUnauthorized(err)) setPhase("signedOut");
       else {
-        setSendError(errorText(err, "Couldn’t send that."));
+        const message = errorText(err, "Couldn’t send that.");
+        const pause = slowDownSeconds(message);
+        if (pause != null) {
+          const until = Date.now() + pause * 1000;
+          cooldownUntilRef.current = until;
+          setCooldownUntil(until);
+          setCooldownTick(Date.now());
+        }
+        setSendError(message);
         if (errorText(err, "") === "You're muted.") {
           void getChatMe()
             .then((next) => {
@@ -596,6 +621,10 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
     void submitDraft();
   }
 
+  const nowMs = cooldownTick || Date.now();
+  const cooldownLeft = cooldownUntil > nowMs ? Math.ceil((cooldownUntil - nowMs) / 1000) : 0;
+  const composerError =
+    cooldownLeft > 0 ? `Slow down, you can post again in ${cooldownLeft}s` : sendError;
   const counted = normalizeBody(draft);
   const count = counted.ok ? counted.body.length : draft.trim().length;
   const showCount = count >= COUNT_AT || draft.length >= COUNT_AT;
@@ -888,12 +917,15 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
                 ) : (
                   <p className="text-sm text-muted">Enter sends. Shift+Enter adds a line.</p>
                 )}
-                <Button type="submit" disabled={sending || Boolean(me?.member?.muted)}>
+                <Button
+                  type="submit"
+                  disabled={sending || Boolean(me?.member?.muted) || cooldownLeft > 0}
+                >
                   {sending ? "Sending" : "Send"}
                 </Button>
               </div>
               {notice ? <p className="mt-2 text-sm text-ink">{notice}</p> : null}
-              {sendError ? <p className="mt-2 text-sm text-crimson">{sendError}</p> : null}
+              {composerError ? <p className="mt-2 text-sm text-crimson">{composerError}</p> : null}
             </form>
           )}
           {me?.member?.muted && (notice || sendError) ? (

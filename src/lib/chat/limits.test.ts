@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { canPost, normalizeBody, validateHandle } from "./limits.ts";
+import {
+  canPost,
+  normalizeBody,
+  retryAfterMs,
+  slowDownMessage,
+  slowDownSeconds,
+  validateHandle,
+} from "./limits.ts";
 
 describe("validateHandle", () => {
   it("accepts a trimmed name and lowercases the key", () => {
@@ -100,5 +107,29 @@ describe("canPost", () => {
     assert.equal(canPost(now - 10_000, 19, now), true);
     assert.equal(canPost(now - 10_000, 20, now), false);
     assert.equal(canPost(null, 20, now), false);
+  });
+});
+
+describe("retryAfterMs", () => {
+  const now = 1_700_000_000_000;
+
+  it("allows a first post, an exact 3s gap, and a 4s gap", () => {
+    assert.equal(retryAfterMs(null, [], now), null);
+    assert.equal(retryAfterMs(now - 3_000, [now - 3_000], now), null);
+    assert.equal(retryAfterMs(now - 4_000, [now - 4_000], now), null);
+  });
+
+  it("waits out the rest of the 3s gap", () => {
+    assert.equal(retryAfterMs(now - 2_999, [now - 2_999], now), 1);
+    assert.equal(slowDownMessage(1), "Slow down, you can post again in 1s");
+    assert.equal(slowDownMessage(3_001), "Slow down, you can post again in 4s");
+    assert.equal(slowDownSeconds("Slow down, you can post again in 4s"), 4);
+    assert.equal(slowDownSeconds("Slow down a sec."), null);
+  });
+
+  it("waits until the oldest message in a full minute leaves the window", () => {
+    const times = Array.from({ length: 20 }, (_, index) => now - 50_000 + index * 1_000);
+    assert.equal(retryAfterMs(now - 31_000, times, now), 10_000);
+    assert.equal(retryAfterMs(now - 31_000, times.slice(1), now), null);
   });
 });

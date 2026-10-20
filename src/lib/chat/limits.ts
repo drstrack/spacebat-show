@@ -73,3 +73,35 @@ export function canPost(lastMs: number | null, countLastMinute: number, now: num
   if (countLastMinute >= POST_WINDOW_MAX) return false;
   return true;
 }
+
+const SLOW_DOWN_MESSAGE = /^Slow down, you can post again in (\d+)s$/;
+
+/** Milliseconds until this sender may post, or null when the attempt is allowed. */
+export function retryAfterMs(
+  lastMs: number | null,
+  recentTimes: readonly number[],
+  now: number,
+): number | null {
+  let wait = 0;
+  if (lastMs != null && now - lastMs < POST_GAP_MS) {
+    wait = POST_GAP_MS - (now - lastMs);
+  }
+  const inWindow = recentTimes.filter((time) => now - time >= 0 && now - time < POST_WINDOW_MS);
+  if (inWindow.length >= POST_WINDOW_MAX) {
+    const oldest = Math.min(...inWindow);
+    wait = Math.max(wait, POST_WINDOW_MS - (now - oldest));
+  }
+  return wait > 0 ? wait : null;
+}
+
+export function slowDownMessage(waitMs: number): string {
+  const seconds = Math.max(1, Math.ceil(waitMs / 1000));
+  return `Slow down, you can post again in ${seconds}s`;
+}
+
+export function slowDownSeconds(message: string): number | null {
+  const match = SLOW_DOWN_MESSAGE.exec(message);
+  if (!match) return null;
+  const seconds = Number(match[1]);
+  return Number.isInteger(seconds) && seconds > 0 ? seconds : null;
+}
