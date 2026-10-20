@@ -3,7 +3,7 @@ import { ChatRoom } from "@/components/chat/chat-room";
 
 export const Route = createFileRoute("/chat/")({
   head: () => ({
-    meta: [{ title: "Chat — SpaceBat" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "SpaceBat Chat" }, { name: "robots", content: "noindex" }],
   }),
   component: ChatPage,
 });

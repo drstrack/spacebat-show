@@ -10,7 +10,7 @@ const links = [
   { to: "/story", label: "The name" },
   { to: "/hosts", label: "The crew" },
   { to: "/merch", label: "The shop" },
-  { to: "/chat", label: "Chat" },
+  { to: "/chat", label: "SpaceBat Chat" },
   { to: "/account", label: "Account" },
 ] as const;
 
@@ -49,7 +49,7 @@ export function SiteHeader() {
                 linkIsCurrent(pathname, l.to) && "text-crimson",
               )}
             >
-              {l.label}
+              {l.to === "/chat" ? "Chat" : l.label}
             </Link>
           ))}
           <Button asChild size="sm" className="ml-2">

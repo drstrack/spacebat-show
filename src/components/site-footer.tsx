@@ -72,7 +72,7 @@ export function SiteFooter() {
               The shop
             </Link>
             <Link to="/chat" className="block text-ink/80 hover:text-crimson">
-              Chat
+              SpaceBat Chat
             </Link>
             <Link to="/account" className="block text-ink/80 hover:text-crimson">
               Account

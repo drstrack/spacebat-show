@@ -32,6 +32,22 @@ test("chat code never uses dangerouslySetInnerHTML", () => {
   assert.deepEqual(hits, []);
 });
 
+test("chat moderation migration stays additive", () => {
+  const sql = readFileSync("migrations/0005_chat_moderation.sql", "utf8");
+  assert.equal(/\bdate\b/i.test(sql), false);
+  assert.equal(/\bboolean\b/i.test(sql), false);
+  assert.equal(/\btimestamptz\b/i.test(sql), false);
+  const statements = sql
+    .split(/;\s*(?:\r?\n|$)/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  assert.equal(statements.length, 4);
+  assert.match(sql, /create table if not exists chat_report/);
+  assert.match(sql, /create table if not exists chat_audit/);
+  assert.match(sql, /create table if not exists chat_blockword/);
+  assert.match(sql, /if not exists chat_report_open_idx/);
+});
+
 test("chat migration avoids words toSqlite rewrites", () => {
   const sql = readFileSync("migrations/0004_chat.sql", "utf8");
   assert.equal(/\bdate\b/i.test(sql), false);

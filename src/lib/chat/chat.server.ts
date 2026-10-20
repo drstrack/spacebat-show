@@ -1,6 +1,8 @@
 import { dbSource, getSql, type Sql } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth/verify.server";
+import { containsBlockedWord } from "@/lib/chat/blockwords";
 import { canPost, normalizeBody, POST_WINDOW_MS, validateHandle } from "@/lib/chat/limits";
+import { activeBlockwords } from "@/lib/chat/moderation.server";
 import { CHAT_RULES_VERSION } from "@/lib/chat/rules";
 import type { ChatList, ChatListItem, ChatMe, ChatMember, ChatMessage } from "@/lib/chat/types";
 
@@ -20,6 +22,7 @@ type MemberRow = {
 
 type MessageRow = {
   id: number | string | bigint;
+  user_id: string | null;
   kind: string;
   body: string | null;
   created_ms: number | string | bigint;
@@ -47,10 +50,12 @@ function isMuted(row: MemberRow, now: number): boolean {
 }
 
 function toMember(row: MemberRow, now = Date.now()): ChatMember {
+  const muted = isMuted(row, now);
   return {
     handle: row.handle,
     rulesAccepted: rulesAccepted(row),
-    muted: isMuted(row, now),
+    muted,
+    mutedUntilMs: muted ? num(row.muted_until_ms) : null,
     banned: isBanned(row),
   };
 }
@@ -101,11 +106,11 @@ function isUniqueViolation(err: unknown): boolean {
   return code === "23505" || /unique|SQLITE_CONSTRAINT/i.test(message);
 }
 
-function toListItem(row: MessageRow): ChatListItem {
+function toListItem(row: MessageRow, isAdmin: boolean): ChatListItem {
   const id = num(row.id);
   if (row.deleted_ms != null) return { id, deleted: true };
   const kind = row.kind === "system" ? "system" : "text";
-  return {
+  const message: ChatMessage = {
     id,
     handle: row.handle?.trim() || (kind === "system" ? "SpaceBat" : "Listener"),
     body: row.body ?? "",
@@ -113,11 +118,14 @@ function toListItem(row: MessageRow): ChatListItem {
     kind,
     mine: row.mine === true || num(row.mine) === 1,
   };
+  if (isAdmin && row.user_id) message.authorId = row.user_id;
+  return message;
 }
 
 const MESSAGE_SELECT = `
   select
     m.id,
+    m.user_id,
     m.kind,
     case when m.deleted_ms is null then m.body else null end as body,
     m.created_ms,
@@ -186,9 +194,12 @@ export async function listChat(
 ): Promise<ChatList> {
   const sql = await getSql();
   await requireReader(sql, userId);
-  const rows = await readMessages(sql, userId, input);
+  const [rows, isAdmin] = await Promise.all([
+    readMessages(sql, userId, input),
+    callerIsAdmin(sql, userId),
+  ]);
   return {
-    messages: rows.map(toListItem),
+    messages: rows.map((row) => toListItem(row, isAdmin)),
     nextPollMs: NEXT_POLL_MS,
     live: null,
   };
@@ -231,6 +242,8 @@ export async function postChat(
   if (isMuted(member, now)) throw new Error("You're muted.");
   const normalized = normalizeBody(input.body);
   if (!normalized.ok) throw new Error(normalized.error);
+  const blocked = containsBlockedWord(normalized.body, await activeBlockwords(sql));
+  if (blocked) throw new Error("That message can't be posted.");
 
   const [lastRows, countRows] = await Promise.all([
     sql<{ created_ms: number | string | bigint | null }>`

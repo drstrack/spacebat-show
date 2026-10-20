@@ -60,6 +60,11 @@ function AdminPage() {
         New accounts are listeners. They choose podcast alerts, the newsletter, and merch
         drops. spacebatshow@gmail.com stays the admin.
       </p>
+      <p className="mt-4">
+        <Link to="/admin/chat" className="font-display text-2xl tracking-wide text-crimson hover:underline">
+          SpaceBat Chat
+        </Link>
+      </p>
       <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map(([label, value]) => (
           <div key={label} className="panel p-4">

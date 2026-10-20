@@ -2,9 +2,23 @@
 export const CHAT_RULES_VERSION = 1;
 
 /**
- * Daniel decides the final age wording. The room shows this line as written.
+ * PLACEHOLDER — Daniel has not set the age minimum.
+ * Default: 13+. The room shows `AGE_POLICY` as written.
  */
+export const AGE_MINIMUM = 13;
 export const AGE_POLICY = "You must be 13 or older to join.";
+
+/**
+ * PLACEHOLDER — Daniel has not set retention.
+ * Default: keep every message. Nothing here hard-deletes rows.
+ */
+export const CHAT_HISTORY_RETENTION = "keep-all" as const;
+
+/**
+ * PLACEHOLDER — Daniel has not set who moderates.
+ * Default: only `member_profile.role = 'admin'`.
+ */
+export const CHAT_MODERATORS = "admins-only" as const;
 
 export const CHAT_RULES = [
   "Be decent: no harassment, hate or threats.",

@@ -16,6 +16,7 @@ import {
 import { MAX_BODY_LENGTH, normalizeBody, validateHandle } from "@/lib/chat/limits";
 import { CHAT_RULES } from "@/lib/chat/rules";
 import { isRemoved } from "@/lib/chat/types";
+import { MessageMenu } from "@/components/chat/message-actions";
 
 const DEFAULT_POLL_MS = 4_000;
 const IDLE_POLL_MS = 15_000;
@@ -44,6 +45,7 @@ type FeedRow =
       createdMs: number;
       kind: "text" | "system";
       mine: boolean;
+      authorId?: string;
     };
 
 function errorText(err: unknown, fallback: string): string {
@@ -85,6 +87,7 @@ function toFeedRow(item: ChatListItem): FeedRow {
     createdMs: item.createdMs,
     kind: item.kind,
     mine: item.mine,
+    authorId: item.authorId,
   };
 }
 
@@ -129,6 +132,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   const [joining, setJoining] = useState(false);
   const [formError, setFormError] = useState("");
   const [sendError, setSendError] = useState("");
+  const [notice, setNotice] = useState("");
   const [reconnecting, setReconnecting] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [hasEarlier, setHasEarlier] = useState(false);
@@ -258,10 +262,21 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
           failures = 0;
           setReconnecting(false);
           setFormError("");
+          void getChatMe()
+            .then((next) => {
+              if (stopped) return;
+              setMe(next);
+              if (next.member?.banned) setPhase("banned");
+            })
+            .catch(() => undefined);
         } catch (err) {
           if (stopped) return;
           if (isUnauthorized(err)) {
             setPhase("signedOut");
+            return;
+          }
+          if (errorText(err, "") === "You can't post in the room.") {
+            setPhase("banned");
             return;
           }
           failures += 1;
@@ -407,11 +422,29 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
       setRows((current) => current.filter((row) => !(row.pending && row.nonce === nonce)));
       setDraft((current) => current || normalized.body);
       if (isUnauthorized(err)) setPhase("signedOut");
-      else setSendError(errorText(err, "Couldn’t send that."));
+      else {
+        setSendError(errorText(err, "Couldn’t send that."));
+        if (errorText(err, "") === "You're muted.") {
+          void getChatMe()
+            .then((next) => {
+              setMe(next);
+              if (next.member?.banned) setPhase("banned");
+            })
+            .catch(() => undefined);
+        }
+      }
     } finally {
       sendingRef.current = false;
       setSending(false);
     }
+  }
+
+  function markRemoved(id: number) {
+    setRows((current) =>
+      current.map((row) =>
+        !row.pending && row.id === id ? { key: row.key, pending: false, id, deleted: true } : row,
+      ),
+    );
   }
 
   async function onDelete(id: number) {
@@ -452,7 +485,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
     <section className={shell}>
       <header className={layout === "popout" ? "border-b-4 border-ink px-4 py-3" : ""}>
         <p className="caption-box">The room</p>
-        <h1 className="mt-3 font-display text-5xl leading-none tracking-wide">Chat</h1>
+        <h1 className="mt-3 font-display text-5xl leading-none tracking-wide">SpaceBat Chat</h1>
         <p className="mt-2 text-sm text-muted">
           Listeners only. Plain text, and new posts show up every few seconds.
         </p>
@@ -561,7 +594,15 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
               ) : null}
               {formError ? <p className="text-sm text-crimson">{formError}</p> : null}
               {rows.map((row) => (
-                <MessageRow key={row.key} row={row} onDelete={(id) => void onDelete(id)} />
+                <MessageRow
+                  key={row.key}
+                  row={row}
+                  isAdmin={Boolean(me?.isAdmin)}
+                  onDelete={(id) => void onDelete(id)}
+                  onRemove={markRemoved}
+                  onError={setSendError}
+                  onNotice={setNotice}
+                />
               ))}
             </div>
             {showNew ? (
@@ -575,8 +616,12 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
             ) : null}
           </div>
 
+          {me?.member?.muted ? (
+            <p className="mt-3 border-4 border-ink bg-surface px-4 py-4 text-base">
+              You're muted until {formatChatTime(me.member.mutedUntilMs ?? Date.now())}.
+            </p>
+          ) : (
           <form onSubmit={onSend} className="mt-3">
-            {me?.member?.muted ? <p className="mb-2 text-sm text-ink">You’re muted.</p> : null}
             {reconnecting ? <p className="mb-2 text-sm text-muted">Reconnecting…</p> : null}
             <label className="block">
               <span className="sr-only">Message</span>
@@ -609,15 +654,37 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
                 {sending ? "Sending" : "Send"}
               </Button>
             </div>
+            {notice ? <p className="mt-2 text-sm text-ink">{notice}</p> : null}
             {sendError ? <p className="mt-2 text-sm text-crimson">{sendError}</p> : null}
           </form>
+          )}
+          {me?.member?.muted && (notice || sendError) ? (
+            <div className="mt-2">
+              {notice ? <p className="text-sm text-ink">{notice}</p> : null}
+              {sendError ? <p className="text-sm text-crimson">{sendError}</p> : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
   );
 }
 
-function MessageRow({ row, onDelete }: { row: FeedRow; onDelete: (id: number) => void }) {
+function MessageRow({
+  row,
+  isAdmin,
+  onDelete,
+  onRemove,
+  onError,
+  onNotice,
+}: {
+  row: FeedRow;
+  isAdmin: boolean;
+  onDelete: (id: number) => void;
+  onRemove: (id: number) => void;
+  onError: (message: string) => void;
+  onNotice: (message: string) => void;
+}) {
   if (row.pending) {
     return (
       <article className="border-2 border-dashed border-ink/40 px-3 py-2">
@@ -651,6 +718,16 @@ function MessageRow({ row, onDelete }: { row: FeedRow; onDelete: (id: number) =>
         >
           Delete
         </button>
+      ) : null}
+      {!row.mine && row.kind === "text" ? (
+        <MessageMenu
+          messageId={row.id}
+          authorId={row.authorId}
+          isAdmin={isAdmin}
+          onRemove={() => onRemove(row.id)}
+          onError={onError}
+          onNotice={onNotice}
+        />
       ) : null}
     </article>
   );
