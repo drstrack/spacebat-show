@@ -1,4 +1,5 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
+import { bindLibsql } from "./sql-bind";
 import { pickTursoKeys } from "./turso-keys";
 
 /** Which database backend is active. */
@@ -25,10 +26,8 @@ export const tursoConfig = findTurso();
 
 // An empty/whitespace DATABASE_URL (an easy misconfig in deploy UIs) must mean
 // "unset" — otherwise production would silently run on the PGLite fallback.
-const rawDatabaseUrl =
-  typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
-const databaseUrl =
-  rawDatabaseUrl && rawDatabaseUrl.trim() ? rawDatabaseUrl : undefined;
+const rawDatabaseUrl = typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
+const databaseUrl = rawDatabaseUrl && rawDatabaseUrl.trim() ? rawDatabaseUrl : undefined;
 
 /**
  * Active backend: **Turso** when a marketplace `TURSO_DATABASE_URL` pair is set,
@@ -45,14 +44,8 @@ export const dbSource: DbSource = tursoConfig ? "turso" : databaseUrl ? "neon" :
  *   const rows2 = await sql.query("select * from todos where id = $1", [id]);
  */
 export interface Sql {
-  <T = Record<string, unknown>>(
-    strings: TemplateStringsArray,
-    ...values: unknown[]
-  ): Promise<T[]>;
-  query<T = Record<string, unknown>>(
-    text: string,
-    params?: unknown[],
-  ): Promise<T[]>;
+  <T = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T[]>;
+  query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
 }
 
 /**
@@ -160,9 +153,7 @@ async function createPgliteSql(): Promise<Sql> {
       import: "default",
       eager: true,
     }) as Record<string, string>;
-    const doneRows = await pg.query<{ name: string }>(
-      "select name from _migrations",
-    );
+    const doneRows = await pg.query<{ name: string }>("select name from _migrations");
     const done = doneRows.rows.map((r) => r.name);
     for (const { name, path } of pendingMigrations(Object.keys(migrations), done)) {
       // Apply + record atomically (parity with scripts/migrate.mjs) so a failed
@@ -205,7 +196,10 @@ function sqlStatements(sqlText: string): string[] {
   return sqlText
     .split(/;\s*(?:\r?\n|$)/)
     .map((part) => part.trim())
-    .filter((part) => part && !part.split("\n").every((line) => !line.trim() || line.trim().startsWith("--")));
+    .filter(
+      (part) =>
+        part && !part.split("\n").every((line) => !line.trim() || line.trim().startsWith("--")),
+    );
 }
 
 async function createTursoSql(): Promise<Sql> {
@@ -229,16 +223,8 @@ async function createTursoSql(): Promise<Sql> {
     await client.execute({ sql: "insert into _migrations (name) values (?)", args: [name] });
   }
   return toSql(async <T>(text: string, params: unknown[]) => {
-    const result = await client.execute({
-      sql: text.replace(/\$\d+/g, "?"),
-      args: params.map((value) => {
-        if (value === undefined || value === null) return null;
-        if (typeof value === "boolean") return value ? 1 : 0;
-        if (value instanceof Date) return value.toISOString();
-        if (typeof value === "number" || typeof value === "string" || typeof value === "bigint") return value;
-        return String(value);
-      }),
-    });
+    const bound = bindLibsql(text, params);
+    const result = await client.execute({ sql: bound.sql, args: bound.args });
     return result.rows as unknown as T[];
   });
 }
@@ -250,7 +236,11 @@ async function createSql(): Promise<Sql> {
         "or a server route loader, never from client code.",
     );
   }
-  return dbSource === "turso" ? createTursoSql() : dbSource === "neon" ? createNeonSql() : createPgliteSql();
+  return dbSource === "turso"
+    ? createTursoSql()
+    : dbSource === "neon"
+      ? createNeonSql()
+      : createPgliteSql();
 }
 
 /**

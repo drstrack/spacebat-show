@@ -6,6 +6,8 @@ import { POST_GAP_MS, POST_WINDOW_MAX, POST_WINDOW_MS } from "./limits.ts";
  * the insert; a gap of exactly 3000ms is allowed (`>` not `>=`).
  *
  * $1 room, $2 user id, $3 body, $4 created_ms, $5 gap floor, $6 window floor, $7 max.
+ * $1 and $2 are repeated. Postgres allows that. libSQL does not, so the Turso
+ * path expands each occurrence in `bindLibsql`.
  */
 export const POST_INSERT_SQL = `
 insert into chat_message (room, user_id, kind, body, created_ms)
