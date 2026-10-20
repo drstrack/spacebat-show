@@ -210,11 +210,20 @@ export function MessageMenu({
               className="fixed z-50 flex max-h-[min(70vh,24rem)] min-w-36 flex-col overflow-y-auto border-4 border-ink bg-paper p-1 shadow-[4px_4px_0_0_var(--color-ink)]"
               style={
                 menuBox
-                  ? { top: menuBox.top, left: menuBox.left, maxHeight: menuBox.maxHeight }
-                  : { top: 0, left: 0, visibility: "hidden" }
+                  ? {
+                      top: menuBox.top,
+                      left: menuBox.left,
+                      maxHeight: menuBox.maxHeight,
+                      backgroundColor: "var(--color-paper)",
+                    }
+                  : {
+                      top: 0,
+                      left: 0,
+                      visibility: "hidden",
+                      backgroundColor: "var(--color-paper)",
+                    }
               }
             >
-              ,
               <button
                 type="button"
                 className="px-2 py-1 text-left text-sm hover:bg-caption"

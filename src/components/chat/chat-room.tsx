@@ -15,6 +15,7 @@ import {
   type ChatListItem,
   type ChatMe,
 } from "@/lib/chat/chat.functions";
+import type { GifHit } from "@/lib/chat/gifs.functions";
 import { MAX_BODY_LENGTH, normalizeBody, validateHandle } from "@/lib/chat/limits";
 import { CHAT_RULES } from "@/lib/chat/rules";
 import { EmojiPicker } from "@/components/chat/emoji-picker";
@@ -139,6 +140,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   const [handle, setHandle] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [draft, setDraft] = useState("");
+  const [gifReady, setGifReady] = useState<GifHit | null>(null);
   const [sending, setSending] = useState(false);
   const [joining, setJoining] = useState(false);
   const [formError, setFormError] = useState("");
@@ -317,7 +319,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
             stickRef.current = true;
             setRows((current) =>
               mergeRows(
-                current.filter((row) => row.pending),
+                current.filter((row) => row.pending || row.id > newest),
                 result.messages,
               ),
             );
@@ -461,10 +463,10 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
     }
   }
 
-  async function onSend(event: FormEvent) {
-    event.preventDefault();
+  async function submitDraft() {
     if (sendingRef.current || me?.member?.muted) return;
-    const normalized = normalizeBody(draft);
+    const raw = draftRef.current?.value ?? draft;
+    const normalized = normalizeBody(raw);
     if (!normalized.ok) {
       setSendError(normalized.error);
       return;
@@ -482,7 +484,6 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
     setSending(true);
     setSendError("");
     stickRef.current = true;
-    setDraft("");
     setRows((current) => [...current, optimistic]);
     try {
       const saved = await postChat({ data: { body: normalized.body, nonce } });
@@ -493,9 +494,10 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
           [saved],
         ),
       );
+      setDraft((current) => (current === raw ? "" : current));
+      setGifReady(null);
     } catch (err) {
       setRows((current) => current.filter((row) => !(row.pending && row.nonce === nonce)));
-      setDraft((current) => current || normalized.body);
       if (isUnauthorized(err)) setPhase("signedOut");
       else {
         setSendError(errorText(err, "Couldn’t send that."));
@@ -512,6 +514,11 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
       sendingRef.current = false;
       setSending(false);
     }
+  }
+
+  function onSend(event: FormEvent) {
+    event.preventDefault();
+    void submitDraft();
   }
 
   function markRemoved(id: number) {
@@ -584,10 +591,9 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   }
 
   function onDraftKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-      event.preventDefault();
-      event.currentTarget.form?.requestSubmit();
-    }
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    void submitDraft();
   }
 
   const counted = normalizeBody(draft);
@@ -612,7 +618,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   const shell =
     layout === "popout"
       ? "flex h-dvh min-h-0 w-full flex-col overflow-x-hidden bg-paper"
-      : "mx-auto flex w-full max-w-3xl flex-col px-4 py-6 sm:px-6 sm:py-8";
+      : "mx-auto flex w-full min-w-0 max-w-3xl flex-col overflow-x-clip px-4 py-6 sm:px-6 sm:py-8";
 
   return (
     <section className={shell}>
@@ -743,8 +749,8 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
         <div
           className={
             layout === "popout"
-              ? "flex min-h-0 flex-1 flex-col"
-              : "mt-4 flex h-[min(42rem,calc(100dvh-14rem))] flex-col"
+              ? "flex min-h-0 min-w-0 flex-1 flex-col"
+              : "mt-4 flex h-[min(42rem,calc(100dvh-14rem))] min-w-0 flex-col"
           }
         >
           {layout === "page" && live?.isLive ? (
@@ -759,7 +765,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
             <div
               ref={scrollerRef}
               onScroll={onScroll}
-              className="h-full space-y-3 overflow-y-auto px-3 py-3"
+              className="h-full min-w-0 space-y-3 overflow-x-hidden overflow-y-auto px-3 py-3"
               style={{ overflowAnchor: "none" }}
               role="log"
               aria-live="polite"
@@ -818,9 +824,19 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
               You're muted until {formatChatTime(me.member.mutedUntilMs ?? Date.now())}.
             </p>
           ) : (
-            <form data-chat-composer="" onSubmit={onSend} className="mt-3">
+            <form data-chat-composer="" onSubmit={onSend} className="mt-3 min-w-0">
               {reconnecting ? <p className="mb-2 text-sm text-muted">Reconnecting…</p> : null}
-              <label className="block">
+              {gifReady && draft.includes(`https://i.giphy.com/${gifReady.id}.gif`) ? (
+                <div className="mb-2 flex items-center gap-3 border-4 border-ink bg-caption px-3 py-2">
+                  <img
+                    src={gifReady.preview}
+                    alt=""
+                    className="size-14 shrink-0 border-2 border-ink object-cover"
+                  />
+                  <p className="font-display text-base tracking-wide">GIF ready, press Send</p>
+                </div>
+              ) : null}
+              <label className="block min-w-0">
                 <span className="sr-only">Message</span>
                 <textarea
                   ref={draftRef}
@@ -839,7 +855,15 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
               <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <EmojiPicker onInsert={insertDraft} />
-                  {me?.gifSearch ? <GifPicker onInsert={insertDraft} /> : null}
+                  {me?.gifSearch ? (
+                    <GifPicker
+                      onInsert={insertDraft}
+                      onPicked={(hit) => {
+                        setGifReady(hit);
+                        setSendError("");
+                      }}
+                    />
+                  ) : null}
                   <button
                     type="button"
                     aria-pressed={showImages}

@@ -2,7 +2,8 @@ import { dbSource, getSql, type Sql } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { containsBlockedWord } from "@/lib/chat/blockwords";
 import { gifSearchEnabled } from "@/lib/chat/gifs.server";
-import { canPost, normalizeBody, POST_WINDOW_MS, validateHandle } from "@/lib/chat/limits";
+import { normalizeBody, validateHandle } from "@/lib/chat/limits";
+import { POST_INSERT_SQL, postInsertParams } from "@/lib/chat/post-insert";
 import { refreshLive } from "@/lib/chat/live.server";
 import { CHAT_NEW_MEMBER_LINK_DELAY_MIN, countUrls, MAX_URLS_PER_MESSAGE } from "@/lib/chat/render";
 import { activeBlockwords } from "@/lib/chat/moderation.server";
@@ -271,32 +272,15 @@ export async function postChat(
     }
   }
 
-  const [lastRows, countRows] = await Promise.all([
-    sql<{ created_ms: number | string | bigint | null }>`
-      select max(created_ms) as created_ms
-      from chat_message
-      where user_id = ${userId} and room = ${ROOM} and kind = 'text'
-    `,
-    sql<{ n: number | string | bigint }>`
-      select count(*) as n
-      from chat_message
-      where user_id = ${userId} and room = ${ROOM} and kind = 'text'
-        and created_ms > ${now - POST_WINDOW_MS}
-    `,
-  ]);
-  const lastValue = lastRows[0]?.created_ms;
-  const lastMs = lastValue == null ? null : num(lastValue);
-  const count = num(countRows[0]?.n);
-  if (!canPost(lastMs, count, now)) throw new Error("Slow down a sec.");
-
+  // Same timestamp is stored and compared, so a 3000ms gap is allowed and
+  // anything shorter is refused. See POST_INSERT_SQL.
   const createdMs = Date.now();
-  const inserted = await sql<{ id: number | string | bigint }>`
-    insert into chat_message (room, user_id, kind, body, created_ms)
-    values (${ROOM}, ${userId}, 'text', ${normalized.body}, ${createdMs})
-    returning id
-  `;
+  const inserted = await sql.query<{ id: number | string | bigint }>(
+    POST_INSERT_SQL,
+    postInsertParams(ROOM, userId, normalized.body, createdMs),
+  );
   const id = num(inserted[0]?.id);
-  if (!id) throw new Error("Couldn’t send that.");
+  if (!id) throw new Error("Slow down a sec.");
   return {
     id,
     handle: member.handle,

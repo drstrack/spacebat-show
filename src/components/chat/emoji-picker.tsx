@@ -148,7 +148,7 @@ export function EmojiPicker({ onInsert }: { onInsert: (text: string) => void }) 
           ref={panelRef}
           role="dialog"
           aria-label="Emoji"
-          className="absolute bottom-full left-0 z-30 mb-2 w-[min(18rem,calc(100vw-2rem))] border-4 border-ink bg-paper p-2 shadow-[4px_4px_0_0_var(--color-ink)]"
+          className="z-30 border-4 border-ink bg-paper p-2 shadow-[4px_4px_0_0_var(--color-ink)] max-[480px]:fixed max-[480px]:inset-x-3 max-[480px]:bottom-3 max-[480px]:max-h-[min(70dvh,28rem)] max-[480px]:overflow-y-auto min-[481px]:absolute min-[481px]:bottom-full min-[481px]:left-0 min-[481px]:mb-2 min-[481px]:w-[18rem]"
           onKeyDown={onGridKey}
         >
           <div role="tablist" aria-label="Emoji groups" className="flex flex-wrap gap-1">

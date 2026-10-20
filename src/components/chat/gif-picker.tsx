@@ -10,7 +10,13 @@ function errorText(err: unknown): string {
   return "GIF search is unavailable.";
 }
 
-export function GifPicker({ onInsert }: { onInsert: (text: string) => void }) {
+export function GifPicker({
+  onInsert,
+  onPicked,
+}: {
+  onInsert: (text: string) => void;
+  onPicked?: (hit: GifHit) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<GifHit[]>([]);
@@ -87,7 +93,7 @@ export function GifPicker({ onInsert }: { onInsert: (text: string) => void }) {
           ref={panelRef}
           role="dialog"
           aria-label="GIF search"
-          className="absolute bottom-full left-0 z-30 mb-2 w-[min(22rem,calc(100vw-2rem))] border-4 border-ink bg-paper p-2 shadow-[4px_4px_0_0_var(--color-ink)]"
+          className="z-30 border-4 border-ink bg-paper p-2 shadow-[4px_4px_0_0_var(--color-ink)] max-[480px]:fixed max-[480px]:inset-x-3 max-[480px]:bottom-3 max-[480px]:max-h-[min(70dvh,28rem)] max-[480px]:overflow-y-auto min-[481px]:absolute min-[481px]:bottom-full min-[481px]:left-0 min-[481px]:mb-2 min-[481px]:w-[22rem]"
         >
           <div className="flex gap-2">
             <label className="min-w-0 flex-1">
@@ -122,8 +128,8 @@ export function GifPicker({ onInsert }: { onInsert: (text: string) => void }) {
                 className="border-2 border-ink/30 bg-ivory"
                 onClick={() => {
                   onInsert(`https://i.giphy.com/${hit.id}.gif `);
+                  onPicked?.(hit);
                   setOpen(false);
-                  triggerRef.current?.focus();
                 }}
               >
                 <img
