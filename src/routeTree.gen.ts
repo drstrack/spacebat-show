@@ -19,6 +19,10 @@ import { Route as MerchRouteImport } from './routes/merch'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StoryRouteImport } from './routes/story'
 import { Route as SubscribeRouteImport } from './routes/subscribe'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminChatRouteImport } from './routes/admin.chat'
+import { Route as ChatIndexRouteImport } from './routes/chat.index'
+import { Route as ChatPopoutRouteImport } from './routes/chat.popout'
 import { Route as EpisodesIndexRouteImport } from './routes/episodes.index'
 import { Route as EpisodesSlugRouteImport } from './routes/episodes.$slug'
 import { Route as PodcastIndexRouteImport } from './routes/podcast.index'
@@ -76,6 +80,26 @@ const SubscribeRoute = SubscribeRouteImport.update({
   path: '/subscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminChatRoute = AdminChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => AdminRoute,
+} as any)
+const ChatIndexRoute = ChatIndexRouteImport.update({
+  id: '/chat/',
+  path: '/chat/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatPopoutRoute = ChatPopoutRouteImport.update({
+  id: '/chat/popout',
+  path: '/chat/popout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EpisodesIndexRoute = EpisodesIndexRouteImport.update({
   id: '/episodes/',
   path: '/episodes/',
@@ -110,7 +134,7 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/hosts': typeof HostsRoute
   '/listen': typeof ListenRoute
   '/login': typeof LoginRoute
@@ -118,8 +142,12 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
+  '/admin/chat': typeof AdminChatRoute
+  '/chat/popout': typeof ChatPopoutRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
+  '/admin/': typeof AdminIndexRoute
+  '/chat/': typeof ChatIndexRoute
   '/episodes/': typeof EpisodesIndexRoute
   '/podcast/': typeof PodcastIndexRoute
   '/api/alerts/run': typeof ApiAlertsRunRoute
@@ -128,7 +156,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
-  '/admin': typeof AdminRoute
   '/hosts': typeof HostsRoute
   '/listen': typeof ListenRoute
   '/login': typeof LoginRoute
@@ -136,8 +163,12 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
+  '/admin/chat': typeof AdminChatRoute
+  '/chat/popout': typeof ChatPopoutRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
+  '/admin': typeof AdminIndexRoute
+  '/chat': typeof ChatIndexRoute
   '/episodes': typeof EpisodesIndexRoute
   '/podcast': typeof PodcastIndexRoute
   '/api/alerts/run': typeof ApiAlertsRunRoute
@@ -147,7 +178,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/hosts': typeof HostsRoute
   '/listen': typeof ListenRoute
   '/login': typeof LoginRoute
@@ -155,8 +186,12 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
+  '/admin/chat': typeof AdminChatRoute
+  '/chat/popout': typeof ChatPopoutRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
+  '/admin/': typeof AdminIndexRoute
+  '/chat/': typeof ChatIndexRoute
   '/episodes/': typeof EpisodesIndexRoute
   '/podcast/': typeof PodcastIndexRoute
   '/api/alerts/run': typeof ApiAlertsRunRoute
@@ -175,8 +210,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/story'
     | '/subscribe'
+    | '/admin/chat'
+    | '/chat/popout'
     | '/episodes/$slug'
     | '/podcast/$slug'
+    | '/admin/'
+    | '/chat/'
     | '/episodes/'
     | '/podcast/'
     | '/api/alerts/run'
@@ -185,7 +224,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/account'
-    | '/admin'
     | '/hosts'
     | '/listen'
     | '/login'
@@ -193,8 +231,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/story'
     | '/subscribe'
+    | '/admin/chat'
+    | '/chat/popout'
     | '/episodes/$slug'
     | '/podcast/$slug'
+    | '/admin'
+    | '/chat'
     | '/episodes'
     | '/podcast'
     | '/api/alerts/run'
@@ -211,8 +253,12 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/story'
     | '/subscribe'
+    | '/admin/chat'
+    | '/chat/popout'
     | '/episodes/$slug'
     | '/podcast/$slug'
+    | '/admin/'
+    | '/chat/'
     | '/episodes/'
     | '/podcast/'
     | '/api/alerts/run'
@@ -222,7 +268,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   HostsRoute: typeof HostsRoute
   ListenRoute: typeof ListenRoute
   LoginRoute: typeof LoginRoute
@@ -230,8 +276,10 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   StoryRoute: typeof StoryRoute
   SubscribeRoute: typeof SubscribeRoute
+  ChatPopoutRoute: typeof ChatPopoutRoute
   EpisodesSlugRoute: typeof EpisodesSlugRoute
   PodcastSlugRoute: typeof PodcastSlugRoute
+  ChatIndexRoute: typeof ChatIndexRoute
   EpisodesIndexRoute: typeof EpisodesIndexRoute
   PodcastIndexRoute: typeof PodcastIndexRoute
   ApiAlertsRunRoute: typeof ApiAlertsRunRoute
@@ -310,6 +358,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/chat': {
+      id: '/admin/chat'
+      path: '/chat'
+      fullPath: '/admin/chat'
+      preLoaderRoute: typeof AdminChatRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/chat/': {
+      id: '/chat/'
+      path: '/chat'
+      fullPath: '/chat/'
+      preLoaderRoute: typeof ChatIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat/popout': {
+      id: '/chat/popout'
+      path: '/chat/popout'
+      fullPath: '/chat/popout'
+      preLoaderRoute: typeof ChatPopoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/episodes/': {
       id: '/episodes/'
       path: '/episodes'
@@ -355,10 +431,22 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteChildren {
+  AdminChatRoute: typeof AdminChatRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminChatRoute: AdminChatRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   HostsRoute: HostsRoute,
   ListenRoute: ListenRoute,
   LoginRoute: LoginRoute,
@@ -366,8 +454,10 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   StoryRoute: StoryRoute,
   SubscribeRoute: SubscribeRoute,
+  ChatPopoutRoute: ChatPopoutRoute,
   EpisodesSlugRoute: EpisodesSlugRoute,
   PodcastSlugRoute: PodcastSlugRoute,
+  ChatIndexRoute: ChatIndexRoute,
   EpisodesIndexRoute: EpisodesIndexRoute,
   PodcastIndexRoute: PodcastIndexRoute,
   ApiAlertsRunRoute: ApiAlertsRunRoute,

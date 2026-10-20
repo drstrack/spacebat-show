@@ -6,7 +6,7 @@ import { feedIsLive, parseChapters, parsePublishedEpisodes } from "@/lib/podcast
 let cache: { at: number; episodes: Episode[]; live: boolean } | null = null;
 const TTL_MS = 60_000;
 
-async function readFeed() {
+export async function readFeed() {
   const now = Date.now();
   if (cache && now - cache.at < TTL_MS) return cache;
   const res = await fetch(show.feedUrl, {
