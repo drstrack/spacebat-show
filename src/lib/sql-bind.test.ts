@@ -2,12 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createClient } from "@libsql/client";
 import { POST_GAP_MS } from "./chat/limits.ts";
-import {
-  POST_INSERT_SQL,
-  postInsertParams,
-  rateDecision,
-  rateSnapshotSql,
-} from "./chat/post-insert.ts";
+import { postAttemptSql, rateDecision, rateSnapshotSql } from "./chat/post-insert.ts";
 import { bindLibsql } from "./sql-bind.ts";
 
 describe("bindLibsql", () => {
@@ -50,29 +45,22 @@ describe("bindLibsql", () => {
     const room = "main";
     const user = "user-1";
     const t0 = 1_792_530_127_968;
+    const attempt = postAttemptSql("sqlite", "cast($4 as integer)");
 
-    async function insert(body: string, createdMs: number, lastMs: number | null) {
-      const decision = rateDecision([{ created_ms: lastMs, now_ms: createdMs }]);
-      if (decision.waitMs != null) return null;
-      const bound = bindLibsql(
-        POST_INSERT_SQL,
-        postInsertParams(room, user, body, createdMs, lastMs),
-      );
-      assert.equal(bound.args.length, 10);
-      assert.equal(bound.args[3], BigInt(createdMs));
-      const lastArg = lastMs == null ? null : BigInt(lastMs);
-      assert.equal(bound.args[4], lastArg);
-      assert.equal(bound.args[9], lastArg);
+    async function insert(body: string, nowMs: number) {
+      const bound = bindLibsql(attempt, [room, user, body, nowMs]);
+      assert.equal(bound.args.length, bound.sql.split("?").length - 1);
+      assert.equal(bound.args.filter((arg) => arg === BigInt(nowMs)).length, 1);
       const result = await db.execute({ sql: bound.sql, args: bound.args });
       const id = result.rows[0]?.id;
       return id == null ? null : Number(id);
     }
 
-    assert.ok(await insert("one", t0, null));
-    assert.equal(await insert("early", t0 + POST_GAP_MS - 1, t0), null);
-    assert.ok(await insert("two", t0 + POST_GAP_MS, t0));
-    assert.ok(await insert("three", t0 + POST_GAP_MS * 2, t0 + POST_GAP_MS));
-    assert.ok(await insert("four", t0 + 4_000 + 6_000, t0 + POST_GAP_MS * 2));
+    assert.ok(await insert("one", t0));
+    assert.equal(await insert("early", t0 + POST_GAP_MS - 1), null);
+    assert.ok(await insert("two", t0 + POST_GAP_MS));
+    assert.ok(await insert("three", t0 + POST_GAP_MS * 2));
+    assert.ok(await insert("four", t0 + 10_000));
 
     const kept = await db.execute(
       "select body, created_ms, typeof(created_ms) as stored from chat_message order by created_ms asc",
@@ -87,12 +75,40 @@ describe("bindLibsql", () => {
       ],
     );
 
-    const raced = bindLibsql(
-      POST_INSERT_SQL,
-      postInsertParams(room, user, "race", t0 + 20_000, null),
-    );
+    const raced = bindLibsql(attempt, [room, user, "race", t0 + 10_000]);
     const lost = await db.execute({ sql: raced.sql, args: raced.args });
     assert.equal(lost.rows.length, 0);
+
+    const liveUser = "user-live";
+    const liveInsert = bindLibsql(postAttemptSql("sqlite"), [room, liveUser, "live-1"]);
+    const liveLook = bindLibsql(rateSnapshotSql("sqlite"), [liveUser, room]);
+    const [firstSaved] = await db.batch(
+      [
+        { sql: liveInsert.sql, args: liveInsert.args },
+        { sql: liveLook.sql, args: liveLook.args },
+      ],
+      "write",
+    );
+    assert.equal(firstSaved.rows.length, 1);
+    const againInsert = bindLibsql(postAttemptSql("sqlite"), [room, liveUser, "live-2"]);
+    const [secondSaved, secondRated] = await db.batch(
+      [
+        { sql: againInsert.sql, args: againInsert.args },
+        { sql: liveLook.sql, args: liveLook.args },
+      ],
+      "write",
+    );
+    assert.equal(secondSaved.rows.length, 0);
+    const refused = rateDecision(
+      secondRated.rows.map((row) => ({ created_ms: row.created_ms, now_ms: row.now_ms })),
+    );
+    assert.ok(refused.waitMs != null && refused.waitMs <= POST_GAP_MS);
+    assert.equal(refused.lastMs, Number(firstSaved.rows[0]?.created_ms));
+    const liveKept = await db.execute({
+      sql: "select count(*) as n from chat_message where user_id = ?",
+      args: [liveUser],
+    });
+    assert.equal(Number(liveKept.rows[0]?.n), 1);
 
     const snap = bindLibsql(rateSnapshotSql("sqlite"), [user, room]);
     const clock = await db.execute({ sql: snap.sql, args: snap.args });

@@ -2,13 +2,12 @@ import { dbSource, getSql, type Sql } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { containsBlockedWord } from "@/lib/chat/blockwords";
 import { gifSearchEnabled } from "@/lib/chat/gifs.server";
-import { normalizeBody, slowDownMessage, validateHandle } from "@/lib/chat/limits";
+import { normalizeBody, rateDebug, slowDownMessage, validateHandle } from "@/lib/chat/limits";
 import {
-  PLAIN_INSERT_SQL,
-  postInsertParams,
-  postInsertSql,
+  postAttemptSql,
   rateDecision,
   rateSnapshotSql,
+  type RateDecision,
   type RateRow,
 } from "@/lib/chat/post-insert";
 import { refreshLive } from "@/lib/chat/live.server";
@@ -279,54 +278,49 @@ export async function postChat(
     }
   }
 
-  // The clock is the database's, not this isolate's Date.now(). The gap and the
-  // per-minute cap are applied to that reading in rateDecision.
+  // One write batch. The INSERT reads the database clock and stores that same
+  // value, so a replica or another isolate cannot make the gap look short.
+  // A refusal inserts nothing. The second statement only explains the refusal.
   const dialect = dbSource === "turso" ? "sqlite" : "postgres";
-  const decision = await readRate(sql, dialect, userId);
-  if (decision.waitMs != null) throw new Error(slowDownMessage(decision.waitMs));
-
-  const createdMs = decision.nowMs;
-  let saved = await sql.query<InsertedRow>(
-    postInsertSql(dialect),
-    postInsertParams(ROOM, userId, normalized.body, createdMs, decision.lastMs),
-  );
-  if (!num(saved[0]?.id)) {
-    const again = await readRate(sql, dialect, userId);
-    if (again.lastMs === createdMs) {
-      saved = await sql.query<InsertedRow>(
-        `select id, created_ms from chat_message
-         where room = $1 and user_id = $2 and kind = 'text' and created_ms = $3
-         order by id desc limit 1`,
-        [ROOM, userId, createdMs],
-      );
-    } else if (again.waitMs != null) {
-      throw new Error(slowDownMessage(again.waitMs));
-    } else {
-      saved = await sql.query<InsertedRow>(PLAIN_INSERT_SQL, [
-        ROOM,
-        userId,
-        normalized.body,
-        again.nowMs,
-      ]);
-    }
-  }
+  const [saved, rated] = (await sql.batch([
+    { text: postAttemptSql(dialect), params: [ROOM, userId, normalized.body] },
+    { text: rateSnapshotSql(dialect), params: [userId, ROOM] },
+  ])) as [InsertedRow[], RateRow[]];
   const id = num(saved[0]?.id);
-  if (!id) throw new Error(slowDownMessage(decision.waitMs ?? 1_000));
-  return {
-    id,
-    handle: member.handle,
-    body: normalized.body,
-    createdMs: num(saved[0]?.created_ms) || createdMs,
-    kind: "text",
-    mine: true,
-  };
+  if (id) {
+    return {
+      id,
+      handle: member.handle,
+      body: normalized.body,
+      createdMs: num(saved[0]?.created_ms),
+      kind: "text",
+      mine: true,
+    };
+  }
+  const decision = rateDecision(rated);
+  if (!decision.nowMs) throw new Error(clockError(decision));
+  throw new Error(refusal(decision));
 }
 
 type InsertedRow = { id: number | string | bigint; created_ms?: number | string | bigint };
 
-async function readRate(sql: Sql, dialect: "sqlite" | "postgres", userId: string) {
-  const rows = await sql.query<RateRow>(rateSnapshotSql(dialect), [userId, ROOM]);
-  return rateDecision(rows);
+function showRateDebug(): boolean {
+  return process.env.VERCEL_ENV !== "production";
+}
+
+function refusal(decision: RateDecision): string {
+  const gap = decision.lastMs == null ? null : decision.nowMs - decision.lastMs;
+  const debug = showRateDebug()
+    ? rateDebug({ lastMs: decision.lastMs, nowMs: decision.nowMs, gapMs: gap })
+    : undefined;
+  return slowDownMessage(decision.waitMs ?? 1_000, debug);
+}
+
+function clockError(decision: RateDecision): string {
+  const detail = showRateDebug()
+    ? ` ${rateDebug({ lastMs: decision.lastMs, nowMs: decision.nowMs, gapMs: null })}`
+    : "";
+  return `Couldn't read the chat clock.${detail}`;
 }
 
 export async function deleteOwnMessage(

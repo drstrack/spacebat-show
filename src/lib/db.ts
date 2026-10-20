@@ -43,9 +43,17 @@ export const dbSource: DbSource = tursoConfig ? "turso" : databaseUrl ? "neon" :
  *   const rows = await sql`select * from todos where id = ${id}`; // parameterized
  *   const rows2 = await sql.query("select * from todos where id = $1", [id]);
  */
+export type SqlStatement = { text: string; params?: unknown[] };
+
 export interface Sql {
   <T = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T[]>;
   query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
+  /**
+   * Run statements in one write transaction. Turso uses a write batch so every
+   * statement, including a clock read, runs on the primary instead of a
+   * separate connection that can observe a different time.
+   */
+  batch(statements: readonly SqlStatement[]): Promise<unknown[][]>;
 }
 
 /**
@@ -79,9 +87,10 @@ const OID_INTERVAL = 1186;
 const identity = (v: string) => v;
 
 type Run = <T>(text: string, params: unknown[]) => Promise<T[]>;
+type Batch = (statements: readonly SqlStatement[]) => Promise<unknown[][]>;
 
 /** Wrap a query runner in the tagged-template + `.query()` `Sql` surface. */
-function toSql(run: Run): Sql {
+function toSql(run: Run, batch?: Batch): Sql {
   const sql = (async <T = Record<string, unknown>>(
     strings: TemplateStringsArray,
     ...values: unknown[]
@@ -93,6 +102,15 @@ function toSql(run: Run): Sql {
   }) as unknown as Sql;
   sql.query = <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
     run<T>(text, params);
+  sql.batch =
+    batch ??
+    (async (statements) => {
+      const out: unknown[][] = [];
+      for (const statement of statements) {
+        out.push(await run(statement.text, statement.params ?? []));
+      }
+      return out;
+    });
   return sql;
 }
 
@@ -105,10 +123,30 @@ function createNeonSql(): Promise<Sql> {
     types.setTypeParser(OID_DATE, identity);
     types.setTypeParser(OID_INTERVAL, identity);
     const pool = new Pool({ connectionString: databaseUrl });
-    return toSql(async <T>(text: string, params: unknown[]) => {
-      const res = await pool.query(text, params);
-      return res.rows as T[];
-    });
+    return toSql(
+      async <T>(text: string, params: unknown[]) => {
+        const res = await pool.query(text, params);
+        return res.rows as T[];
+      },
+      async (statements) => {
+        const client = await pool.connect();
+        try {
+          await client.query("begin");
+          const out: unknown[][] = [];
+          for (const statement of statements) {
+            const res = await client.query(statement.text, statement.params ?? []);
+            out.push(res.rows);
+          }
+          await client.query("commit");
+          return out;
+        } catch (err) {
+          await client.query("rollback");
+          throw err;
+        } finally {
+          client.release();
+        }
+      },
+    );
   })().catch((err) => {
     globalRef.__pgSqlPromise__ = undefined;
     throw err;
@@ -170,10 +208,22 @@ async function createPgliteSql(): Promise<Sql> {
   globalRef.__pgliteMigrateChain__ = pass;
   await pass;
 
-  return toSql(async <T>(text: string, params: unknown[]) => {
-    const result = await pg.query<T>(text, params);
-    return result.rows;
-  });
+  return toSql(
+    async <T>(text: string, params: unknown[]) => {
+      const result = await pg.query<T>(text, params);
+      return result.rows;
+    },
+    async (statements) => {
+      const out: unknown[][] = [];
+      await pg.transaction(async (tx) => {
+        for (const statement of statements) {
+          const result = await tx.query(statement.text, statement.params ?? []);
+          out.push(result.rows);
+        }
+      });
+      return out;
+    },
+  );
 }
 
 let sqlPromise: Promise<Sql> | null = null;
@@ -222,11 +272,26 @@ async function createTursoSql(): Promise<Sql> {
     }
     await client.execute({ sql: "insert into _migrations (name) values (?)", args: [name] });
   }
-  return toSql(async <T>(text: string, params: unknown[]) => {
-    const bound = bindLibsql(text, params);
-    const result = await client.execute({ sql: bound.sql, args: bound.args });
-    return result.rows as unknown as T[];
-  });
+  return toSql(
+    async <T>(text: string, params: unknown[]) => {
+      const bound = bindLibsql(text, params);
+      const result = await client.execute({ sql: bound.sql, args: bound.args });
+      return result.rows as unknown as T[];
+    },
+    async (statements) => {
+      // "write" is BEGIN IMMEDIATE on the primary. A plain execute() would
+      // open a fresh connection per statement, and a read can observe a clock
+      // that disagrees with the connection that stored created_ms.
+      const results = await client.batch(
+        statements.map((statement) => {
+          const bound = bindLibsql(statement.text, statement.params ?? []);
+          return { sql: bound.sql, args: bound.args };
+        }),
+        "write",
+      );
+      return results.map((result) => result.rows as unknown[]);
+    },
+  );
 }
 
 async function createSql(): Promise<Sql> {

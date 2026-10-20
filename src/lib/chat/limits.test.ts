@@ -4,6 +4,8 @@ import {
   canPost,
   normalizeBody,
   retryAfterMs,
+  rateDebug,
+  slowDownDebug,
   slowDownMessage,
   slowDownSeconds,
   validateHandle,
@@ -125,6 +127,15 @@ describe("retryAfterMs", () => {
     assert.equal(slowDownMessage(3_001), "Slow down, you can post again in 4s");
     assert.equal(slowDownSeconds("Slow down, you can post again in 4s"), 4);
     assert.equal(slowDownSeconds("Slow down a sec."), null);
+    const debug = rateDebug({ lastMs: now - 2_000, nowMs: now, gapMs: 2_000 });
+    const detailed = slowDownMessage(2_000, debug);
+    assert.equal(
+      detailed,
+      `Slow down, you can post again in 2s [last_ms=${now - 2_000} now_ms=${now} gap_ms=2000 limit_ms=3000]`,
+    );
+    assert.equal(slowDownSeconds(detailed), 2);
+    assert.equal(slowDownDebug(detailed), ` ${debug}`);
+    assert.equal(slowDownDebug("Slow down, you can post again in 2s"), "");
   });
 
   it("waits until the oldest message in a full minute leaves the window", () => {

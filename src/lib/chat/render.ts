@@ -19,7 +19,7 @@ const EMOJI_SEQUENCE =
 export type ChatToken =
   | { type: "text"; value: string }
   | { type: "link"; href: string; label: string }
-  | { type: "image"; src: string; href: string; alt: string };
+  | { type: "image"; src: string; href: string; alt: string; giphy: boolean };
 
 export function tokenize(body: string): ChatToken[] {
   const tokens: ChatToken[] = [];
@@ -118,7 +118,7 @@ function classify(rawUrl: string): ChatToken | null {
     } catch {
       host = parsed.hostname;
     }
-    return { type: "image", src, href, alt: `Image from ${host}` };
+    return { type: "image", src, href, alt: `Image from ${host}`, giphy: isGiphyHost(host) };
   }
   return { type: "link", href, label: labelFor(href) };
 }
@@ -145,11 +145,18 @@ function isImageHost(host: string): boolean {
   return IMAGE_HOSTS.has(host) || /^media[0-4]\.giphy\.com$/.test(host);
 }
 
+function isGiphyHost(host: string): boolean {
+  return (
+    host === "i.giphy.com" ||
+    host === "media.giphy.com" ||
+    host === "giphy.com" ||
+    host === "www.giphy.com" ||
+    /^media[0-4]\.giphy\.com$/.test(host)
+  );
+}
+
 function isGiphyMediaPath(url: URL): boolean {
-  const host = url.hostname;
-  const giphy =
-    host === "i.giphy.com" || host === "media.giphy.com" || /^media[0-4]\.giphy\.com$/.test(host);
-  if (!giphy) return false;
+  if (!isGiphyHost(url.hostname)) return false;
   return /\/giphy(?:\.gif)?$/i.test(url.pathname) || /^\/media\/[^/]+\/[^/]+/i.test(url.pathname);
 }
 

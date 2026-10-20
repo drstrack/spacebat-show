@@ -16,7 +16,13 @@ import {
   type ChatMe,
 } from "@/lib/chat/chat.functions";
 import type { GifHit } from "@/lib/chat/gifs.functions";
-import { MAX_BODY_LENGTH, normalizeBody, slowDownSeconds, validateHandle } from "@/lib/chat/limits";
+import {
+  MAX_BODY_LENGTH,
+  normalizeBody,
+  slowDownDebug,
+  slowDownSeconds,
+  validateHandle,
+} from "@/lib/chat/limits";
 import { CHAT_RULES } from "@/lib/chat/rules";
 import { EmojiPicker } from "@/components/chat/emoji-picker";
 import { GifPicker } from "@/components/chat/gif-picker";
@@ -624,7 +630,9 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   const nowMs = cooldownTick || Date.now();
   const cooldownLeft = cooldownUntil > nowMs ? Math.ceil((cooldownUntil - nowMs) / 1000) : 0;
   const composerError =
-    cooldownLeft > 0 ? `Slow down, you can post again in ${cooldownLeft}s` : sendError;
+    cooldownLeft > 0
+      ? `Slow down, you can post again in ${cooldownLeft}s${slowDownDebug(sendError)}`
+      : sendError;
   const counted = normalizeBody(draft);
   const count = counted.ok ? counted.body.length : draft.trim().length;
   const showCount = count >= COUNT_AT || draft.length >= COUNT_AT;

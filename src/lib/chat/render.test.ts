@@ -21,6 +21,7 @@ test("a GIPHY media URL is an inline image", () => {
   assert.equal(tokens[0]?.type, "image");
   if (tokens[0]?.type === "image") {
     assert.equal(tokens[0].src, "https://media.giphy.com/media/abc/giphy.gif");
+    assert.equal(tokens[0].giphy, true);
   }
 });
 
@@ -30,6 +31,7 @@ test("a giphy.com gif page becomes an i.giphy.com image", () => {
   if (tokens[0]?.type === "image") {
     assert.equal(tokens[0].src, "https://i.giphy.com/AbC123.gif");
     assert.equal(tokens[0].href, "https://giphy.com/gifs/funny-cat-AbC123");
+    assert.equal(tokens[0].giphy, true);
   }
 });
 
@@ -69,6 +71,7 @@ test("the third image URL renders as a link", () => {
 test("imgur pictures are images and other hosts stay links", () => {
   const imgur = tokenize("https://i.imgur.com/bat.png");
   assert.equal(imgur[0]?.type, "image");
+  if (imgur[0]?.type === "image") assert.equal(imgur[0].giphy, false);
   const other = tokenize("https://random-site.com/x.png");
   assert.equal(other[0]?.type, "link");
 });

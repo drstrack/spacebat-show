@@ -63,6 +63,12 @@ function ChatImage({ token }: { token: Extract<ChatToken, { type: "image" }> }) 
           className="max-h-[280px] max-w-[280px] object-contain"
         />
       </span>
+      {token.giphy ? (
+        <span className="mt-1 flex items-center gap-1 text-[10px] text-muted">
+          <span>Powered by</span>
+          <img src="/brand/powered-by-giphy.png" alt="GIPHY" className="h-3 w-auto" />
+        </span>
+      ) : null}
     </a>
   );
 }

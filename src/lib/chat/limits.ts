@@ -74,7 +74,8 @@ export function canPost(lastMs: number | null, countLastMinute: number, now: num
   return true;
 }
 
-const SLOW_DOWN_MESSAGE = /^Slow down, you can post again in (\d+)s$/;
+const SLOW_DOWN_MESSAGE = /^Slow down, you can post again in (\d+)s(?:$| \[)/;
+const RATE_DEBUG = / \[last_ms=(?:\d+|null) now_ms=-?\d+ gap_ms=(?:-?\d+|null) limit_ms=\d+\]$/;
 
 /** Milliseconds until this sender may post, or null when the attempt is allowed. */
 export function retryAfterMs(
@@ -94,9 +95,21 @@ export function retryAfterMs(
   return wait > 0 ? wait : null;
 }
 
-export function slowDownMessage(waitMs: number): string {
+/** Temporary refusal detail. Preview and local only — production omits it. */
+export function rateDebug(input: {
+  lastMs: number | null;
+  nowMs: number;
+  gapMs: number | null;
+}): string {
+  const last = input.lastMs == null ? "null" : String(input.lastMs);
+  const gap = input.gapMs == null ? "null" : String(input.gapMs);
+  return `[last_ms=${last} now_ms=${input.nowMs} gap_ms=${gap} limit_ms=${POST_GAP_MS}]`;
+}
+
+export function slowDownMessage(waitMs: number, debug?: string): string {
   const seconds = Math.max(1, Math.ceil(waitMs / 1000));
-  return `Slow down, you can post again in ${seconds}s`;
+  const base = `Slow down, you can post again in ${seconds}s`;
+  return debug ? `${base} ${debug}` : base;
 }
 
 export function slowDownSeconds(message: string): number | null {
@@ -104,4 +117,10 @@ export function slowDownSeconds(message: string): number | null {
   if (!match) return null;
   const seconds = Number(match[1]);
   return Number.isInteger(seconds) && seconds > 0 ? seconds : null;
+}
+
+/** The `[last_ms=…]` suffix, including its leading space, or "" when absent. */
+export function slowDownDebug(message: string): string {
+  const match = RATE_DEBUG.exec(message);
+  return match ? match[0] : "";
 }
