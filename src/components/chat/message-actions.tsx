@@ -1,6 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useRef, useState } from "react";
-import type { FormEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
   adminBan,
@@ -9,6 +10,7 @@ import {
   reportMessage,
 } from "@/lib/chat/moderation.functions";
 import { MUTE_1H_MINUTES, MUTE_24H_MINUTES, REPORT_REASONS } from "@/lib/chat/moderation";
+import { placeMenuBox } from "@/lib/chat/menu-box";
 
 const REASON_LABELS: Record<(typeof REPORT_REASONS)[number], string> = {
   spam: "Spam",
@@ -47,10 +49,69 @@ export function MessageMenu({
   const [banReason, setBanReason] = useState("");
   const [purge, setPurge] = useState(false);
   const [busy, setBusy] = useState(false);
-  const menuRef = useRef<HTMLDetailsElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuBox, setMenuBox] = useState<{ top: number; left: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   function closeMenu() {
-    menuRef.current?.removeAttribute("open");
+    setMenuOpen(false);
+    setMenuBox(null);
+  }
+
+  const placeMenu = useCallback(() => {
+    const button = buttonRef.current;
+    const panel = panelRef.current;
+    if (!button || !panel) return;
+    const rect = button.getBoundingClientRect();
+    const next = placeMenuBox(
+      { top: rect.top, bottom: rect.bottom, left: rect.left },
+      { width: panel.offsetWidth, height: panel.offsetHeight },
+      { width: window.innerWidth, height: window.innerHeight },
+    );
+    setMenuBox((prev) => (prev && prev.top === next.top && prev.left === next.left ? prev : next));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!menuOpen) return;
+    placeMenu();
+  }, [menuOpen, isAdmin, authorId, placeMenu]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        setMenuBox(null);
+        buttonRef.current?.focus();
+      }
+    }
+    function onPointer(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (buttonRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setMenuOpen(false);
+      setMenuBox(null);
+    }
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPointer);
+    window.addEventListener("resize", placeMenu);
+    window.addEventListener("scroll", placeMenu, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("resize", placeMenu);
+      window.removeEventListener("scroll", placeMenu, true);
+    };
+  }, [menuOpen, placeMenu]);
+
+  function onTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (!menuOpen || event.shiftKey) return;
+    if (event.key !== "Tab" && event.key !== "ArrowDown") return;
+    const first = panelRef.current?.querySelector("button");
+    if (!first) return;
+    event.preventDefault();
+    first.focus();
   }
 
   async function onReport(event: FormEvent) {
@@ -114,35 +175,44 @@ export function MessageMenu({
 
   return (
     <div className="mt-1 flex flex-wrap items-center gap-2">
-      <details ref={menuRef} className="relative">
-        <summary className="cursor-pointer list-none text-xs text-muted hover:text-ink [&::-webkit-details-marker]:hidden">
-          ⋯
-        </summary>
-        <div className="absolute right-0 z-20 mt-1 flex min-w-36 flex-col border-4 border-ink bg-paper p-1 shadow-[4px_4px_0_0_var(--color-ink)]">
-          <button
-            type="button"
-            className="px-2 py-1 text-left text-sm hover:bg-caption"
-            onClick={() => {
-              closeMenu();
-              setReportOpen(true);
-            }}
-          >
-            Report
-          </button>
-          {isAdmin ? (
-            <>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+        className="cursor-pointer text-xs text-muted hover:text-ink"
+        onClick={() => {
+          setMenuBox(null);
+          setMenuOpen((open) => !open);
+        }}
+        onKeyDown={onTriggerKeyDown}
+      >
+        ⋯
+      </button>
+      {menuOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={panelRef}
+              role="menu"
+              className="fixed z-50 flex max-h-[min(70vh,24rem)] min-w-36 flex-col overflow-y-auto border-4 border-ink bg-paper p-1 shadow-[4px_4px_0_0_var(--color-ink)]"
+              style={
+                menuBox
+                  ? { top: menuBox.top, left: menuBox.left }
+                  : { top: 0, left: 0, visibility: "hidden" }
+              }
+            >
+              ,
               <button
                 type="button"
                 className="px-2 py-1 text-left text-sm hover:bg-caption"
-                disabled={busy}
                 onClick={() => {
                   closeMenu();
-                  void onDelete();
+                  setReportOpen(true);
                 }}
               >
-                Delete
+                Report
               </button>
-              {authorId ? (
+              {isAdmin ? (
                 <>
                   <button
                     type="button"
@@ -150,38 +220,53 @@ export function MessageMenu({
                     disabled={busy}
                     onClick={() => {
                       closeMenu();
-                      void onMute(MUTE_1H_MINUTES);
+                      void onDelete();
                     }}
                   >
-                    Mute 1h
+                    Delete
                   </button>
-                  <button
-                    type="button"
-                    className="px-2 py-1 text-left text-sm hover:bg-caption"
-                    disabled={busy}
-                    onClick={() => {
-                      closeMenu();
-                      void onMute(MUTE_24H_MINUTES);
-                    }}
-                  >
-                    Mute 24h
-                  </button>
-                  <button
-                    type="button"
-                    className="px-2 py-1 text-left text-sm hover:bg-caption"
-                    onClick={() => {
-                      closeMenu();
-                      setBanOpen(true);
-                    }}
-                  >
-                    Ban…
-                  </button>
+                  {authorId ? (
+                    <>
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-left text-sm hover:bg-caption"
+                        disabled={busy}
+                        onClick={() => {
+                          closeMenu();
+                          void onMute(MUTE_1H_MINUTES);
+                        }}
+                      >
+                        Mute 1h
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-left text-sm hover:bg-caption"
+                        disabled={busy}
+                        onClick={() => {
+                          closeMenu();
+                          void onMute(MUTE_24H_MINUTES);
+                        }}
+                      >
+                        Mute 24h
+                      </button>
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-left text-sm hover:bg-caption"
+                        onClick={() => {
+                          closeMenu();
+                          setBanOpen(true);
+                        }}
+                      >
+                        Ban…
+                      </button>
+                    </>
+                  ) : null}
                 </>
               ) : null}
-            </>
-          ) : null}
-        </div>
-      </details>
+            </div>,
+            document.body,
+          )
+        : null}
 
       <Dialog.Root open={reportOpen} onOpenChange={setReportOpen}>
         <Dialog.Portal>

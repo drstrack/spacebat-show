@@ -19,6 +19,7 @@ import { Route as MerchRouteImport } from './routes/merch'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StoryRouteImport } from './routes/story'
 import { Route as SubscribeRouteImport } from './routes/subscribe'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminChatRouteImport } from './routes/admin.chat'
 import { Route as ChatIndexRouteImport } from './routes/chat.index'
 import { Route as EpisodesIndexRouteImport } from './routes/episodes.index'
@@ -78,6 +79,11 @@ const SubscribeRoute = SubscribeRouteImport.update({
   path: '/subscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminChatRoute = AdminChatRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -133,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/admin/chat': typeof AdminChatRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
+  '/admin/': typeof AdminIndexRoute
   '/chat/': typeof ChatIndexRoute
   '/episodes/': typeof EpisodesIndexRoute
   '/podcast/': typeof PodcastIndexRoute
@@ -142,7 +149,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
-  '/admin': typeof AdminRouteWithChildren
   '/hosts': typeof HostsRoute
   '/listen': typeof ListenRoute
   '/login': typeof LoginRoute
@@ -153,6 +159,7 @@ export interface FileRoutesByTo {
   '/admin/chat': typeof AdminChatRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
+  '/admin': typeof AdminIndexRoute
   '/chat': typeof ChatIndexRoute
   '/episodes': typeof EpisodesIndexRoute
   '/podcast': typeof PodcastIndexRoute
@@ -174,6 +181,7 @@ export interface FileRoutesById {
   '/admin/chat': typeof AdminChatRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
+  '/admin/': typeof AdminIndexRoute
   '/chat/': typeof ChatIndexRoute
   '/episodes/': typeof EpisodesIndexRoute
   '/podcast/': typeof PodcastIndexRoute
@@ -196,6 +204,7 @@ export interface FileRouteTypes {
     | '/admin/chat'
     | '/episodes/$slug'
     | '/podcast/$slug'
+    | '/admin/'
     | '/chat/'
     | '/episodes/'
     | '/podcast/'
@@ -205,7 +214,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/account'
-    | '/admin'
     | '/hosts'
     | '/listen'
     | '/login'
@@ -216,6 +224,7 @@ export interface FileRouteTypes {
     | '/admin/chat'
     | '/episodes/$slug'
     | '/podcast/$slug'
+    | '/admin'
     | '/chat'
     | '/episodes'
     | '/podcast'
@@ -236,6 +245,7 @@ export interface FileRouteTypes {
     | '/admin/chat'
     | '/episodes/$slug'
     | '/podcast/$slug'
+    | '/admin/'
     | '/chat/'
     | '/episodes/'
     | '/podcast/'
@@ -335,6 +345,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/chat': {
       id: '/admin/chat'
       path: '/chat'
@@ -396,10 +413,12 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminChatRoute: typeof AdminChatRoute
+  AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminChatRoute: AdminChatRoute,
+  AdminIndexRoute: AdminIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
