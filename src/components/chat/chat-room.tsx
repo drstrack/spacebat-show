@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { FormEvent, KeyboardEvent } from "react";
+import type { FormEvent, KeyboardEvent, MouseEvent } from "react";
+import { BatMark } from "@/components/bat-mark";
+import { LivePlayer } from "@/components/live-player";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -16,6 +18,7 @@ import {
 import { MAX_BODY_LENGTH, normalizeBody, validateHandle } from "@/lib/chat/limits";
 import { CHAT_RULES } from "@/lib/chat/rules";
 import { isRemoved } from "@/lib/chat/types";
+import { OpenPopoutButton } from "@/components/chat/open-popout-button";
 import { EmojiPicker } from "@/components/chat/emoji-picker";
 import { GifPicker } from "@/components/chat/gif-picker";
 import { MessageBody } from "@/components/chat/message-body";
@@ -146,6 +149,8 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef<HTMLTextAreaElement>(null);
+  const channelRef = useRef<BroadcastChannel | null>(null);
+  const [popoutElsewhere, setPopoutElsewhere] = useState(false);
   const stickRef = useRef(true);
   const lastIdRef = useRef(0);
   const preserveRef = useRef<number | null>(null);
@@ -210,7 +215,41 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   }, [userId]);
 
   useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel("spacebat-chat");
+    channelRef.current = channel;
+    if (layout === "popout") {
+      const announce = () => channel.postMessage({ type: "popout-open" });
+      const depart = () => channel.postMessage({ type: "popout-closed" });
+      announce();
+      channel.onmessage = (event) => {
+        const type = event.data?.type;
+        if (type === "popout-close") window.close();
+        if (type === "popout-ping") announce();
+      };
+      window.addEventListener("pagehide", depart);
+      return () => {
+        depart();
+        window.removeEventListener("pagehide", depart);
+        channel.close();
+        channelRef.current = null;
+      };
+    }
+    channel.onmessage = (event) => {
+      const type = event.data?.type;
+      if (type === "popout-open") setPopoutElsewhere(true);
+      if (type === "popout-closed") setPopoutElsewhere(false);
+    };
+    channel.postMessage({ type: "popout-ping" });
+    return () => {
+      channel.close();
+      channelRef.current = null;
+    };
+  }, [layout]);
+
+  useEffect(() => {
     if (phase !== "ready") return;
+    if (layout !== "popout" && popoutElsewhere) return;
     let stopped = false;
     let timer = 0;
     let idleSince = Date.now();
@@ -323,7 +362,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("keydown", onKey);
     };
-  }, [enqueue, phase]);
+  }, [enqueue, layout, phase, popoutElsewhere]);
 
   useLayoutEffect(() => {
     const el = scrollerRef.current;
@@ -513,20 +552,71 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   const counted = normalizeBody(draft);
   const count = counted.ok ? counted.body.length : draft.trim().length;
   const showCount = count >= COUNT_AT || draft.length >= COUNT_AT;
+  function bringPopoutBack() {
+    channelRef.current?.postMessage({ type: "popout-close" });
+    setPopoutElsewhere(false);
+  }
+
+  function onSignIn(event: MouseEvent<HTMLAnchorElement>) {
+    if (layout !== "popout" || !window.opener) return;
+    event.preventDefault();
+    try {
+      window.opener.location.assign("/login");
+      window.close();
+    } catch {
+      window.location.assign("/login");
+    }
+  }
+
   const shell =
     layout === "popout"
-      ? "flex h-dvh flex-col bg-paper"
+      ? "flex h-dvh min-h-0 w-full flex-col overflow-x-hidden bg-paper"
       : "mx-auto flex w-full max-w-3xl flex-col px-4 py-6 sm:px-6 sm:py-8";
 
   return (
     <section className={shell}>
-      <header className={layout === "popout" ? "border-b-4 border-ink px-4 py-3" : ""}>
-        <p className="caption-box">The room</p>
-        <h1 className="mt-3 font-display text-5xl leading-none tracking-wide">SpaceBat Chat</h1>
-        <p className="mt-2 text-sm text-muted">
-          Listeners only. New posts show up every few seconds.
+      {layout === "popout" ? (
+        <header className="flex items-center gap-2 border-b-4 border-ink px-3 py-2">
+          <BatMark className="size-8 border-2 border-ink" />
+          <div className="min-w-0 flex-1">
+            <h1 className="font-display text-xl leading-none tracking-wide">SpaceBat Chat</h1>
+            {me?.member?.handle ? (
+              <p className="truncate text-xs text-muted">{me.member.handle}</p>
+            ) : null}
+          </div>
+          <LivePlayer compact />
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener"
+            className="shrink-0 text-sm text-crimson hover:underline"
+          >
+            Open full site
+          </a>
+        </header>
+      ) : (
+        <header>
+          <p className="caption-box">The room</p>
+          <h1 className="mt-3 font-display text-5xl leading-none tracking-wide">SpaceBat Chat</h1>
+          <p className="mt-2 text-sm text-muted">
+            Listeners only. New posts show up every few seconds.
+          </p>
+          <OpenPopoutButton />
+        </header>
+      )}
+
+      {layout === "page" && popoutElsewhere ? (
+        <p className="mt-4 border-4 border-ink bg-caption px-4 py-3 text-sm">
+          Chat is open in another window —{" "}
+          <button
+            type="button"
+            onClick={bringPopoutBack}
+            className="font-display text-base tracking-wide text-crimson underline"
+          >
+            Bring it back here
+          </button>
         </p>
-      </header>
+      ) : null}
 
       {me && !me.durable ? (
         <p className="mt-4 border-4 border-ink bg-caption px-4 py-3 text-sm text-ink">
@@ -543,7 +633,9 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
           <h2 className="font-display text-3xl tracking-wide">Sign in first</h2>
           <p className="mt-2 text-sm text-muted">The room is for listeners with an account.</p>
           <Button asChild className="mt-6">
-            <Link to="/login">Sign in</Link>
+            <Link to="/login" onClick={onSignIn}>
+              Sign in
+            </Link>
           </Button>
         </div>
       ) : null}

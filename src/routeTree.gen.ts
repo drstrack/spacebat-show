@@ -22,6 +22,7 @@ import { Route as SubscribeRouteImport } from './routes/subscribe'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminChatRouteImport } from './routes/admin.chat'
 import { Route as ChatIndexRouteImport } from './routes/chat.index'
+import { Route as ChatPopoutRouteImport } from './routes/chat.popout'
 import { Route as EpisodesIndexRouteImport } from './routes/episodes.index'
 import { Route as EpisodesSlugRouteImport } from './routes/episodes.$slug'
 import { Route as PodcastIndexRouteImport } from './routes/podcast.index'
@@ -94,6 +95,11 @@ const ChatIndexRoute = ChatIndexRouteImport.update({
   path: '/chat/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatPopoutRoute = ChatPopoutRouteImport.update({
+  id: '/chat/popout',
+  path: '/chat/popout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EpisodesIndexRoute = EpisodesIndexRouteImport.update({
   id: '/episodes/',
   path: '/episodes/',
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
   '/admin/chat': typeof AdminChatRoute
+  '/chat/popout': typeof ChatPopoutRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
   '/admin/chat': typeof AdminChatRoute
+  '/chat/popout': typeof ChatPopoutRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
   '/admin': typeof AdminIndexRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
   '/admin/chat': typeof AdminChatRoute
+  '/chat/popout': typeof ChatPopoutRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/story'
     | '/subscribe'
     | '/admin/chat'
+    | '/chat/popout'
     | '/episodes/$slug'
     | '/podcast/$slug'
     | '/admin/'
@@ -222,6 +232,7 @@ export interface FileRouteTypes {
     | '/story'
     | '/subscribe'
     | '/admin/chat'
+    | '/chat/popout'
     | '/episodes/$slug'
     | '/podcast/$slug'
     | '/admin'
@@ -243,6 +254,7 @@ export interface FileRouteTypes {
     | '/story'
     | '/subscribe'
     | '/admin/chat'
+    | '/chat/popout'
     | '/episodes/$slug'
     | '/podcast/$slug'
     | '/admin/'
@@ -264,6 +276,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   StoryRoute: typeof StoryRoute
   SubscribeRoute: typeof SubscribeRoute
+  ChatPopoutRoute: typeof ChatPopoutRoute
   EpisodesSlugRoute: typeof EpisodesSlugRoute
   PodcastSlugRoute: typeof PodcastSlugRoute
   ChatIndexRoute: typeof ChatIndexRoute
@@ -366,6 +379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat/popout': {
+      id: '/chat/popout'
+      path: '/chat/popout'
+      fullPath: '/chat/popout'
+      preLoaderRoute: typeof ChatPopoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/episodes/': {
       id: '/episodes/'
       path: '/episodes'
@@ -434,6 +454,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   StoryRoute: StoryRoute,
   SubscribeRoute: SubscribeRoute,
+  ChatPopoutRoute: ChatPopoutRoute,
   EpisodesSlugRoute: EpisodesSlugRoute,
   PodcastSlugRoute: PodcastSlugRoute,
   ChatIndexRoute: ChatIndexRoute,

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 type Status = "idle" | "connecting" | "playing" | "off";
 
-export function LivePlayer() {
+export function LivePlayer({ compact = false }: { compact?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [status, setStatus] = useState<Status>("idle");
 
@@ -49,7 +49,7 @@ export function LivePlayer() {
     status === "playing" ? "Stop" : status === "connecting" ? "Connecting…" : "Play live";
 
   return (
-    <div className="mt-5">
+    <div className={compact ? undefined : "mt-5"}>
       <audio
         ref={audioRef}
         preload="none"
@@ -57,11 +57,15 @@ export function LivePlayer() {
         onPlaying={() => setStatus("playing")}
         onError={() => setStatus("off")}
       />
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" size="lg" onClick={toggle}>
+      <div
+        className={
+          compact ? "flex flex-col items-start gap-1" : "flex flex-wrap items-center gap-3"
+        }
+      >
+        <Button type="button" size={compact ? "sm" : "lg"} onClick={toggle}>
           {label}
         </Button>
-        <p className="text-sm text-muted">
+        <p className={compact ? "max-w-44 text-xs leading-snug text-muted" : "text-sm text-muted"}>
           {status === "playing"
             ? "On the air."
             : status === "connecting"
