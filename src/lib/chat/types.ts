@@ -14,6 +14,19 @@ export type ChatMe = {
   durable: boolean;
   /** True only when the server has GIPHY_API_KEY. The key itself never leaves the server. */
   gifSearch: boolean;
+  /** True only when the server has a blob read-write token. The token never leaves the server. */
+  uploads: boolean;
+  /** Public host for this room's blob store, or null when uploads are off. */
+  blobHost: string | null;
+};
+
+export type ChatAttachment = {
+  id: number;
+  url: string;
+  name: string;
+  size: number;
+  contentType: string;
+  kind: "image" | "file";
 };
 
 export type ChatMessage = {
@@ -25,6 +38,7 @@ export type ChatMessage = {
   mine: boolean;
   /** Present only for admins, so mute and ban can target the author. */
   authorId?: string;
+  attachment: ChatAttachment | null;
 };
 
 /** A removed row has no body. */

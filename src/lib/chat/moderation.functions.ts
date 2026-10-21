@@ -27,8 +27,13 @@ import {
   type ReportGroup,
   type SanctionedMember,
 } from "@/lib/chat/moderation.server";
+import {
+  adminDeleteChatUpload as removeUpload,
+  listChatUploads as readUploads,
+  type ListedUpload,
+} from "@/lib/chat/uploads.server";
 
-export type { AuditEntry, BlockwordEntry, ReportGroup, SanctionedMember };
+export type { AuditEntry, BlockwordEntry, ListedUpload, ReportGroup, SanctionedMember };
 
 function cleanId(value: unknown, message: string): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) throw new Error(message);
@@ -130,6 +135,15 @@ export const adminAddBlockword = createServerFn({ method: "POST" })
     return { word: input.word };
   })
   .handler(async ({ data, context }) => addBlockword(context.userId, data));
+
+export const listChatUploads = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<ListedUpload[]> => readUploads(context.userId));
+
+export const adminDeleteChatUpload = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: number }) => ({ id: cleanId(input?.id, "That upload is already gone.") }))
+  .handler(async ({ data, context }) => removeUpload(context.userId, data.id));
 
 export const adminRemoveBlockword = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

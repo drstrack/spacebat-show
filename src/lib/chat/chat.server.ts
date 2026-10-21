@@ -15,6 +15,7 @@ import { CHAT_NEW_MEMBER_LINK_DELAY_MIN, countUrls, MAX_URLS_PER_MESSAGE } from 
 import { activeBlockwords } from "@/lib/chat/moderation.server";
 import { CHAT_RULES_VERSION } from "@/lib/chat/rules";
 import type {
+  ChatAttachment,
   ChatList,
   ChatListItem,
   ChatLive,
@@ -22,6 +23,14 @@ import type {
   ChatMember,
   ChatMessage,
 } from "@/lib/chat/types";
+import { displayFileName, isTrustedBlobUrl } from "@/lib/chat/uploads";
+import {
+  blobUploadsEnabled,
+  configuredBlobHost,
+  deleteUploadsForMessages,
+  peekOwnUpload,
+  takeUploadForMessage,
+} from "@/lib/chat/uploads.server";
 
 const ROOM = "main";
 const NEXT_POLL_MS = 4_000;
@@ -47,6 +56,12 @@ type MessageRow = {
   deleted_ms: number | string | bigint | null;
   handle: string | null;
   mine: number | string | bigint | boolean;
+  upload_id: number | string | bigint | null;
+  upload_url: string | null;
+  upload_name: string | null;
+  upload_size: number | string | bigint | null;
+  upload_type: string | null;
+  upload_kind: string | null;
 };
 
 function num(value: unknown): number {
@@ -135,9 +150,24 @@ function toListItem(row: MessageRow, isAdmin: boolean): ChatListItem {
     createdMs: num(row.created_ms),
     kind,
     mine: row.mine === true || num(row.mine) === 1,
+    attachment: attachmentFrom(row),
   };
   if (isAdmin && row.user_id) message.authorId = row.user_id;
   return message;
+}
+
+function attachmentFrom(row: MessageRow): ChatAttachment | null {
+  if (row.upload_id == null || !row.upload_url) return null;
+  if (row.upload_kind !== "image" && row.upload_kind !== "file") return null;
+  if (!isTrustedBlobUrl(row.upload_url, configuredBlobHost())) return null;
+  return {
+    id: num(row.upload_id),
+    url: row.upload_url,
+    name: displayFileName(row.upload_name ?? "file"),
+    size: num(row.upload_size),
+    contentType: row.upload_type ?? "",
+    kind: row.upload_kind,
+  };
 }
 
 const MESSAGE_SELECT = `
@@ -149,9 +179,21 @@ const MESSAGE_SELECT = `
     m.created_ms,
     m.deleted_ms,
     c.handle,
-    case when m.user_id = $1 then 1 else 0 end as mine
+    case when m.user_id = $1 then 1 else 0 end as mine,
+    u.id as upload_id,
+    u.url as upload_url,
+    u.original_name as upload_name,
+    u.size as upload_size,
+    u.content_type as upload_type,
+    u.kind as upload_kind
   from chat_message m
   left join chat_member c on c.user_id = m.user_id
+  left join chat_upload u on u.id = (
+    select id from chat_upload
+    where message_id = m.id and deleted_ms is null
+    order by id asc
+    limit 1
+  )
 `;
 
 export async function getChatMe(userId: string): Promise<ChatMe> {
@@ -163,6 +205,8 @@ export async function getChatMe(userId: string): Promise<ChatMe> {
     isAdmin,
     durable: dbSource !== "pglite",
     gifSearch: gifSearchEnabled(),
+    uploads: blobUploadsEnabled(),
+    blobHost: configuredBlobHost(),
   };
 }
 
@@ -258,15 +302,20 @@ async function readMessages(
 
 export async function postChat(
   userId: string,
-  input: { body: string; nonce: string },
+  input: { body: string; nonce: string; uploadId?: number },
 ): Promise<ChatMessage> {
   void input.nonce;
   const sql = await getSql();
   const member = await requireReader(sql, userId);
   const now = Date.now();
   if (isMuted(member, now)) throw new Error("You're muted.");
-  const normalized = normalizeBody(input.body);
+  const trimmed = input.body.trim();
+  if (!trimmed && input.uploadId == null) throw new Error("Write a message first.");
+  const normalized = trimmed ? normalizeBody(input.body) : { ok: true as const, body: "" };
   if (!normalized.ok) throw new Error(normalized.error);
+  if (input.uploadId != null && !(await peekOwnUpload(sql, userId, input.uploadId))) {
+    throw new Error("That attachment isn't available.");
+  }
   const blocked = containsBlockedWord(normalized.body, await activeBlockwords(sql));
   if (blocked) throw new Error("That message can't be posted.");
   const urls = countUrls(normalized.body);
@@ -288,6 +337,18 @@ export async function postChat(
   ])) as [InsertedRow[], RateRow[]];
   const id = num(saved[0]?.id);
   if (id) {
+    let attachment: ChatAttachment | null = null;
+    if (input.uploadId != null) {
+      attachment = await takeUploadForMessage(sql, userId, input.uploadId, id);
+      if (!attachment) {
+        await sql`
+          update chat_message
+          set deleted_ms = ${Date.now()}, deleted_by = ${userId}
+          where id = ${id} and deleted_ms is null
+        `;
+        throw new Error("That attachment isn't available.");
+      }
+    }
     return {
       id,
       handle: member.handle,
@@ -295,6 +356,7 @@ export async function postChat(
       createdMs: num(saved[0]?.created_ms),
       kind: "text",
       mine: true,
+      attachment,
     };
   }
   const decision = rateDecision(rated);
@@ -344,5 +406,6 @@ export async function deleteOwnMessage(
     set deleted_ms = ${now}, deleted_by = ${userId}
     where id = ${input.id} and user_id = ${userId} and deleted_ms is null
   `;
+  await deleteUploadsForMessages(sql, [input.id]);
   return { id: input.id, deleted: true };
 }

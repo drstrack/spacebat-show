@@ -12,6 +12,7 @@ import {
   type ResolveAction,
 } from "@/lib/chat/moderation";
 import { CHAT_RULES_VERSION } from "@/lib/chat/rules";
+import { deleteUploadsForMessages } from "@/lib/chat/uploads.server";
 
 const ROOM = "main";
 const AUTO_HIDE_ACTOR = "auto-report";
@@ -198,6 +199,7 @@ export async function adminDeleteMessage(
   if (!message) throw new Error("That message is gone.");
   const now = Date.now();
   if (message.deleted_ms == null) await softDelete(sql, input.id, actorId, now);
+  await deleteUploadsForMessages(sql, [input.id]);
   await audit(sql, {
     actorId,
     action: "delete",
@@ -274,6 +276,10 @@ export async function adminBan(
       returning id
     `;
     purged = rows.length;
+    await deleteUploadsForMessages(
+      sql,
+      rows.map((row) => num(row.id)),
+    );
     await audit(sql, {
       actorId,
       action: "purge",
@@ -345,6 +351,7 @@ export async function reportMessage(
   let hidden = message.deleted_ms != null;
   if (shouldAutoHide(distinct) && message.deleted_ms == null) {
     await softDelete(sql, input.messageId, AUTO_HIDE_ACTOR, now);
+    await deleteUploadsForMessages(sql, [input.messageId]);
     await audit(sql, {
       actorId: reporterId,
       action: "auto-hide",
@@ -426,6 +433,7 @@ export async function resolveReport(
 
   if (input.action === "delete" || input.action === "delete-and-mute" || input.action === "delete-and-ban") {
     if (message.deleted_ms == null) await softDelete(sql, input.messageId, actorId, now);
+    await deleteUploadsForMessages(sql, [input.messageId]);
     await audit(sql, {
       actorId,
       action: "delete",

@@ -1,5 +1,5 @@
 /** Bump when the room rules change. Members must accept the current version. */
-export const CHAT_RULES_VERSION = 1;
+export const CHAT_RULES_VERSION = 2;
 
 /**
  * PLACEHOLDER — Daniel has not set the age minimum.
@@ -23,6 +23,7 @@ export const CHAT_MODERATORS = "admins-only" as const;
 export const CHAT_RULES = [
   "Be decent: no harassment, hate or threats.",
   "No doxxing or sharing anyone's personal info.",
+  "Only share pictures and files you have the right to share. No personal info.",
   "No spam or ads.",
   "Keep it legal.",
   "Hosts can delete messages and remove people.",

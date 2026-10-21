@@ -59,7 +59,10 @@ async function main() {
         await client.query("BEGIN");
         // pg's simple-query protocol runs a whole multi-statement file at once.
         await client.query(text);
-        await client.query("INSERT INTO _migrations (name) VALUES ($1)", [name]);
+        await client.query(
+          "INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING",
+          [name],
+        );
         await client.query("COMMIT");
       } catch (err) {
         console.error(`[migrate] error applying ${name}`);

@@ -50,12 +50,20 @@ export const listChat = createServerFn({ method: "POST" })
 
 export const postChat = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { body: string; nonce: string }) => {
+  .validator((input: { body: string; nonce: string; uploadId?: number }) => {
     if (!input || typeof input.body !== "string") throw new Error("Write a message first.");
     if (typeof input.nonce !== "string" || input.nonce.length < 8 || input.nonce.length > 80) {
       throw new Error("Couldn’t send that.");
     }
-    return { body: input.body, nonce: input.nonce };
+    let uploadId: number | undefined;
+    if (input.uploadId != null) {
+      if (typeof input.uploadId !== "number" || !Number.isInteger(input.uploadId) || input.uploadId <= 0) {
+        throw new Error("That attachment isn't available.");
+      }
+      uploadId = input.uploadId;
+    }
+    if (!input.body.trim() && uploadId == null) throw new Error("Write a message first.");
+    return { body: input.body, nonce: input.nonce, uploadId };
   })
   .handler(async ({ data, context }): Promise<ChatMessage> =>
     saveChatMessage(context.userId, data),
