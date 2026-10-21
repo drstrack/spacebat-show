@@ -14,7 +14,7 @@ export type ChatMe = {
   durable: boolean;
   /** True only when the server has GIPHY_API_KEY. The key itself never leaves the server. */
   gifSearch: boolean;
-  /** True only when the server has BLOB_READ_WRITE_TOKEN. The token never leaves the server. */
+  /** True only when the server has a blob read-write token. The token never leaves the server. */
   uploads: boolean;
   /** Public host for this room's blob store, or null when uploads are off. */
   blobHost: string | null;

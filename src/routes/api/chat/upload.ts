@@ -8,6 +8,7 @@ import {
   sanitizeFileName,
   UploadHttpError,
 } from "@/lib/chat/uploads";
+import { blobCredentials } from "@/lib/chat/blob-env.server";
 import { assertCanUpload, blobUploadsEnabled, completeBlobUpload } from "@/lib/chat/uploads.server";
 
 function readDeclared(raw: string | null): { name: string; type: string; size: number } | null {
@@ -56,6 +57,7 @@ async function handle({ request }: { request: Request }) {
 
   try {
     const json = await handleUpload({
+      token: blobCredentials().token,
       request,
       body,
       onBeforeGenerateToken: async (pathname, clientPayload) => {

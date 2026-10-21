@@ -1,4 +1,5 @@
 import { del, head } from "@vercel/blob";
+import { blobCredentials } from "@/lib/chat/blob-env.server";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { dbSource, getSql, type Sql } from "@/lib/db";
 import { CHAT_RULES_VERSION } from "@/lib/chat/rules";
@@ -78,14 +79,18 @@ function adminEmails(): Set<string> {
 }
 
 export function blobUploadsEnabled(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
+  return Boolean(blobCredentials().token);
 }
 
 export function configuredBlobHost(): string | null {
-  return blobPublicHost({
-    storeId: process.env.BLOB_STORE_ID,
-    token: process.env.BLOB_READ_WRITE_TOKEN,
-  });
+  const creds = blobCredentials();
+  return blobPublicHost({ storeId: creds.storeId, token: creds.token });
+}
+
+function blobToken(): string {
+  const token = blobCredentials().token;
+  if (!token) throw new UploadHttpError(404, "Uploads are off.");
+  return token;
 }
 
 function dialect(): "sqlite" | "postgres" {
@@ -183,7 +188,7 @@ async function findOwnByPath(sql: Sql, userId: string, pathname: string): Promis
 
 async function removeOneBlob(url: string): Promise<void> {
   if (!isTrustedBlobUrl(url, configuredBlobHost())) return;
-  await del(url);
+  await del(url, { token: blobToken() });
 }
 
 export async function recordChatUpload(input: {
@@ -259,7 +264,7 @@ async function ingestBlob(input: {
   if (existing) return existing;
   let meta: Awaited<ReturnType<typeof head>>;
   try {
-    meta = await head(input.pathname);
+    meta = await head(input.pathname, { token: blobToken() });
   } catch {
     throw new UploadHttpError(400, "That file isn't ready yet. Try again.");
   }
