@@ -34,7 +34,7 @@ export type ChatMessage = {
   handle: string;
   body: string;
   createdMs: number;
-  kind: "text" | "system";
+  kind: "text" | "system" | "presence";
   mine: boolean;
   /** Present only for admins, so mute and ban can target the author. */
   authorId?: string;
@@ -55,10 +55,18 @@ export type ChatLive = {
   source: ChatLiveSource | null;
 };
 
+/** A member whose heartbeat is still inside the leave window. No email, no user id. */
+export type ChatOnlineMember = {
+  handle: string;
+  imageUrl: string | null;
+  you: boolean;
+};
+
 export type ChatList = {
   messages: ChatListItem[];
   nextPollMs: number;
   live: ChatLive;
+  online: ChatOnlineMember[];
 };
 
 export function isRemoved(item: ChatListItem): item is ChatRemoved {

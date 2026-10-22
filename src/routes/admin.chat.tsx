@@ -8,6 +8,7 @@ import {
   adminUnban,
   adminUnmute,
   adminDeleteChatUpload,
+  adminDeleteMessage,
   listAudit,
   listBlockwords,
   listChatUploads,
@@ -21,6 +22,10 @@ import {
   type SanctionedMember,
 } from "@/lib/chat/moderation.functions";
 import { formatBytes } from "@/lib/chat/uploads";
+import {
+  listPresenceAnnouncements,
+  type PresenceAnnouncement,
+} from "@/lib/chat/presence.functions";
 export const Route = createFileRoute("/admin/chat")({
   head: () => ({
     meta: [{ title: "SpaceBat Chat — Crew" }, { name: "robots", content: "noindex" }],
@@ -47,6 +52,7 @@ function formatWhen(ms: number): string {
 
 function AdminChatPage() {
   const [reports, setReports] = useState<ReportGroup[] | null>(null);
+  const [announcements, setAnnouncements] = useState<PresenceAnnouncement[] | null>(null);
   const [sanctions, setSanctions] = useState<SanctionedMember[] | null>(null);
   const [words, setWords] = useState<BlockwordEntry[] | null>(null);
   const [audit, setAudit] = useState<AuditEntry[] | null>(null);
@@ -59,14 +65,17 @@ function AdminChatPage() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [nextReports, nextSanctions, nextWords, nextAudit, nextUploads] = await Promise.all([
-        listReports(),
-        listSanctions(),
-        listBlockwords(),
-        listAudit({ data: {} }),
-        listChatUploads(),
-      ]);
+      const [nextReports, nextAnnouncements, nextSanctions, nextWords, nextAudit, nextUploads] =
+        await Promise.all([
+          listReports(),
+          listPresenceAnnouncements(),
+          listSanctions(),
+          listBlockwords(),
+          listAudit({ data: {} }),
+          listChatUploads(),
+        ]);
       setReports(nextReports);
+      setAnnouncements(nextAnnouncements);
       setSanctions(nextSanctions);
       setWords(nextWords);
       setAudit(nextAudit);
@@ -101,7 +110,10 @@ function AdminChatPage() {
       <div className="mx-auto max-w-lg px-4 py-16 sm:px-6">
         <h1 className="font-display text-5xl tracking-wide">Crew only</h1>
         <p className="mt-3 text-sm text-muted">Sign in as an admin to moderate SpaceBat Chat.</p>
-        <Link to="/admin" className="mt-6 inline-block font-display text-xl text-crimson hover:underline">
+        <Link
+          to="/admin"
+          className="mt-6 inline-block font-display text-xl text-crimson hover:underline"
+        >
           Back
         </Link>
       </div>
@@ -168,15 +180,55 @@ function AdminChatPage() {
       </section>
 
       <section className="mt-10">
+        <h2 className="font-display text-3xl tracking-wide">Announcements</h2>
+        <p className="mt-2 text-sm text-muted">
+          Joins and leaves. Delete one here if it should come down.
+        </p>
+        {announcements?.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">No announcements yet.</p>
+        ) : null}
+        <ul className="mt-4 space-y-3">
+          {announcements?.map((item) => (
+            <li
+              key={item.id}
+              className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-2 border-ink bg-ivory px-3 py-2"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="break-words text-sm">{item.body}</p>
+                <p className="text-xs text-muted">{formatWhen(item.createdMs)}</p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={busy === `announce:${item.id}`}
+                onClick={() =>
+                  void run(`announce:${item.id}`, () =>
+                    adminDeleteMessage({ data: { id: item.id } }),
+                  )
+                }
+              >
+                Delete
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="mt-10">
         <h2 className="font-display text-3xl tracking-wide">Muted and banned</h2>
-        {sanctions?.length === 0 ? <p className="mt-3 text-sm text-muted">Nobody is muted or banned.</p> : null}
+        {sanctions?.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">Nobody is muted or banned.</p>
+        ) : null}
         <ul className="mt-4 divide-y-2 divide-ink border-y-4 border-ink">
           {sanctions?.map((person) => (
             <li key={person.userId} className="py-4">
               <p className="font-display text-2xl tracking-wide">{person.handle}</p>
               {person.email ? <p className="text-sm text-muted">{person.email}</p> : null}
               <p className="mt-1 text-sm">
-                {person.mutedUntilMs != null ? `Muted until ${formatWhen(person.mutedUntilMs)}. ` : ""}
+                {person.mutedUntilMs != null
+                  ? `Muted until ${formatWhen(person.mutedUntilMs)}. `
+                  : ""}
                 {person.bannedMs != null
                   ? `Banned ${formatWhen(person.bannedMs)}${person.banReason ? `: ${person.banReason}` : ""}.`
                   : ""}
@@ -246,7 +298,10 @@ function AdminChatPage() {
         </form>
         <ul className="mt-4 divide-y-2 divide-ink border-y-4 border-ink">
           {words?.map((entry) => (
-            <li key={`${entry.source}:${entry.word}`} className="flex items-center justify-between gap-3 py-3">
+            <li
+              key={`${entry.source}:${entry.word}`}
+              className="flex items-center justify-between gap-3 py-3"
+            >
               <span className="text-sm">
                 {entry.word}{" "}
                 <span className="text-xs uppercase tracking-[0.12em] text-muted">
@@ -260,7 +315,9 @@ function AdminChatPage() {
                   variant="ghost"
                   disabled={busy === `word:${entry.word}`}
                   onClick={() =>
-                    void run(`word:${entry.word}`, () => adminRemoveBlockword({ data: { word: entry.word } }))
+                    void run(`word:${entry.word}`, () =>
+                      adminRemoveBlockword({ data: { word: entry.word } }),
+                    )
                   }
                 >
                   Remove
@@ -273,10 +330,15 @@ function AdminChatPage() {
 
       <section className="mt-10">
         <h2 className="font-display text-3xl tracking-wide">Uploads</h2>
-        {uploads?.length === 0 ? <p className="mt-3 text-sm text-muted">No files in the room.</p> : null}
+        {uploads?.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">No files in the room.</p>
+        ) : null}
         <ul className="mt-4 space-y-3">
           {uploads?.map((file) => (
-            <li key={file.id} className="flex min-w-0 items-center gap-3 border-2 border-ink bg-ivory px-3 py-2">
+            <li
+              key={file.id}
+              className="flex min-w-0 items-center gap-3 border-2 border-ink bg-ivory px-3 py-2"
+            >
               {file.kind === "image" ? (
                 <img
                   src={file.url}
@@ -284,7 +346,10 @@ function AdminChatPage() {
                   className="size-12 shrink-0 border-2 border-ink object-cover"
                 />
               ) : (
-                <span className="flex size-12 shrink-0 items-center justify-center border-2 border-ink text-lg" aria-hidden="true">
+                <span
+                  className="flex size-12 shrink-0 items-center justify-center border-2 border-ink text-lg"
+                  aria-hidden="true"
+                >
                   📎
                 </span>
               )}
@@ -300,7 +365,9 @@ function AdminChatPage() {
                 variant="ghost"
                 disabled={busy === `upload:${file.id}`}
                 onClick={() =>
-                  void run(`upload:${file.id}`, () => adminDeleteChatUpload({ data: { id: file.id } }))
+                  void run(`upload:${file.id}`, () =>
+                    adminDeleteChatUpload({ data: { id: file.id } }),
+                  )
                 }
               >
                 Delete
@@ -318,15 +385,22 @@ function AdminChatPage() {
             <li key={entry.id} className="py-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="font-display text-xl tracking-wide">{entry.action}</span>
-                <time className="text-xs text-muted" dateTime={new Date(entry.createdMs).toISOString()}>
+                <time
+                  className="text-xs text-muted"
+                  dateTime={new Date(entry.createdMs).toISOString()}
+                >
                   {formatWhen(entry.createdMs)}
                 </time>
               </div>
               <p className="text-sm">
                 {entry.actorHandle}
-                {entry.actorEmail ? <span className="text-muted"> · {entry.actorEmail}</span> : null}
+                {entry.actorEmail ? (
+                  <span className="text-muted"> · {entry.actorEmail}</span>
+                ) : null}
                 {entry.targetHandle ? ` → ${entry.targetHandle}` : ""}
-                {entry.targetEmail ? <span className="text-muted"> · {entry.targetEmail}</span> : null}
+                {entry.targetEmail ? (
+                  <span className="text-muted"> · {entry.targetEmail}</span>
+                ) : null}
               </p>
               {entry.detail ? <p className="text-sm text-muted">{entry.detail}</p> : null}
               {entry.messageId != null ? (

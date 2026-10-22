@@ -136,12 +136,13 @@ async function requireListenerTarget(sql: Sql, actorId: string, targetId: string
 type MessageRef = {
   id: number | string | bigint;
   user_id: string | null;
+  kind: string;
   deleted_ms: number | string | bigint | null;
 };
 
 async function loadMessage(sql: Sql, id: number): Promise<MessageRef | null> {
   const rows = await sql<MessageRef>`
-    select id, user_id, deleted_ms
+    select id, user_id, kind, deleted_ms
     from chat_message
     where id = ${id} and room = ${ROOM}
   `;
@@ -231,7 +232,10 @@ export async function adminMute(
   return { userId: input.userId, mutedUntilMs };
 }
 
-export async function adminUnmute(actorId: string, input: { userId: string }): Promise<{ ok: true }> {
+export async function adminUnmute(
+  actorId: string,
+  input: { userId: string },
+): Promise<{ ok: true }> {
   const sql = await getSql();
   await requireAdmin(sql, actorId);
   const now = Date.now();
@@ -291,7 +295,10 @@ export async function adminBan(
   return { userId: input.userId, purged };
 }
 
-export async function adminUnban(actorId: string, input: { userId: string }): Promise<{ ok: true }> {
+export async function adminUnban(
+  actorId: string,
+  input: { userId: string },
+): Promise<{ ok: true }> {
   const sql = await getSql();
   await requireAdmin(sql, actorId);
   const now = Date.now();
@@ -319,6 +326,7 @@ export async function reportMessage(
   await requireMember(sql, reporterId);
   const message = await loadMessage(sql, input.messageId);
   if (!message) throw new Error("That message is gone.");
+  if (message.kind !== "text") throw new Error("You can't report that.");
   if (message.user_id === reporterId) throw new Error("You can't report your own message.");
 
   const existing = await sql<{ id: number | string | bigint }>`
@@ -332,7 +340,8 @@ export async function reportMessage(
     select count(*) as n from chat_report
     where reporter_id = ${reporterId} and created_ms > ${now - REPORT_WINDOW_MS}
   `;
-  if (num(recent[0]?.n) >= REPORTS_PER_HOUR) throw new Error("You've reported enough for this hour.");
+  if (num(recent[0]?.n) >= REPORTS_PER_HOUR)
+    throw new Error("You've reported enough for this hour.");
 
   try {
     await sql`
@@ -420,18 +429,20 @@ export async function resolveReport(
     where message_id = ${input.messageId} and resolved_ms is null
   `;
   const openCount = num(open[0]?.n);
-  if (openCount === 0 && input.action !== "restore") throw new Error("That report is already closed.");
+  if (openCount === 0 && input.action !== "restore")
+    throw new Error("That report is already closed.");
 
   const now = Date.now();
   const targetId = message.user_id;
-  if (
-    (input.action === "delete-and-mute" || input.action === "delete-and-ban") &&
-    targetId
-  ) {
+  if ((input.action === "delete-and-mute" || input.action === "delete-and-ban") && targetId) {
     await requireListenerTarget(sql, actorId, targetId);
   }
 
-  if (input.action === "delete" || input.action === "delete-and-mute" || input.action === "delete-and-ban") {
+  if (
+    input.action === "delete" ||
+    input.action === "delete-and-mute" ||
+    input.action === "delete-and-ban"
+  ) {
     if (message.deleted_ms == null) await softDelete(sql, input.messageId, actorId, now);
     await deleteUploadsForMessages(sql, [input.messageId]);
     await audit(sql, {

@@ -11,6 +11,7 @@ import {
   type RateRow,
 } from "@/lib/chat/post-insert";
 import { refreshLive } from "@/lib/chat/live.server";
+import { listOnline, touchPresence } from "@/lib/chat/presence";
 import { CHAT_NEW_MEMBER_LINK_DELAY_MIN, countUrls, MAX_URLS_PER_MESSAGE } from "@/lib/chat/render";
 import { activeBlockwords } from "@/lib/chat/moderation.server";
 import { CHAT_RULES_VERSION } from "@/lib/chat/rules";
@@ -22,6 +23,7 @@ import type {
   ChatMe,
   ChatMember,
   ChatMessage,
+  ChatOnlineMember,
 } from "@/lib/chat/types";
 import { displayFileName, isTrustedBlobUrl } from "@/lib/chat/uploads";
 import {
@@ -139,13 +141,20 @@ function isUniqueViolation(err: unknown): boolean {
   return code === "23505" || /unique|SQLITE_CONSTRAINT/i.test(message);
 }
 
+function messageKind(kind: string): ChatMessage["kind"] {
+  if (kind === "system" || kind === "presence") return kind;
+  return "text";
+}
+
 function toListItem(row: MessageRow, isAdmin: boolean): ChatListItem {
   const id = num(row.id);
   if (row.deleted_ms != null) return { id, deleted: true };
-  const kind = row.kind === "system" ? "system" : "text";
+  const kind = messageKind(row.kind);
   const message: ChatMessage = {
     id,
-    handle: row.handle?.trim() || (kind === "system" ? "SpaceBat" : "Listener"),
+    handle:
+      row.handle?.trim() ||
+      (kind === "presence" ? "" : kind === "system" ? "SpaceBat" : "Listener"),
     body: row.body ?? "",
     createdMs: num(row.created_ms),
     kind,
@@ -256,7 +265,19 @@ export async function listChat(
   input: { after?: number; before?: number },
 ): Promise<ChatList> {
   const sql = await getSql();
-  await requireReader(sql, userId);
+  const member = await requireReader(sql, userId);
+  const now = Date.now();
+  try {
+    await touchPresence(sql, userId, member.handle, now);
+  } catch (err) {
+    console.error("[chat] presence", err instanceof Error ? err.message : "failed");
+  }
+  let online: ChatOnlineMember[] = [];
+  try {
+    online = await listOnline(sql, userId, now);
+  } catch (err) {
+    console.error("[chat] online", err instanceof Error ? err.message : "failed");
+  }
   const [rows, isAdmin] = await Promise.all([
     readMessages(sql, userId, input),
     callerIsAdmin(sql, userId),
@@ -271,6 +292,7 @@ export async function listChat(
     messages: rows.map((row) => toListItem(row, isAdmin)),
     nextPollMs: live.isLive ? 4_000 : NEXT_POLL_MS,
     live,
+    online,
   };
 }
 
@@ -391,14 +413,20 @@ export async function deleteOwnMessage(
 ): Promise<{ id: number; deleted: true }> {
   const sql = await getSql();
   await requireReader(sql, userId);
-  const rows = await sql<{ user_id: string | null; deleted_ms: number | string | bigint | null }>`
-    select user_id, deleted_ms
+  const rows = await sql<{
+    user_id: string | null;
+    kind: string;
+    deleted_ms: number | string | bigint | null;
+  }>`
+    select user_id, kind, deleted_ms
     from chat_message
     where id = ${input.id} and room = ${ROOM}
   `;
   const row = rows[0];
   if (!row) throw new Error("That message is gone.");
-  if (row.user_id !== userId) throw new Error("You can only remove your own messages.");
+  if (row.kind !== "text" || row.user_id !== userId) {
+    throw new Error("You can only remove your own messages.");
+  }
   if (row.deleted_ms != null) return { id: input.id, deleted: true };
   const now = Date.now();
   await sql`
