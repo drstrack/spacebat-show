@@ -34,7 +34,7 @@ export type ChatMessage = {
   handle: string;
   body: string;
   createdMs: number;
-  kind: "text" | "system";
+  kind: "text" | "system" | "presence";
   mine: boolean;
   /** Present only for admins, so mute and ban can target the author. */
   authorId?: string;

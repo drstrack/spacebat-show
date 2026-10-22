@@ -29,6 +29,7 @@ import { Route as PodcastIndexRouteImport } from './routes/podcast.index'
 import { Route as PodcastSlugRouteImport } from './routes/podcast.$slug'
 import { Route as ApiAlertsRunRouteImport } from './routes/api/alerts/run'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiChatPresenceRouteImport } from './routes/api/chat/presence'
 import { Route as ApiChatUploadRouteImport } from './routes/api/chat/upload'
 
 const IndexRoute = IndexRouteImport.update({
@@ -131,6 +132,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiChatPresenceRoute = ApiChatPresenceRouteImport.update({
+  id: '/api/chat/presence',
+  path: '/api/chat/presence',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatUploadRoute = ApiChatUploadRouteImport.update({
   id: '/api/chat/upload',
   path: '/api/chat/upload',
@@ -158,6 +164,7 @@ export interface FileRoutesByFullPath {
   '/podcast/': typeof PodcastIndexRoute
   '/api/alerts/run': typeof ApiAlertsRunRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/chat/presence': typeof ApiChatPresenceRoute
   '/api/chat/upload': typeof ApiChatUploadRoute
 }
 export interface FileRoutesByTo {
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/podcast': typeof PodcastIndexRoute
   '/api/alerts/run': typeof ApiAlertsRunRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/chat/presence': typeof ApiChatPresenceRoute
   '/api/chat/upload': typeof ApiChatUploadRoute
 }
 export interface FileRoutesById {
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/podcast/': typeof PodcastIndexRoute
   '/api/alerts/run': typeof ApiAlertsRunRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/chat/presence': typeof ApiChatPresenceRoute
   '/api/chat/upload': typeof ApiChatUploadRoute
 }
 export interface FileRouteTypes {
@@ -229,6 +238,7 @@ export interface FileRouteTypes {
     | '/podcast/'
     | '/api/alerts/run'
     | '/api/auth/$'
+    | '/api/chat/presence'
     | '/api/chat/upload'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -251,6 +261,7 @@ export interface FileRouteTypes {
     | '/podcast'
     | '/api/alerts/run'
     | '/api/auth/$'
+    | '/api/chat/presence'
     | '/api/chat/upload'
   id:
     | '__root__'
@@ -274,6 +285,7 @@ export interface FileRouteTypes {
     | '/podcast/'
     | '/api/alerts/run'
     | '/api/auth/$'
+    | '/api/chat/presence'
     | '/api/chat/upload'
   fileRoutesById: FileRoutesById
 }
@@ -296,6 +308,7 @@ export interface RootRouteChildren {
   PodcastIndexRoute: typeof PodcastIndexRoute
   ApiAlertsRunRoute: typeof ApiAlertsRunRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiChatPresenceRoute: typeof ApiChatPresenceRoute
   ApiChatUploadRoute: typeof ApiChatUploadRoute
 }
 
@@ -441,6 +454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/chat/presence': {
+      id: '/api/chat/presence'
+      path: '/api/chat/presence'
+      fullPath: '/api/chat/presence'
+      preLoaderRoute: typeof ApiChatPresenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat/upload': {
       id: '/api/chat/upload'
       path: '/api/chat/upload'
@@ -482,6 +502,7 @@ const rootRouteChildren: RootRouteChildren = {
   PodcastIndexRoute: PodcastIndexRoute,
   ApiAlertsRunRoute: ApiAlertsRunRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiChatPresenceRoute: ApiChatPresenceRoute,
   ApiChatUploadRoute: ApiChatUploadRoute,
 }
 export const routeTree = rootRouteImport

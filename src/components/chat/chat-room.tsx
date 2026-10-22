@@ -35,6 +35,8 @@ import { OnAirControl } from "@/components/chat/on-air-control";
 import { OpenPopoutButton } from "@/components/chat/open-popout-button";
 import { SystemMessage } from "@/components/chat/system-message";
 import { adminDeleteMessage } from "@/lib/chat/moderation.functions";
+import { beatChat } from "@/lib/chat/presence.functions";
+import { PRESENCE_HEARTBEAT_MS } from "@/lib/chat/presence";
 import { isRemoved, type ChatAttachment, type ChatLive } from "@/lib/chat/types";
 
 const LIVE_TITLE_PREFIX = "🔴 LIVE · ";
@@ -64,7 +66,7 @@ type FeedRow =
       handle: string;
       body: string;
       createdMs: number;
-      kind: "text" | "system";
+      kind: "text" | "system" | "presence";
       mine: boolean;
       authorId?: string;
       attachment: ChatAttachment | null;
@@ -423,6 +425,32 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
     };
   }, [enqueue, layout, phase, popoutElsewhere, rememberLive]);
 
+  useEffect(() => {
+    if (phase !== "ready") return;
+    if (layout !== "popout" && popoutElsewhere) return;
+    let stopped = false;
+    const beat = () => {
+      if (stopped) return;
+      void beatChat().catch(() => undefined);
+    };
+    const timer = window.setInterval(beat, PRESENCE_HEARTBEAT_MS);
+    const onPageHide = () => {
+      if (stopped) return;
+      try {
+        const body = new Blob(["1"], { type: "text/plain" });
+        navigator.sendBeacon?.("/api/chat/presence", body);
+      } catch {
+        /* heartbeats stop with the page, so the leave still posts */
+      }
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [layout, phase, popoutElsewhere]);
+
   useLayoutEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -496,7 +524,12 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   }
 
   async function submitDraft() {
-    if (sendingRef.current || uploadBusy || me?.member?.muted || Date.now() < cooldownUntilRef.current) {
+    if (
+      sendingRef.current ||
+      uploadBusy ||
+      me?.member?.muted ||
+      Date.now() < cooldownUntilRef.current
+    ) {
       return;
     }
     const raw = draftRef.current?.value ?? draft;
@@ -963,9 +996,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
                 )}
                 <Button
                   type="submit"
-                  disabled={
-                    sending || uploadBusy || Boolean(me?.member?.muted) || cooldownLeft > 0
-                  }
+                  disabled={sending || uploadBusy || Boolean(me?.member?.muted) || cooldownLeft > 0}
                 >
                   {sending ? "Sending" : "Send"}
                 </Button>
@@ -1025,6 +1056,24 @@ function MessageRow({
   }
   if (row.deleted) {
     return <p className="text-sm text-muted">message removed</p>;
+  }
+  if (row.kind === "presence") {
+    return (
+      <div className="flex flex-col items-center gap-0.5 px-2">
+        <p className="max-w-full break-words text-center text-xs leading-5 text-muted">
+          {row.body}
+        </p>
+        {isAdmin ? (
+          <button
+            type="button"
+            onClick={() => onDeleteSystem(row.id)}
+            className="text-[11px] text-muted underline-offset-2 hover:text-crimson hover:underline"
+          >
+            Remove
+          </button>
+        ) : null}
+      </div>
+    );
   }
   if (row.kind === "system") {
     return (
