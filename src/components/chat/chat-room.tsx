@@ -32,12 +32,13 @@ import { LiveBanner } from "@/components/chat/live-banner";
 import { MessageBody } from "@/components/chat/message-body";
 import { MessageMenu } from "@/components/chat/message-actions";
 import { OnAirControl } from "@/components/chat/on-air-control";
+import { OnlineMembers } from "@/components/chat/online-members";
 import { OpenPopoutButton } from "@/components/chat/open-popout-button";
 import { SystemMessage } from "@/components/chat/system-message";
 import { adminDeleteMessage } from "@/lib/chat/moderation.functions";
 import { beatChat } from "@/lib/chat/presence.functions";
 import { PRESENCE_HEARTBEAT_MS } from "@/lib/chat/presence";
-import { isRemoved, type ChatAttachment, type ChatLive } from "@/lib/chat/types";
+import { isRemoved, type ChatAttachment, type ChatLive, type ChatOnlineMember } from "@/lib/chat/types";
 
 const LIVE_TITLE_PREFIX = "🔴 LIVE · ";
 const DEFAULT_POLL_MS = 4_000;
@@ -173,6 +174,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
   const [mounted, setMounted] = useState(false);
   const [showImages, setShowImages] = useState(true);
   const [live, setLive] = useState<ChatLive | null>(null);
+  const [online, setOnline] = useState<ChatOnlineMember[] | null>(null);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef<HTMLTextAreaElement>(null);
@@ -270,6 +272,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
     setHistoryReady(false);
     setHasEarlier(false);
     setShowNew(false);
+    setOnline(null);
     lastIdRef.current = 0;
     rememberLive(null);
   }, [rememberLive, userId]);
@@ -344,6 +347,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
             : await listChat({ data: {} });
           if (stopped) return;
           rememberLive(result.live);
+          if (Array.isArray(result.online)) setOnline(result.online);
           if (typeof result.nextPollMs === "number" && result.nextPollMs > 0) {
             baseMs = result.nextPollMs;
           }
@@ -487,6 +491,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
       const result = await enqueue(() => listChat({ data: { before } }));
       preserveRef.current = preserve;
       rememberLive(result.live);
+      if (Array.isArray(result.online)) setOnline(result.online);
       setRows((current) => mergeRows(current, result.messages));
       if (result.messages.length < 50) setHasEarlier(false);
     } catch (err) {
@@ -722,6 +727,11 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
               {me?.member?.handle ? (
                 <p className="truncate text-xs text-muted">{me.member.handle}</p>
               ) : null}
+              {phase === "ready" && online ? (
+                <div className="mt-1">
+                  <OnlineMembers members={online} />
+                </div>
+              ) : null}
             </div>
             <LivePlayer compact />
             <a
@@ -752,6 +762,11 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
           <p className="mt-2 text-sm text-muted">
             Listeners only. New posts show up every few seconds.
           </p>
+          {phase === "ready" && online && !popoutElsewhere ? (
+            <div className="mt-3">
+              <OnlineMembers members={online} />
+            </div>
+          ) : null}
           <OpenPopoutButton />
           {me?.isAdmin ? <OnAirControl live={live} onChange={rememberLive} /> : null}
         </header>

@@ -5,6 +5,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { containsBlockedWord } from "./blockwords.ts";
 import { postAttemptSql } from "./post-insert.ts";
 import {
+  listOnline,
   planBeat,
   PRESENCE_LEAVE_MS,
   PRESENCE_REJOIN_MS,
@@ -80,9 +81,16 @@ describe("presence copy", () => {
 });
 
 const POSTGRES_SCHEMA = `
+  create table "user" (
+    id text primary key,
+    name text not null,
+    email text not null,
+    image text
+  );
   create table chat_member (
     user_id text primary key,
-    handle text not null
+    handle text not null,
+    banned_ms bigint
   );
   create table chat_presence (
     user_id text primary key,
@@ -234,6 +242,46 @@ function presenceSuite(open: () => Promise<{ sql: PresenceSql; close: () => Prom
         (await lines(sql)).map((row) => row.body),
         ["Dan joined the chat", "Dan left the chat"],
       );
+    } finally {
+      await close();
+    }
+  });
+
+  it("lists members still inside the leave window, by name, without emails", async () => {
+    const { sql, close } = await open();
+    try {
+      await names(sql, "dan", "Dan");
+      await names(sql, "sam", "Sam");
+      await names(sql, "bea", "Bea");
+      await names(sql, "ada", "Ada");
+      await sql`
+        insert into "user" (id, name, email, image) values
+          (${"dan"}, ${"Dan Account"}, ${"dan@secret.test"}, ${"https://cdn.example/dan.png"}),
+          (${"sam"}, ${"Sam Account"}, ${"sam@secret.test"}, ${"javascript:alert(1)"})
+      `;
+      await touchPresence(sql, "dan", "Dan", T0);
+      await touchPresence(sql, "sam", "Sam", T0);
+      await touchPresence(sql, "bea", "Bea", T0);
+      await touchPresence(sql, "ada", "Ada", T0);
+      await sql`update chat_member set banned_ms = ${T0} where user_id = ${"bea"}`;
+      await sql`update chat_presence set state = 'gone' where user_id = ${"ada"}`;
+
+      const fresh = await listOnline(sql, "dan", T0 + PRESENCE_LEAVE_MS - 1);
+      assert.deepEqual(
+        fresh.map((member) => member.handle),
+        ["Dan", "Sam"],
+      );
+      assert.equal(fresh[0]?.you, true);
+      assert.equal(fresh[1]?.you, false);
+      assert.equal(fresh[0]?.imageUrl, "https://cdn.example/dan.png");
+      assert.equal(fresh[1]?.imageUrl, null);
+      const packed = JSON.stringify(fresh);
+      assert.equal(packed.includes("secret"), false);
+      assert.equal(packed.includes("dan@"), false);
+      assert.equal(packed.includes("user_id"), false);
+
+      const stale = await listOnline(sql, "dan", T0 + PRESENCE_LEAVE_MS);
+      assert.deepEqual(stale, []);
     } finally {
       await close();
     }

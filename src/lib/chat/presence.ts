@@ -324,3 +324,50 @@ export async function pulsePresence(
   await repairLeaves(sql);
   await refreshPresence(sql, userId, now);
 }
+
+export type OnlineMember = {
+  handle: string;
+  imageUrl: string | null;
+  you: boolean;
+};
+
+const HTTP_IMAGE = /^https?:\/\//i;
+
+/**
+ * Members still inside the leave window. Same cutoff as a leave announcement:
+ * a heartbeat older than that means they have left, so they are not listed.
+ * The row carries a room name and an https avatar when the account has one.
+ */
+export async function listOnline(
+  sql: PresenceSql,
+  viewerId: string,
+  now: number,
+): Promise<OnlineMember[]> {
+  const rows = await sql<{
+    handle: string;
+    image_url: string | null;
+    user_id: string;
+  }>`
+    select c.handle, u.image as image_url, p.user_id
+    from chat_presence p
+    join chat_member c on c.user_id = p.user_id
+    left join "user" u on u.id = p.user_id
+    where p.room = ${ROOM}
+      and p.state = 'here'
+      and p.last_seen_ms > ${now - PRESENCE_LEAVE_MS}
+      and c.banned_ms is null
+  `;
+  const members: OnlineMember[] = [];
+  for (const row of rows) {
+    const handle = row.handle.trim().replace(/\s+/g, " ");
+    if (!handle) continue;
+    const image = typeof row.image_url === "string" ? row.image_url.trim() : "";
+    members.push({
+      handle,
+      imageUrl: HTTP_IMAGE.test(image) ? image : null,
+      you: row.user_id === viewerId,
+    });
+  }
+  members.sort((a, b) => a.handle.localeCompare(b.handle, "en", { sensitivity: "base" }));
+  return members;
+}

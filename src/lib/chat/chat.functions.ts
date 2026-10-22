@@ -16,6 +16,7 @@ export type {
   ChatMe,
   ChatMember,
   ChatMessage,
+  ChatOnlineMember,
   ChatRemoved,
 } from "@/lib/chat/types";
 

@@ -11,7 +11,7 @@ import {
   type RateRow,
 } from "@/lib/chat/post-insert";
 import { refreshLive } from "@/lib/chat/live.server";
-import { touchPresence } from "@/lib/chat/presence";
+import { listOnline, touchPresence } from "@/lib/chat/presence";
 import { CHAT_NEW_MEMBER_LINK_DELAY_MIN, countUrls, MAX_URLS_PER_MESSAGE } from "@/lib/chat/render";
 import { activeBlockwords } from "@/lib/chat/moderation.server";
 import { CHAT_RULES_VERSION } from "@/lib/chat/rules";
@@ -23,6 +23,7 @@ import type {
   ChatMe,
   ChatMember,
   ChatMessage,
+  ChatOnlineMember,
 } from "@/lib/chat/types";
 import { displayFileName, isTrustedBlobUrl } from "@/lib/chat/uploads";
 import {
@@ -265,10 +266,17 @@ export async function listChat(
 ): Promise<ChatList> {
   const sql = await getSql();
   const member = await requireReader(sql, userId);
+  const now = Date.now();
   try {
-    await touchPresence(sql, userId, member.handle);
+    await touchPresence(sql, userId, member.handle, now);
   } catch (err) {
     console.error("[chat] presence", err instanceof Error ? err.message : "failed");
+  }
+  let online: ChatOnlineMember[] = [];
+  try {
+    online = await listOnline(sql, userId, now);
+  } catch (err) {
+    console.error("[chat] online", err instanceof Error ? err.message : "failed");
   }
   const [rows, isAdmin] = await Promise.all([
     readMessages(sql, userId, input),
@@ -284,6 +292,7 @@ export async function listChat(
     messages: rows.map((row) => toListItem(row, isAdmin)),
     nextPollMs: live.isLive ? 4_000 : NEXT_POLL_MS,
     live,
+    online,
   };
 }
 
