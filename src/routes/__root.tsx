@@ -20,6 +20,7 @@ function NotFound() {
 }
 
 export const Route = createRootRoute({
+  loader: () => ({ scheduleNowMs: Date.now() }),
   head: () => ({
     meta: [
       { charSet: "utf-8" },

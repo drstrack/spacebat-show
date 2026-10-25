@@ -12,6 +12,7 @@ import {
   type LiveState,
 } from "@/lib/chat/live";
 import { readFeed } from "@/lib/podcast-feed.functions";
+import { applyLiveBannerOverride } from "@/lib/schedule-change";
 import type { ChatLive } from "@/lib/chat/types";
 
 const ROOM = "main";
@@ -71,12 +72,16 @@ function toState(row: LiveRow | undefined): LiveState {
   };
 }
 
-function toPublic(state: LiveState): ChatLive {
+function toPublic(state: LiveState, now = Date.now()): ChatLive {
   const source =
     state.source === "stream" || state.source === "feed" || state.source === "manual"
       ? state.source
       : null;
-  return { isLive: state.isLive, sinceMs: state.sinceMs, source };
+  return applyLiveBannerOverride(
+    { isLive: state.isLive, sinceMs: state.sinceMs, source },
+    { mode: state.manual, untilMs: state.manualUntilMs },
+    now,
+  );
 }
 
 async function probeFeed(): Promise<LiveProbe> {
@@ -184,7 +189,7 @@ export async function refreshLive(room = ROOM): Promise<ChatLive> {
       where room = ${room} and checked_ms < ${now - CHECK_GAP_MS}
       returning is_live, since_ms, source, manual, manual_until_ms, off_checks, last_alert_ms
     `;
-    if (!claimed[0]) return toPublic(toState(await loadRow(sql, room)));
+    if (!claimed[0]) return toPublic(toState(await loadRow(sql, room)), now);
 
     const previous = toState(claimed[0]);
     const [icecast, feed] = await Promise.all([probeIcecast(streamUrl()), probeFeed()]);
@@ -199,13 +204,13 @@ export async function refreshLive(room = ROOM): Promise<ChatLive> {
       now,
     );
     await saveState(sql, room, next, now);
-    return toPublic(next);
+    return toPublic(next, now);
   } catch {
     try {
       const sql = await getSql();
       return toPublic(toState(await loadRow(sql, room)));
     } catch {
-      return QUIET;
+      return applyLiveBannerOverride(QUIET, { mode: null, untilMs: null }, Date.now());
     }
   }
 }
@@ -256,5 +261,5 @@ export async function adminSetLive(
     insert into chat_audit (actor_id, action, target_user_id, message_id, detail, created_ms)
     values (${userId}, 'live', null, null, ${mode}, ${now})
   `;
-  return toPublic(next);
+  return toPublic(next, now);
 }
