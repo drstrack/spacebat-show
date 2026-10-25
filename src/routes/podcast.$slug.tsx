@@ -2,6 +2,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { loadEpisodeChapters, loadPublishedEpisodes } from "@/lib/podcast-feed.functions";
 import type { EpisodeChapter, EpisodeClip } from "@/data/show";
+import { ScheduleChangeNotice } from "@/components/schedule-change-notice";
 import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/podcast/$slug")({
@@ -60,6 +61,7 @@ function EpisodePage() {
       >
         All episodes
       </Link>
+      <ScheduleChangeNotice className="mt-6" />
       <div className="panel mt-6 overflow-hidden">
         <img
           src={episode.cover}

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { HostPortrait } from "@/components/host-portrait";
 import { LivePlayer } from "@/components/live-player";
+import { ScheduleChangeNotice } from "@/components/schedule-change-notice";
 import { Button } from "@/components/ui/button";
 import { beats, hosts, show } from "@/data/show";
 
@@ -22,6 +23,7 @@ function Home() {
             </span>
           </div>
           <div className="border-t-4 border-ink bg-paper p-5 sm:p-8">
+            <ScheduleChangeNotice className="mb-4" />
             <span className="caption-box">A podcast</span>
             <p className="mt-4 max-w-3xl font-display text-3xl leading-none tracking-wide text-ink sm:text-5xl">
               {show.lede}

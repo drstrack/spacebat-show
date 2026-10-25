@@ -8,6 +8,7 @@ import {
   type PostedShow,
   type ScheduledShow,
 } from "@/lib/podcast-alert-plan";
+import { applyScheduleChange } from "@/lib/schedule-change";
 
 const FRESH_MS = 6 * 60 * 60 * 1000;
 
@@ -19,7 +20,7 @@ export async function runPodcastAlerts(now = new Date()) {
   });
   if (!response.ok) return { ok: false as const, error: "feed" };
   const xml = await response.text();
-  const scheduled = parseScheduledShows(xml);
+  const scheduled = applyScheduleChange(parseScheduledShows(xml), now);
   const posted = parsePostedShows(xml);
   const sql = await getSql();
 

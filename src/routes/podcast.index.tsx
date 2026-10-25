@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { EpisodeCard } from "@/components/episode-card";
 import { HostPortrait } from "@/components/host-portrait";
 import { LivePlayer } from "@/components/live-player";
+import { ScheduleChangeNotice, StandingShowTime } from "@/components/schedule-change-notice";
 import { Button } from "@/components/ui/button";
 import { beats, hosts } from "@/data/show";
 import { loadPublishedEpisodes } from "@/lib/podcast-feed.functions";
@@ -26,26 +27,27 @@ function PodcastPage() {
         a different project. Stay tuned.
       </p>
 
-      <section id="live" className="panel mt-10 overflow-hidden bg-surface md:grid md:grid-cols-2">
-        <div className="relative md:h-full">
-          <img
-            src="/images/cover-splash.webp"
-            alt="SpaceBat flying in orbit."
-            className="aspect-[2/1] w-full object-cover object-[center_30%] md:absolute md:inset-0 md:aspect-auto md:h-full md:border-r-4 md:border-ink"
-          />
-        </div>
-        <div className="flex flex-col justify-center bg-paper p-6 sm:p-10">
-          <span className="burst w-fit text-sm">Live</span>
-          <h2 className="mt-4 font-display text-4xl tracking-wide">On the air</h2>
-          <p className="mt-4 text-base leading-relaxed text-muted">
-            The SpaceBat Show is Live every Wednesday at 8:30pm EST
-          </p>
-          <LivePlayer />
-          <Button asChild className="mt-6 w-fit">
-            <Link to="/listen">Play Latest Episode</Link>
-          </Button>
-        </div>
-      </section>
+      <div className="mt-10 space-y-4">
+        <ScheduleChangeNotice />
+        <section id="live" className="panel overflow-hidden bg-surface md:grid md:grid-cols-2">
+          <div className="relative md:h-full">
+            <img
+              src="/images/cover-splash.webp"
+              alt="SpaceBat flying in orbit."
+              className="aspect-[2/1] w-full object-cover object-[center_30%] md:absolute md:inset-0 md:aspect-auto md:h-full md:border-r-4 md:border-ink"
+            />
+          </div>
+          <div className="flex flex-col justify-center bg-paper p-6 sm:p-10">
+            <span className="burst w-fit text-sm">Live</span>
+            <h2 className="mt-4 font-display text-4xl tracking-wide">On the air</h2>
+            <StandingShowTime className="mt-4" />
+            <LivePlayer />
+            <Button asChild className="mt-6 w-fit">
+              <Link to="/listen">Play Latest Episode</Link>
+            </Button>
+          </div>
+        </section>
+      </div>
 
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {beats.map((b) => (
