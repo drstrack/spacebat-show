@@ -1,14 +1,7 @@
 import { getSql } from "@/lib/db";
 import { show } from "@/data/show";
-import {
-  formatShowWhen,
-  parsePostedShows,
-  parseScheduledShows,
-  showsDueThisMorning,
-  type PostedShow,
-  type ScheduledShow,
-} from "@/lib/podcast-alert-plan";
-import { applyScheduleChange } from "@/lib/schedule-change";
+import { parsePostedShows, planAlertMorning, type PostedShow } from "@/lib/podcast-alert-plan";
+import { scheduleChangeMorningAlert } from "@/lib/schedule-change";
 
 const FRESH_MS = 6 * 60 * 60 * 1000;
 
@@ -18,10 +11,13 @@ export async function runPodcastAlerts(now = new Date()) {
   const response = await fetch(show.feedUrl, {
     headers: { Accept: "application/rss+xml, application/xml, text/xml" },
   });
-  if (!response.ok) return { ok: false as const, error: "feed" };
+  if (!response.ok) {
+    const scheduleChange = await sendMovedWednesday(now);
+    return { ok: false as const, error: "feed" as const, scheduleChange };
+  }
   const xml = await response.text();
-  const scheduled = applyScheduleChange(parseScheduledShows(xml), now);
   const posted = parsePostedShows(xml);
+  const { mails } = planAlertMorning(xml, now, origin());
   const sql = await getSql();
 
   const seeded = await sql<{ email: string }>`
@@ -38,18 +34,33 @@ export async function runPodcastAlerts(now = new Date()) {
   }
 
   const people = await listeners();
-  const due = showsDueThisMorning(now, scheduled);
   let morning = 0;
+  let scheduleChange = 0;
   let postedCount = 0;
 
-  for (const session of due) {
-    morning += await sendOnce("show-day", `${session.id}:${session.start}`, people, morningNote(session));
+  for (const mail of mails) {
+    const sent = await sendOnce(mail.kind, mail.ref, people, {
+      subject: mail.subject,
+      text: mail.text,
+    });
+    if (mail.kind === "show-day") morning += sent;
+    else scheduleChange += sent;
   }
   for (const episode of posted) {
     postedCount += await sendOnce("posted", episode.id, people, postedNote(episode));
   }
 
-  return { ok: true as const, morning, posted: postedCount };
+  return { ok: true as const, morning, scheduleChange, posted: postedCount };
+}
+
+/** Wednesday note does not read the feed. A down Podhome response still sends it once. */
+async function sendMovedWednesday(now: Date) {
+  const change = scheduleChangeMorningAlert(now, origin());
+  if (!change) return 0;
+  return sendOnce(change.kind, change.ref, await listeners(), {
+    subject: change.subject,
+    text: change.text,
+  });
 }
 
 async function listeners(): Promise<Person[]> {
@@ -109,19 +120,6 @@ function origin() {
 function greeting(name: string) {
   const first = name.split(/\s+/)[0];
   return first && first.toLowerCase() !== "listener" ? `${first},\n\n` : "";
-}
-
-function morningNote(session: ScheduledShow) {
-  const site = origin();
-  return {
-    subject: "We're on today",
-    text:
-      `John and Dan are live today. The bat signal is up.\n\n` +
-      `${session.title}\n` +
-      `${formatShowWhen(session.start)}\n\n` +
-      `Come listen with us:\n${site}/podcast#live\n\n` +
-      `You asked for these notes. Turn them off anytime:\n${site}/account\n`,
-  };
 }
 
 function postedNote(episode: PostedShow) {
