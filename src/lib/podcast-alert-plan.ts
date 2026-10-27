@@ -1,5 +1,11 @@
 /** Pure Podhome schedule rules for podcast-alert mail. No database. */
 
+import {
+  scheduleChangeMorningAlert,
+  showsForAlertSchedule,
+  type ScheduleChangeAlert,
+} from "./schedule-change.ts";
+
 const NY = "America/New_York";
 const STREAM_HOST = "stream.podhome.fm";
 
@@ -62,6 +68,53 @@ export function showsDueThisMorning(now: Date, shows: ScheduledShow[]): Schedule
   if (hour < 7 || hour > 10) return [];
   const today = nyDateKey(now);
   return shows.filter((show) => nyDateKey(new Date(show.start)) === today);
+}
+
+export type AlertMail =
+  | ScheduleChangeAlert
+  | {
+      kind: "show-day";
+      ref: string;
+      subject: string;
+      text: string;
+    };
+
+/**
+ * Morning podcast alerts for one cron run.
+ * One-off through 2026-10-30 00:00 America/New_York: the schedule-change
+ * import and showsForAlertSchedule call go away with schedule-change.ts.
+ * Show-day mail still uses alert_log kind "show-day". The Wednesday note
+ * uses a different kind and ref, so the two cannot dedupe into each other.
+ */
+export function planAlertMorning(
+  xml: string,
+  now: Date,
+  site: string,
+): {
+  shows: ScheduledShow[];
+  mails: AlertMail[];
+} {
+  const shows = showsForAlertSchedule(parseScheduledShows(xml), now);
+  const mails: AlertMail[] = [];
+  const change = scheduleChangeMorningAlert(now, site);
+  if (change) mails.push(change);
+  for (const show of showsDueThisMorning(now, shows)) mails.push(showDayMail(show, site));
+  return { shows, mails };
+}
+
+export function showDayMail(show: ScheduledShow, site: string): AlertMail {
+  const home = site.replace(/\/$/, "");
+  return {
+    kind: "show-day",
+    ref: `${show.id}:${show.start}`,
+    subject: "We're on today",
+    text:
+      `John and Dan are live today. The bat signal is up.\n\n` +
+      `${show.title}\n` +
+      `${formatShowWhen(show.start)}\n\n` +
+      `Come listen with us:\n${home}/podcast#live\n\n` +
+      `You asked for these notes. Turn them off anytime:\n${home}/account\n`,
+  };
 }
 
 export function nyDateKey(date: Date): string {
