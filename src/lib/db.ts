@@ -346,30 +346,56 @@ export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite
   return pg;
 }
 
-/**
- * Finish DB bootstrap before the server handles traffic.
- *
- * - **PGLite** (preview / no `DATABASE_URL`): open the in-memory DB and apply
- *   `migrations/*.sql`. Idempotent — concurrent callers share one promise.
- * - **Neon**: no-op (pool is created lazily on first query).
- *
- * Vite `configureServer` awaits this at dev startup; production imports of this
- * module kick it off immediately (see bottom of file).
- */
-export function ensureDbReady(): Promise<void> {
-  if (dbSource === "neon") return Promise.resolve();
-  return getSql().then(() => undefined);
+function dbBackendLabel(source: DbSource): string {
+  if (source === "turso") return "Turso";
+  if (source === "neon") return "Neon";
+  return "PGLite";
 }
 
-// Server-only eager start: kick PGLite bootstrap as soon as this module loads in
-// Node. Client bundles never hit this path (`getSql` throws in the browser).
+// Shared across HMR copies of this module so two instances don't each boot.
 const globalBoot = globalThis as typeof globalThis & {
   __pgBootstrapPromise__?: Promise<void>;
 };
-if (typeof window === "undefined" && dbSource !== "neon") {
-  globalBoot.__pgBootstrapPromise__ ??= ensureDbReady().catch((err) => {
-    globalBoot.__pgBootstrapPromise__ = undefined;
-    console.error("[db] PGLite bootstrap failed:", err);
-    throw err;
+
+/**
+ * Finish DB bootstrap before the server handles traffic.
+ *
+ * - **Turso** and **PGLite**: open the database and apply `migrations/*.sql`.
+ *   Concurrent callers share one promise. A connect or bootstrap failure is
+ *   logged once with the real backend name (`Turso` or `PGLite`). The cached
+ *   promise is dropped so the next call retries. Awaiters still receive the
+ *   rejection. The eager import below does not rethrow it: nothing awaits
+ *   that call, and a rethrow is an unhandled rejection that exits the
+ *   serverless process (status 128).
+ * - **Neon**: no-op (the pool is created on the first query).
+ *
+ * Vite `configureServer` awaits this at dev startup. Production imports of
+ * this module start it immediately (see the bottom of the file).
+ */
+export function ensureDbReady(): Promise<void> {
+  if (dbSource === "neon") return Promise.resolve();
+  const existing = globalBoot.__pgBootstrapPromise__;
+  if (existing) return existing;
+
+  const boot = getSql().then(() => undefined);
+  globalBoot.__pgBootstrapPromise__ = boot;
+  // Attach the handler to `boot` itself. `.catch()` returns a new promise;
+  // awaiting `boot` still rejects, and a `void ensureDbReady()` elsewhere
+  // (the auth server) observes this same promise instead of a second,
+  // unhandled one.
+  void boot.catch((err: unknown) => {
+    if (globalBoot.__pgBootstrapPromise__ === boot) {
+      globalBoot.__pgBootstrapPromise__ = undefined;
+    }
+    console.error(`[db] ${dbBackendLabel(dbSource)} bootstrap failed:`, err);
   });
+  return boot;
+}
+
+// Server-only eager start: open Turso or PGLite as soon as this module loads in
+// Node. Client bundles never hit this path (`getSql` throws in the browser).
+// The rejection is logged inside `ensureDbReady` and not rethrown — this call
+// is not awaited, and a rethrow would be an unhandled rejection.
+if (typeof window === "undefined" && dbSource !== "neon") {
+  void ensureDbReady();
 }
