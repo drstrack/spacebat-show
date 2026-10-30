@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { loadEpisodeChapters, loadPublishedEpisodes } from "@/lib/podcast-feed.functions";
-import type { EpisodeChapter, EpisodeClip } from "@/data/show";
+import type { EpisodeChapter, EpisodeClip, ShowNoteLink } from "@/data/show";
 import { ScheduleChangeNotice } from "@/components/schedule-change-notice";
 import { Badge } from "@/components/ui/badge";
 
@@ -35,7 +35,10 @@ export const Route = createFileRoute("/podcast/$slug")({
         { name: "spacebat:og-image", content: episode.cover },
         { name: "spacebat:og-image:width", content: "3000" },
         { name: "spacebat:og-image:height", content: "3000" },
-        { name: "spacebat:og-url", content: `https://www.spacebatshow.net/podcast/${episode.slug}` },
+        {
+          name: "spacebat:og-url",
+          content: `https://www.spacebatshow.net/podcast/${episode.slug}`,
+        },
       ],
     };
   },
@@ -71,13 +74,9 @@ function EpisodePage() {
       </div>
       <div className="mt-8 flex flex-wrap items-center gap-2">
         <Badge>Episode {episode.code}</Badge>
-        <span className="text-xs uppercase tracking-[0.12em] text-muted">
-          {episode.dateLabel}
-        </span>
+        <span className="text-xs uppercase tracking-[0.12em] text-muted">{episode.dateLabel}</span>
       </div>
-      <h1 className="mt-4 font-display text-5xl leading-none tracking-wide">
-        {episode.title}
-      </h1>
+      <h1 className="mt-4 font-display text-5xl leading-none tracking-wide">{episode.title}</h1>
       {episode.listenUrl ? (
         <audio
           ref={audioRef}
@@ -132,24 +131,9 @@ function EpisodePage() {
       {episode.notes.links.length > 0 ? (
         <Fold id="notes" label="Show notes" count={episode.notes.links.length}>
           <ul className="mt-4 divide-y-2 divide-ink border-y-4 border-ink">
-            {episode.notes.links.map((link) => (
-              <li key={link.href} className="py-3">
-                <a
-                  href={link.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-display text-xl tracking-wide text-crimson underline"
-                >
-                  {link.label}
-                </a>
-                <a
-                  href={link.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 block break-all text-sm text-ink underline"
-                >
-                  {link.href}
-                </a>
+            {episode.notes.links.map((link, index) => (
+              <li key={`${link.label}-${link.href}-${index}`} className="py-3">
+                <ShowNote link={link} />
               </li>
             ))}
           </ul>
@@ -183,6 +167,42 @@ function EpisodePage() {
         </section>
       ) : null}
     </article>
+  );
+}
+
+function ShowNote({ link, nested = false }: { link: ShowNoteLink; nested?: boolean }) {
+  const labelClass = nested
+    ? "font-display text-lg tracking-wide text-crimson underline"
+    : "font-display text-xl tracking-wide text-crimson underline";
+  return (
+    <>
+      {link.href ? (
+        <>
+          <a href={link.href} target="_blank" rel="noreferrer" className={labelClass}>
+            {link.label}
+          </a>
+          <a
+            href={link.href}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 block break-all text-sm text-ink underline"
+          >
+            {link.href}
+          </a>
+        </>
+      ) : (
+        <span className="font-display text-lg tracking-wide text-ink">{link.label}</span>
+      )}
+      {link.children?.length ? (
+        <ul className="mt-2 space-y-2 border-l-4 border-ink pl-3">
+          {link.children.map((child, index) => (
+            <li key={`${child.label}-${child.href}-${index}`}>
+              <ShowNote link={child} nested />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </>
   );
 }
 
@@ -276,7 +296,9 @@ function ClipRow({ clip, onSeek }: { clip: EpisodeClip; onSeek: (seconds: number
       {clip.title ? (
         <span className="mt-1 block font-display text-xl tracking-wide text-ink">{clip.title}</span>
       ) : null}
-      {clip.text ? <span className="mt-1 block text-sm leading-relaxed text-muted">{clip.text}</span> : null}
+      {clip.text ? (
+        <span className="mt-1 block text-sm leading-relaxed text-muted">{clip.text}</span>
+      ) : null}
     </button>
   );
 }

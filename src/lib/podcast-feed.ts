@@ -1,4 +1,4 @@
-import type { Episode, EpisodeChapter, EpisodeClip } from "@/data/show";
+import type { Episode, EpisodeChapter, EpisodeClip, ShowNoteLink } from "@/data/show";
 
 const STREAM_HOST = "stream.podhome.fm";
 
@@ -60,7 +60,8 @@ export function parsePublishedEpisodes(xml: string): Episode[] {
 
   episodes.sort((a, b) => (a.date < b.date ? 1 : -1));
   episodes.forEach((episode, index) => {
-    if (!textHasNumber(episode.code)) episode.code = String(episodes.length - index).padStart(2, "0");
+    if (!textHasNumber(episode.code))
+      episode.code = String(episodes.length - index).padStart(2, "0");
   });
   return episodes;
 }
@@ -146,9 +147,7 @@ function enclosureUrl(block: string): string {
 
 function imageUrl(block: string): string {
   const tag =
-    block.match(/<itunes:image\b[^>]*>/i)?.[0] ??
-    block.match(/<podcast:image\b[^>]*>/i)?.[0] ??
-    "";
+    block.match(/<itunes:image\b[^>]*>/i)?.[0] ?? block.match(/<podcast:image\b[^>]*>/i)?.[0] ?? "";
   return attr(tag, "href");
 }
 
@@ -169,25 +168,202 @@ function slugFrom(link: string, title: string, guid: string): string {
 }
 
 function parseShowNotes(html: string): Episode["notes"] {
-  const list = html.match(/<ul\b[\s\S]*?<\/ul>/i)?.[0] ?? "";
-  const prose = html.replace(/<ul\b[\s\S]*?<\/ul>/i, " ");
-  const paragraphs = decode(prose.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<[^>]+>/g, " "))
+  // A non-greedy </ul> stops at the first nested list and leaves the rest of
+  // the notes in the description. Take the balanced outer list instead.
+  const list = findBalanced(html, "ul", 0);
+  const prose = list ? `${html.slice(0, list.start)} ${html.slice(list.end)}` : html;
+  const paragraphs = decode(
+    prose
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<[^>]+>/g, " "),
+  )
     .split(/\n+/)
     .map((paragraph) => paragraph.replace(/\s+/g, " ").trim())
     .filter(Boolean);
-
-  const links: Episode["notes"]["links"] = [];
-  for (const item of list.match(/<li\b[\s\S]*?<\/li>/gi) ?? []) {
-    const href = decode(item.match(/href="([^"]+)"/i)?.[1] ?? "").replace(/\s+/g, "");
-    if (!/^https?:\/\//i.test(href)) continue;
-    const label = decode(item.replace(/<a\b[\s\S]*?<\/a>/gi, " ").replace(/<[^>]+>/g, " "))
-      .replace(/\s+/g, " ")
-      .replace(/:\s*$/, "")
-      .trim();
-    links.push({ label: label || href, href });
-  }
-
+  const links = list ? readList(html.slice(list.start, list.end), false) : [];
   return { paragraphs, links };
+}
+
+type Span = { start: number; end: number };
+
+function findBalanced(html: string, tag: string, from: number): Span | null {
+  const start = nextTag(html, tag, from, false);
+  if (start < 0) return null;
+  let depth = 1;
+  let i = start + tag.length + 1;
+  while (depth > 0) {
+    const nextOpen = nextTag(html, tag, i, false);
+    const nextClose = nextTag(html, tag, i, true);
+    if (nextClose < 0) return null;
+    if (nextOpen >= 0 && nextOpen < nextClose) {
+      depth += 1;
+      i = nextOpen + tag.length + 1;
+      continue;
+    }
+    depth -= 1;
+    const closeEnd = html.indexOf(">", nextClose);
+    if (closeEnd < 0) return null;
+    i = closeEnd + 1;
+  }
+  return { start, end: i };
+}
+
+function nextTag(html: string, tag: string, from: number, closing: boolean): number {
+  const needle = `${closing ? "</" : "<"}${tag}`.toLowerCase();
+  const lower = html.toLowerCase();
+  let i = from;
+  while (i < html.length) {
+    const at = lower.indexOf(needle, i);
+    if (at < 0) return -1;
+    const next = html[at + needle.length] ?? "";
+    const boundary = closing
+      ? /^\s*>/.test(html.slice(at + needle.length))
+      : next === ">" || next === "/" || /\s/.test(next);
+    if (boundary) return at;
+    i = at + 1;
+  }
+  return -1;
+}
+
+function readList(listHtml: string, nested: boolean, parentHref = ""): ShowNoteLink[] {
+  const inner = stripWrapper(listHtml, "ul");
+  const links: ShowNoteLink[] = [];
+  let cursor = 0;
+  while (cursor < inner.length) {
+    const li = findBalanced(inner, "li", cursor);
+    const ul = findBalanced(inner, "ul", cursor);
+    const next = earliest(li, ul);
+    if (!next || next.end <= cursor) break;
+    if (next.kind === "ul") {
+      const children = readList(
+        inner.slice(next.start, next.end),
+        true,
+        links.at(-1)?.href || parentHref,
+      );
+      const prev = links.at(-1);
+      if (prev) {
+        for (const child of children) attach(prev, child);
+      } else if (nested) {
+        links.push(...children);
+      } else {
+        for (const child of children) {
+          if (child.href) links.push(child);
+        }
+      }
+      cursor = next.end;
+      continue;
+    }
+
+    const liInner = stripWrapper(inner.slice(next.start, next.end), "li");
+    const { own, lists } = splitNestedUls(liInner);
+    const rawHref = firstRawHref(own);
+    const href = usableHref(rawHref);
+    const children = lists.flatMap((list) => readList(list, true, href || parentHref));
+    cursor = next.end;
+
+    const prev = links.at(-1);
+    if (!nested && prev && brokenSubBullet(rawHref, prev.href, own)) {
+      for (const note of textNotes(own, children, rawHref, prev.href)) attach(prev, note);
+      continue;
+    }
+    if (!href) {
+      if (nested) links.push(...textNotes(own, children, rawHref, parentHref));
+      continue;
+    }
+    const link: ShowNoteLink = { label: labelFrom(own) || href, href };
+    if (children.length) link.children = children;
+    links.push(link);
+  }
+  return links;
+}
+
+function earliest(li: Span | null, ul: Span | null): (Span & { kind: "li" | "ul" }) | null {
+  if (li && (!ul || li.start <= ul.start)) return { ...li, kind: "li" };
+  if (ul) return { ...ul, kind: "ul" };
+  return null;
+}
+
+function splitNestedUls(html: string): { own: string; lists: string[] } {
+  const lists: string[] = [];
+  let own = "";
+  let cursor = 0;
+  while (cursor < html.length) {
+    const found = findBalanced(html, "ul", cursor);
+    if (!found || found.end <= cursor) {
+      own += html.slice(cursor);
+      break;
+    }
+    own += html.slice(cursor, found.start);
+    lists.push(html.slice(found.start, found.end));
+    cursor = found.end;
+  }
+  return { own, lists };
+}
+
+function stripWrapper(html: string, tag: string): string {
+  return html
+    .replace(new RegExp(`^\\s*<${tag}\\b[^>]*>`, "i"), "")
+    .replace(new RegExp(`</${tag}\\s*>\\s*$`, "i"), "");
+}
+
+function firstRawHref(html: string): string {
+  return html.match(/href="([^"]*)"/i)?.[1] ?? "";
+}
+
+function usableHref(raw: string): string {
+  const href = decode(raw).replace(/\s+/g, "");
+  if (!/^https?:\/\//i.test(href)) return "";
+  // An apostrophe or quote is sub-bullet text glued onto a URL, not a link.
+  if (/['"<>]/.test(href)) return "";
+  return href;
+}
+
+function suffixOf(href: string, parentHref: string): string {
+  if (!href || !parentHref || href === parentHref) return "";
+  if (href.startsWith(parentHref)) return href.slice(parentHref.length);
+  const base = parentHref.replace(/\/+$/, "");
+  if (base && href.startsWith(`${base}/`)) return href.slice(base.length + 1);
+  return "";
+}
+
+function brokenSubBullet(rawHref: string, parentHref: string, itemHtml: string): boolean {
+  const href = decode(rawHref).replace(/\s+/g, "");
+  if (!href || usableHref(rawHref)) return false;
+  const suffix = suffixOf(href, parentHref);
+  if (!suffix) return false;
+  const visible = decode(itemHtml.replace(/<[^>]+>/g, " ")).replace(/\s+/g, "");
+  return visible.includes(suffix.replace(/\s+/g, ""));
+}
+
+function textNotes(
+  html: string,
+  children: ShowNoteLink[],
+  rawHref = "",
+  parentHref = "",
+): ShowNoteLink[] {
+  const href = decode(rawHref).replace(/\s+/g, "");
+  let label = decode(html.replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
+  const suffix = suffixOf(href, parentHref);
+  if (href && label.includes(href)) label = label.replace(href, suffix);
+  label = label.replace(/\s+/g, " ").replace(/:\s*$/, "").trim();
+  if (!label) return children;
+  const note: ShowNoteLink = { label, href: "" };
+  if (children.length) note.children = children;
+  return [note];
+}
+
+function labelFrom(html: string): string {
+  return decode(html.replace(/<a\b[\s\S]*?<\/a>/gi, " ").replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .replace(/:\s*$/, "")
+    .trim();
+}
+
+function attach(parent: ShowNoteLink, child: ShowNoteLink) {
+  parent.children = parent.children ? [...parent.children, child] : [child];
 }
 
 function decode(value: string): string {

@@ -3,6 +3,8 @@ export type EpisodeStatus = "published" | "upcoming";
 export type ShowNoteLink = {
   label: string;
   href: string;
+  /** Nested sub-bullets. A text-only note has an empty href. */
+  children?: ShowNoteLink[];
 };
 
 export type EpisodeChapter = {
@@ -86,8 +88,7 @@ export const hosts = {
         title: "Chief Operating Officer",
         org: "AMYNA Systems Inc.",
         dates: "Feb 2024 – Present",
-        detail:
-          "IoT and OT cybersecurity. Embedded protection at the network edge.",
+        detail: "IoT and OT cybersecurity. Embedded protection at the network edge.",
       },
       {
         title: "Founder",
