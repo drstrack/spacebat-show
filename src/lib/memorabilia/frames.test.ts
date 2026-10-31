@@ -12,7 +12,10 @@ import {
   collectionHeadMeta,
   collectionPageModel,
   COLLECTION_DESCRIPTION,
+  COLLECTION_INTRO,
+  COLLECTION_PAGE_TITLE,
   COLLECTION_TITLE,
+  altForUpload,
   COLLECTION_URL,
   homeBeatHref,
   MEMORABILIA_MAX_BYTES,
@@ -367,7 +370,21 @@ describe("memorabilia page", () => {
     const sitemap = readFileSync(join(root, "public/sitemap.xml"), "utf8");
     assert.match(sitemap, new RegExp(COLLECTION_URL.replace(/[.]/g, "\\.")));
     const head = collectionHeadMeta();
-    assert.equal(head.meta[0]?.title, `${COLLECTION_TITLE} · SpaceBat`);
+    assert.equal(COLLECTION_TITLE, "John's Collection: Comic & Movie Collectibles");
+    assert.equal(COLLECTION_PAGE_TITLE, "John's Collection: Comic & Movie Collectibles · SpaceBat");
+    assert.equal(
+      COLLECTION_DESCRIPTION,
+      "John Mulligan's collection of comic and movie collectibles, one piece per panel. John co-hosts the SpaceBat podcast.",
+    );
+    assert.equal(
+      COLLECTION_INTRO,
+      "This is John Mulligan's personal collection of comic and movie collectibles. Each panel shows one piece from his shelves. Click any photo to see it full size. John co-hosts the SpaceBat podcast.",
+    );
+    assert.equal(
+      altForUpload(""),
+      "A piece from John Mulligan's collection of comic and movie collectibles.",
+    );
+    assert.equal(head.meta[0]?.title, COLLECTION_PAGE_TITLE);
     assert.ok(
       head.meta.some(
         (tag) =>
@@ -377,7 +394,17 @@ describe("memorabilia page", () => {
     assert.ok(
       head.meta.some(
         (tag) =>
-          "name" in tag && tag.name === "spacebat:og-title" && tag.content === COLLECTION_TITLE,
+          "name" in tag &&
+          tag.name === "spacebat:og-title" &&
+          tag.content === COLLECTION_PAGE_TITLE,
+      ),
+    );
+    assert.ok(
+      head.meta.some(
+        (tag) =>
+          "name" in tag &&
+          tag.name === "spacebat:og-description" &&
+          tag.content === COLLECTION_DESCRIPTION,
       ),
     );
     assert.ok(
