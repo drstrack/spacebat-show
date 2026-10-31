@@ -37,14 +37,28 @@ export function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-/** Inverse of escapeHtml. Decode &amp; last so a single pass undoes one encode. */
+/**
+ * Undo one HTML encode. React and TanStack write apostrophes as &#x27;, quotes
+ * as &quot;, and ampersands as &amp;. Named and numeric forms are both accepted.
+ * &amp; is only the named form, so &amp;#x27; stays one level encoded.
+ */
 function unescapeHtml(value) {
-  return String(value)
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'")
-    .replaceAll("&amp;", "&");
+  return String(value).replace(
+    /&(?:#x[0-9a-fA-F]+|#\d+|lt|gt|quot|apos|amp);/g,
+    (entity) => {
+      const body = entity.slice(1, -1);
+      if (body === "lt") return "<";
+      if (body === "gt") return ">";
+      if (body === "quot") return '"';
+      if (body === "apos") return "'";
+      if (body === "amp") return "&";
+      const hex = body[1] === "x" || body[1] === "X";
+      const code = Number.parseInt(body.slice(hex ? 2 : 1), hex ? 16 : 10);
+      if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) return entity;
+      if (code >= 0xd800 && code <= 0xdfff) return entity;
+      return String.fromCodePoint(code);
+    },
+  );
 }
 
 /** 6-digit hex for the og.grok.me placeholder, or "" if site.color is missing/invalid. */
