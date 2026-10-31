@@ -41,7 +41,7 @@ export async function touchPresenceFor(userId: string, now = Date.now()): Promis
   const sql = await getSql();
   const member = await loadActiveMember(sql, userId);
   if (!member) return;
-  await touchPresence(sql, userId, member.handle, now);
+  await touchPresence(sql, userId, now);
 }
 
 /** Last signal from a tab that is going away. Does not post a join. */

@@ -267,7 +267,7 @@ export async function listChat(
   const member = await requireReader(sql, userId);
   const now = Date.now();
   try {
-    await touchPresence(sql, userId, member.handle, now);
+    await touchPresence(sql, userId, now);
   } catch (err) {
     console.error("[chat] presence", err instanceof Error ? err.message : "failed");
   }
@@ -303,19 +303,19 @@ async function readMessages(
   // `$1` flags the caller's own rows. The id is not selected or returned.
   if (input.after != null) {
     return sql.query<MessageRow>(
-      `${MESSAGE_SELECT} where m.room = $2 and m.id > $3 order by m.id asc limit ${AFTER_LIMIT}`,
+      `${MESSAGE_SELECT} where m.room = $2 and m.kind <> 'presence' and m.id > $3 order by m.id asc limit ${AFTER_LIMIT}`,
       [userId, ROOM, input.after],
     );
   }
   if (input.before != null) {
     const page = await sql.query<MessageRow>(
-      `${MESSAGE_SELECT} where m.room = $2 and m.id < $3 order by m.id desc limit ${BEFORE_LIMIT}`,
+      `${MESSAGE_SELECT} where m.room = $2 and m.kind <> 'presence' and m.id < $3 order by m.id desc limit ${BEFORE_LIMIT}`,
       [userId, ROOM, input.before],
     );
     return page.reverse();
   }
   const page = await sql.query<MessageRow>(
-    `${MESSAGE_SELECT} where m.room = $2 order by m.id desc limit ${LATEST_LIMIT}`,
+    `${MESSAGE_SELECT} where m.room = $2 and m.kind <> 'presence' order by m.id desc limit ${LATEST_LIMIT}`,
     [userId, ROOM],
   );
   return page.reverse();

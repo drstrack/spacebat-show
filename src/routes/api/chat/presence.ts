@@ -6,7 +6,7 @@ import { requireUserId, UnauthorizedError } from "@/lib/auth/verify.server";
  * Last heartbeat when a tab closes. `sendBeacon` cannot set the preview bearer
  * header, so a cookie session is what authorizes this route. The interval
  * heartbeat uses the server function, which does forward that bearer. Either
- * way, closing the tab stops the heartbeats and the leave posts after the timeout.
+ * way, closing the tab stops the heartbeats and Online drops them after the timeout.
  */
 async function handle() {
   try {
