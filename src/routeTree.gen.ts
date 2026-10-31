@@ -23,6 +23,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminChatRouteImport } from './routes/admin.chat'
 import { Route as ChatIndexRouteImport } from './routes/chat.index'
 import { Route as ChatPopoutRouteImport } from './routes/chat.popout'
+import { Route as ComicCollectionRouteImport } from './routes/comic.collection'
 import { Route as EpisodesIndexRouteImport } from './routes/episodes.index'
 import { Route as EpisodesSlugRouteImport } from './routes/episodes.$slug'
 import { Route as PodcastIndexRouteImport } from './routes/podcast.index'
@@ -31,6 +32,7 @@ import { Route as ApiAlertsRunRouteImport } from './routes/api/alerts/run'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatPresenceRouteImport } from './routes/api/chat/presence'
 import { Route as ApiChatUploadRouteImport } from './routes/api/chat/upload'
+import { Route as ApiMemorabiliaUploadRouteImport } from './routes/api/memorabilia/upload'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -102,6 +104,11 @@ const ChatPopoutRoute = ChatPopoutRouteImport.update({
   path: '/chat/popout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ComicCollectionRoute = ComicCollectionRouteImport.update({
+  id: '/comic/collection',
+  path: '/comic/collection',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EpisodesIndexRoute = EpisodesIndexRouteImport.update({
   id: '/episodes/',
   path: '/episodes/',
@@ -142,6 +149,11 @@ const ApiChatUploadRoute = ApiChatUploadRouteImport.update({
   path: '/api/chat/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMemorabiliaUploadRoute = ApiMemorabiliaUploadRouteImport.update({
+  id: '/api/memorabilia/upload',
+  path: '/api/memorabilia/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -156,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/subscribe': typeof SubscribeRoute
   '/admin/chat': typeof AdminChatRoute
   '/chat/popout': typeof ChatPopoutRoute
+  '/comic/collection': typeof ComicCollectionRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -166,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/presence': typeof ApiChatPresenceRoute
   '/api/chat/upload': typeof ApiChatUploadRoute
+  '/api/memorabilia/upload': typeof ApiMemorabiliaUploadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -179,6 +193,7 @@ export interface FileRoutesByTo {
   '/subscribe': typeof SubscribeRoute
   '/admin/chat': typeof AdminChatRoute
   '/chat/popout': typeof ChatPopoutRoute
+  '/comic/collection': typeof ComicCollectionRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
   '/admin': typeof AdminIndexRoute
@@ -189,6 +204,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/presence': typeof ApiChatPresenceRoute
   '/api/chat/upload': typeof ApiChatUploadRoute
+  '/api/memorabilia/upload': typeof ApiMemorabiliaUploadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -204,6 +220,7 @@ export interface FileRoutesById {
   '/subscribe': typeof SubscribeRoute
   '/admin/chat': typeof AdminChatRoute
   '/chat/popout': typeof ChatPopoutRoute
+  '/comic/collection': typeof ComicCollectionRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
   '/podcast/$slug': typeof PodcastSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -214,6 +231,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/presence': typeof ApiChatPresenceRoute
   '/api/chat/upload': typeof ApiChatUploadRoute
+  '/api/memorabilia/upload': typeof ApiMemorabiliaUploadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -230,6 +248,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/admin/chat'
     | '/chat/popout'
+    | '/comic/collection'
     | '/episodes/$slug'
     | '/podcast/$slug'
     | '/admin/'
@@ -240,6 +259,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/chat/presence'
     | '/api/chat/upload'
+    | '/api/memorabilia/upload'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -253,6 +273,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/admin/chat'
     | '/chat/popout'
+    | '/comic/collection'
     | '/episodes/$slug'
     | '/podcast/$slug'
     | '/admin'
@@ -263,6 +284,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/chat/presence'
     | '/api/chat/upload'
+    | '/api/memorabilia/upload'
   id:
     | '__root__'
     | '/'
@@ -277,6 +299,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/admin/chat'
     | '/chat/popout'
+    | '/comic/collection'
     | '/episodes/$slug'
     | '/podcast/$slug'
     | '/admin/'
@@ -287,6 +310,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/chat/presence'
     | '/api/chat/upload'
+    | '/api/memorabilia/upload'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -301,6 +325,7 @@ export interface RootRouteChildren {
   StoryRoute: typeof StoryRoute
   SubscribeRoute: typeof SubscribeRoute
   ChatPopoutRoute: typeof ChatPopoutRoute
+  ComicCollectionRoute: typeof ComicCollectionRoute
   EpisodesSlugRoute: typeof EpisodesSlugRoute
   PodcastSlugRoute: typeof PodcastSlugRoute
   ChatIndexRoute: typeof ChatIndexRoute
@@ -310,6 +335,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatPresenceRoute: typeof ApiChatPresenceRoute
   ApiChatUploadRoute: typeof ApiChatUploadRoute
+  ApiMemorabiliaUploadRoute: typeof ApiMemorabiliaUploadRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -412,6 +438,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatPopoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/comic/collection': {
+      id: '/comic/collection'
+      path: '/comic/collection'
+      fullPath: '/comic/collection'
+      preLoaderRoute: typeof ComicCollectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/episodes/': {
       id: '/episodes/'
       path: '/episodes'
@@ -468,6 +501,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/memorabilia/upload': {
+      id: '/api/memorabilia/upload'
+      path: '/api/memorabilia/upload'
+      fullPath: '/api/memorabilia/upload'
+      preLoaderRoute: typeof ApiMemorabiliaUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -495,6 +535,7 @@ const rootRouteChildren: RootRouteChildren = {
   StoryRoute: StoryRoute,
   SubscribeRoute: SubscribeRoute,
   ChatPopoutRoute: ChatPopoutRoute,
+  ComicCollectionRoute: ComicCollectionRoute,
   EpisodesSlugRoute: EpisodesSlugRoute,
   PodcastSlugRoute: PodcastSlugRoute,
   ChatIndexRoute: ChatIndexRoute,
@@ -504,6 +545,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatPresenceRoute: ApiChatPresenceRoute,
   ApiChatUploadRoute: ApiChatUploadRoute,
+  ApiMemorabiliaUploadRoute: ApiMemorabiliaUploadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

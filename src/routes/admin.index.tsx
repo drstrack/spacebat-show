@@ -68,12 +68,18 @@ function AdminPage() {
         New accounts are listeners. They choose podcast alerts, the newsletter, and merch drops.
         spacebatshow@gmail.com stays the admin.
       </p>
-      <p className="mt-4">
+      <p className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
         <Link
           to="/admin/chat"
           className="font-display text-2xl tracking-wide text-crimson hover:underline"
         >
           SpaceBat Chat
+        </Link>
+        <Link
+          to="/comic/collection"
+          className="font-display text-2xl tracking-wide text-crimson hover:underline"
+        >
+          John's comic memorabilia
         </Link>
       </p>
       <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

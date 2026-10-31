@@ -1,4 +1,6 @@
 node_modules
+# Local PGLite memorabilia uploads. Preview and production use the chat blob store.
+public/memorabilia/uploads/
 .output
 .vercel
 dist
