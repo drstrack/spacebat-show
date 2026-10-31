@@ -4,6 +4,7 @@ import { LivePlayer } from "@/components/live-player";
 import { ScheduleChangeNotice } from "@/components/schedule-change-notice";
 import { Button } from "@/components/ui/button";
 import { beats, hosts, show } from "@/data/show";
+import { homeBeatHref } from "@/lib/memorabilia/frames";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -63,7 +64,7 @@ function Home() {
           {beats.map((b) => (
             <Link
               key={b.label}
-              to="/podcast"
+              to={homeBeatHref(b.label)}
               className="panel group relative block aspect-[3/4] overflow-hidden"
             >
               <img
