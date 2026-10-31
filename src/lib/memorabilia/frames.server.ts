@@ -17,6 +17,7 @@ import {
   collectionPageModel,
   LOCAL_UPLOAD_SRC,
   memorabiliaAdminDecision,
+  memorabiliaFinalizeDecision,
   memorabiliaPathname,
   memorabiliaTokenDecision,
   MemorabiliaHttpError,
@@ -37,8 +38,6 @@ type FrameRow = {
   caption: string;
   sort_order?: unknown;
 };
-
-type TokenPayload = { userId: string; caption: string; commit: boolean };
 
 const DISPLAYABLE = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
@@ -178,7 +177,6 @@ function readDeclared(raw: string | null): {
   type: string;
   size: number;
   caption: string;
-  commit: boolean;
 } | null {
   if (!raw || raw.length > 2_000) return null;
   try {
@@ -187,32 +185,12 @@ function readDeclared(raw: string | null): {
       type?: unknown;
       size?: unknown;
       caption?: unknown;
-      commit?: unknown;
     };
     if (typeof parsed.name !== "string" || typeof parsed.type !== "string") return null;
     if (typeof parsed.size !== "number" || !Number.isFinite(parsed.size)) return null;
     const caption = cleanCaption(typeof parsed.caption === "string" ? parsed.caption : "");
     if (typeof caption !== "string") return null;
-    return {
-      name: parsed.name,
-      type: parsed.type,
-      size: parsed.size,
-      caption,
-      commit: parsed.commit !== false,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function readTokenPayload(raw: string | null | undefined): TokenPayload | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as { userId?: unknown; caption?: unknown; commit?: unknown };
-    if (typeof parsed.userId !== "string" || !parsed.userId) return null;
-    const caption = cleanCaption(typeof parsed.caption === "string" ? parsed.caption : "");
-    if (typeof caption !== "string") return null;
-    return { userId: parsed.userId, caption, commit: parsed.commit === true };
+    return { name: parsed.name, type: parsed.type, size: parsed.size, caption };
   } catch {
     return null;
   }
@@ -334,33 +312,8 @@ export async function handleMemorabiliaClientUpload(request: Request): Promise<R
           maximumSizeInBytes: decision.maximumSizeInBytes,
           addRandomSuffix: false,
           validUntil: Date.now() + 5 * 60 * 1000,
-          tokenPayload: JSON.stringify({
-            userId,
-            caption: declared.caption,
-            commit: declared.commit,
-          } satisfies TokenPayload),
+          tokenPayload: JSON.stringify({ userId }),
         };
-      },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        const payload = readTokenPayload(tokenPayload);
-        if (!payload?.commit) return;
-        const sql = await getSql();
-        const role = await roleOf(sql, payload.userId);
-        if (memorabiliaAdminDecision({ signedIn: true, role }).ok !== true) return;
-        if (!isTrustedBlobUrl(blob.url, blobHost())) return;
-        try {
-          await insertFrame(sql, {
-            url: blob.url,
-            pathname: blob.pathname,
-            originalUrl: null,
-            originalPathname: null,
-            alt: altForUpload(payload.caption),
-            caption: payload.caption,
-            userId: payload.userId,
-          });
-        } catch (err) {
-          if (!isUniqueViolation(err)) throw err;
-        }
       },
     });
     return Response.json(result);
@@ -389,16 +342,19 @@ export async function recordMemorabiliaFrame(
   `;
   if (existing[0] && !input.originalPathname) return { ok: true };
   const display = await lookupBlob(input.pathname);
-  if (!DISPLAYABLE.has(display.contentType)) {
-    throw new Error("That file type isn't allowed.");
-  }
-  let originalUrl: string | null = null;
-  let originalPathname: string | null = null;
-  if (input.originalPathname) {
-    const original = await lookupBlob(input.originalPathname);
-    originalUrl = original.url;
-    originalPathname = original.pathname;
-  }
+  let original: { url: string; pathname: string; contentType: string; size: number } | null = null;
+  if (input.originalPathname) original = await lookupBlob(input.originalPathname);
+  const decision = memorabiliaFinalizeDecision({
+    signedIn: true,
+    role,
+    displayContentType: display.contentType,
+    displaySize: display.size,
+    originalContentType: original?.contentType,
+    originalSize: original?.size,
+  });
+  if (!decision.ok) throw new Error(decision.error);
+  const originalUrl = original?.url ?? null;
+  const originalPathname = original?.pathname ?? null;
   if (existing[0]) {
     await sql`
       update memorabilia_frame

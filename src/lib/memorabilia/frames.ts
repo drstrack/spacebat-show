@@ -290,6 +290,53 @@ export function memorabiliaTokenDecision(input: {
   return { ok: true, contentType, maximumSizeInBytes: MEMORABILIA_MAX_BYTES };
 }
 
+const DISPLAYABLE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const STORED_TYPES = new Set([
+  ...DISPLAYABLE_TYPES,
+  "image/heic",
+  "image/heif",
+  "image/heic-sequence",
+  "image/heif-sequence",
+]);
+
+function baseType(contentType: string): string {
+  return contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+}
+
+/**
+ * Guard for the finalize call that writes the frame row. The blob completion
+ * webhook cannot reach localhost, so this call is what records the picture.
+ */
+export function memorabiliaFinalizeDecision(input: {
+  signedIn: boolean;
+  role: string | null | undefined;
+  displayContentType: string;
+  displaySize: number;
+  originalContentType?: string | null;
+  originalSize?: number | null;
+}): { ok: true } | { ok: false; status: number; error: string } {
+  const auth = memorabiliaAdminDecision({ signedIn: input.signedIn, role: input.role });
+  if (!auth.ok) return auth;
+  if (!DISPLAYABLE_TYPES.has(baseType(input.displayContentType))) {
+    return { ok: false, status: 400, error: UPLOAD_TYPE_ERROR };
+  }
+  if (!Number.isFinite(input.displaySize) || input.displaySize <= 0) {
+    return { ok: false, status: 400, error: UPLOAD_EMPTY_ERROR };
+  }
+  if (input.displaySize > MEMORABILIA_MAX_BYTES) {
+    return { ok: false, status: 400, error: MEMORABILIA_SIZE_ERROR };
+  }
+  if (input.originalContentType == null && input.originalSize == null) return { ok: true };
+  if (!STORED_TYPES.has(baseType(input.originalContentType ?? ""))) {
+    return { ok: false, status: 400, error: UPLOAD_TYPE_ERROR };
+  }
+  const originalSize = input.originalSize ?? 0;
+  if (!Number.isFinite(originalSize) || originalSize <= 0 || originalSize > MEMORABILIA_MAX_BYTES) {
+    return { ok: false, status: 400, error: MEMORABILIA_SIZE_ERROR };
+  }
+  return { ok: true };
+}
+
 export function memorabiliaPathname(extension: string, now = new Date()): string {
   const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   const bytes = new Uint8Array(16);

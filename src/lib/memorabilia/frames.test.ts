@@ -18,6 +18,7 @@ import {
   MEMORABILIA_MAX_BYTES,
   MEMORABILIA_SIZE_ERROR,
   memorabiliaAdminDecision,
+  memorabiliaFinalizeDecision,
   memorabiliaTokenDecision,
   movedIds,
   renderComicSpread,
@@ -216,6 +217,57 @@ describe("memorabilia admin guard", () => {
     });
     assert.equal(over.ok, false);
     if (!over.ok) assert.equal(over.error, MEMORABILIA_SIZE_ERROR);
+  });
+
+  it("guards finalize the same way: admin only, displayable image, 25 MB", () => {
+    const signedOut = memorabiliaFinalizeDecision({
+      signedIn: false,
+      role: "admin",
+      displayContentType: "image/jpeg",
+      displaySize: 100,
+    });
+    assert.equal(signedOut.ok, false);
+    if (!signedOut.ok) assert.equal(signedOut.status, 401);
+    const listener = memorabiliaFinalizeDecision({
+      signedIn: true,
+      role: "listener",
+      displayContentType: "image/jpeg",
+      displaySize: 100,
+    });
+    assert.equal(listener.ok, false);
+    if (!listener.ok) assert.equal(listener.status, 403);
+    const pdf = memorabiliaFinalizeDecision({
+      signedIn: true,
+      role: "admin",
+      displayContentType: "application/pdf",
+      displaySize: 100,
+    });
+    assert.equal(pdf.ok, false);
+    if (!pdf.ok) assert.equal(pdf.error, UPLOAD_TYPE_ERROR);
+    const heicAsPanel = memorabiliaFinalizeDecision({
+      signedIn: true,
+      role: "admin",
+      displayContentType: "image/heic",
+      displaySize: 100,
+    });
+    assert.equal(heicAsPanel.ok, false);
+    const over = memorabiliaFinalizeDecision({
+      signedIn: true,
+      role: "admin",
+      displayContentType: "image/jpeg",
+      displaySize: MEMORABILIA_MAX_BYTES + 1,
+    });
+    assert.equal(over.ok, false);
+    if (!over.ok) assert.equal(over.error, MEMORABILIA_SIZE_ERROR);
+    const heicPair = memorabiliaFinalizeDecision({
+      signedIn: true,
+      role: "admin",
+      displayContentType: "image/jpeg",
+      displaySize: MEMORABILIA_MAX_BYTES,
+      originalContentType: "image/heic",
+      originalSize: MEMORABILIA_MAX_BYTES,
+    });
+    assert.equal(heicPair.ok, true);
   });
 
   it("refuses to delete frame 1 or let a listener delete anything", () => {

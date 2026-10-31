@@ -292,7 +292,7 @@ export function MemorabiliaCrew({ frames }: { frames: readonly PublicFrame[] }) 
   );
 }
 
-async function sendBlob(file: File, caption: string, commit: boolean) {
+async function sendBlob(file: File, caption: string) {
   const type = contentTypeFor(file);
   const headers: Record<string, string> = {};
   const token = getBearerToken();
@@ -307,17 +307,16 @@ async function sendBlob(file: File, caption: string, commit: boolean) {
       type,
       size: file.size,
       caption,
-      commit,
     }),
     headers,
   });
 }
 
 async function uploadToBlob(prepared: { display: File; original: File | null }, caption: string) {
-  const display = await sendBlob(prepared.display, caption, prepared.original == null);
+  const display = await sendBlob(prepared.display, caption);
   let originalPathname: string | undefined;
   if (prepared.original) {
-    const original = await sendBlob(prepared.original, caption, false);
+    const original = await sendBlob(prepared.original, caption);
     originalPathname = original.pathname;
   }
   await recordMemorabilia({
@@ -343,7 +342,6 @@ async function blobStoreIsOff(err: unknown): Promise<boolean> {
           type: "image/jpeg",
           size: 1,
           caption: "",
-          commit: false,
         }),
         multipart: false,
       },
