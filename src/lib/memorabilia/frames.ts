@@ -1,7 +1,5 @@
 import {
-  IMAGE_MAX_BYTES,
   UPLOAD_EMPTY_ERROR,
-  UPLOAD_IMAGE_SIZE_ERROR,
   UPLOAD_MISMATCH_ERROR,
   UPLOAD_TYPE_ERROR,
   fileExtension,
@@ -19,6 +17,14 @@ export const COLLECTION_DESCRIPTION =
 export const COLLECTION_URL = "https://www.spacebatshow.net/comic/collection";
 
 export const CAPTION_MAX = 180;
+
+/** Memorabilia only. Chat pictures stay at 4 MB. */
+export const MEMORABILIA_MAX_BYTES = 25 * 1024 * 1024;
+
+export const MEMORABILIA_SIZE_ERROR = "Pictures need to be 25 MB or smaller.";
+
+export const MEMORABILIA_PATH =
+  /^memorabilia\/\d{4}-\d{2}\/[a-f0-9]{32}\.(jpg|png|gif|webp|heic|heif)$/;
 
 /**
  * Frame 1 ships with the site. It is not a database row, so the page still
@@ -52,9 +58,21 @@ export type StoredFrame = {
 };
 
 /** Local PGLite uploads, when the chat blob token is not set. */
-export const LOCAL_UPLOAD_SRC = /^\/memorabilia\/uploads\/[a-f0-9]{32}\.(jpg|png|gif|webp)$/;
+export const LOCAL_UPLOAD_SRC =
+  /^\/memorabilia\/uploads\/[a-f0-9]{32}\.(jpg|png|gif|webp|heic|heif)$/;
 
-const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp"]);
+const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "heic", "heif"]);
+
+const TOKEN_TYPES: Record<string, readonly string[]> = {
+  "image/jpeg": ["jpg"],
+  "image/png": ["png"],
+  "image/webp": ["webp"],
+  "image/gif": ["gif"],
+  "image/heic": ["heic", "heif"],
+  "image/heif": ["heic", "heif"],
+  "image/heic-sequence": ["heic"],
+  "image/heif-sequence": ["heif"],
+};
 
 export class MemorabiliaHttpError extends Error {
   readonly status: number;
@@ -108,9 +126,28 @@ export function altForUpload(caption: string): string {
   return caption || "A piece from John Mulligan's comic memorabilia collection.";
 }
 
+function sniffHeic(bytes: Uint8Array): boolean {
+  if (bytes.length < 12) return false;
+  if (bytes[4] !== 0x66 || bytes[5] !== 0x74 || bytes[6] !== 0x79 || bytes[7] !== 0x70) return false;
+  const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+  return [
+    "heic",
+    "heix",
+    "hevc",
+    "hevx",
+    "heim",
+    "heis",
+    "hevm",
+    "hevs",
+    "mif1",
+    "mif2",
+    "msf1",
+  ].includes(brand);
+}
+
 export function sniffMemorabiliaImage(
   bytes: Uint8Array,
-): { contentType: string; extension: "jpg" | "png" | "gif" | "webp" } | null {
+): { contentType: string; extension: "jpg" | "png" | "gif" | "webp" | "heic" } | null {
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
     return { contentType: "image/jpeg", extension: "jpg" };
   }
@@ -151,11 +188,12 @@ export function sniffMemorabiliaImage(
   ) {
     return { contentType: "image/webp", extension: "webp" };
   }
+  if (sniffHeic(bytes)) return { contentType: "image/heic", extension: "heic" };
   return null;
 }
 
 export type ImageDecision =
-  | { ok: true; contentType: string; extension: "jpg" | "png" | "gif" | "webp" }
+  | { ok: true; contentType: string; extension: "jpg" | "png" | "gif" | "webp" | "heic" }
   | { ok: false; error: string };
 
 export function classifyMemorabiliaImage(
@@ -164,25 +202,92 @@ export function classifyMemorabiliaImage(
   bytes: Uint8Array,
 ): ImageDecision {
   if (bytes.byteLength <= 0) return { ok: false, error: UPLOAD_EMPTY_ERROR };
-  if (bytes.byteLength > IMAGE_MAX_BYTES) return { ok: false, error: UPLOAD_IMAGE_SIZE_ERROR };
+  if (bytes.byteLength > MEMORABILIA_MAX_BYTES) return { ok: false, error: MEMORABILIA_SIZE_ERROR };
   const sniffed = sniffMemorabiliaImage(bytes);
   if (!sniffed) return { ok: false, error: UPLOAD_TYPE_ERROR };
   const extension = fileExtension(name);
   if (extension && !IMAGE_EXTENSIONS.has(extension)) {
     return { ok: false, error: UPLOAD_TYPE_ERROR };
   }
-  if (
-    extension &&
-    extension !== sniffed.extension &&
-    !(sniffed.extension === "jpg" && extension === "jpeg")
-  ) {
-    return { ok: false, error: UPLOAD_MISMATCH_ERROR };
-  }
+  const extensionOk =
+    !extension ||
+    extension === sniffed.extension ||
+    (sniffed.extension === "jpg" && extension === "jpeg") ||
+    (sniffed.extension === "heic" && extension === "heif");
+  if (!extensionOk) return { ok: false, error: UPLOAD_MISMATCH_ERROR };
   const declared = contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
-  if (declared && declared !== "application/octet-stream" && declared !== sniffed.contentType) {
-    return { ok: false, error: UPLOAD_MISMATCH_ERROR };
-  }
+  const declaredOk =
+    !declared ||
+    declared === "application/octet-stream" ||
+    declared === sniffed.contentType ||
+    (sniffed.extension === "heic" &&
+      (declared === "image/heif" || declared === "image/heic-sequence" || declared === "image/heif-sequence"));
+  if (!declaredOk) return { ok: false, error: UPLOAD_MISMATCH_ERROR };
   return { ok: true, contentType: sniffed.contentType, extension: sniffed.extension };
+}
+
+export function normalizeMemorabiliaType(name: string, contentType: string): string {
+  const declared = contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  if (declared === "image/jpg") return "image/jpeg";
+  if (TOKEN_TYPES[declared]) return declared;
+  const extension = fileExtension(name);
+  if (
+    (declared === "" || declared === "application/octet-stream") &&
+    (extension === "heic" || extension === "heif")
+  ) {
+    return "image/heic";
+  }
+  if (
+    (declared === "" || declared === "application/octet-stream") &&
+    (extension === "jpg" || extension === "jpeg")
+  ) {
+    return "image/jpeg";
+  }
+  if ((declared === "" || declared === "application/octet-stream") && extension === "png") {
+    return "image/png";
+  }
+  if ((declared === "" || declared === "application/octet-stream") && extension === "webp") {
+    return "image/webp";
+  }
+  if ((declared === "" || declared === "application/octet-stream") && extension === "gif") {
+    return "image/gif";
+  }
+  return declared;
+}
+
+/**
+ * Decision for the blob client-token route. Signed-out callers are 401.
+ * Listeners are 403. Images only, and the blob cap is 25 MB.
+ */
+export function memorabiliaTokenDecision(input: {
+  signedIn: boolean;
+  role: string | null | undefined;
+  name: string;
+  contentType: string;
+  size: number;
+  pathname: string;
+}):
+  | { ok: true; contentType: string; maximumSizeInBytes: number }
+  | { ok: false; status: number; error: string } {
+  const auth = memorabiliaAdminDecision({ signedIn: input.signedIn, role: input.role });
+  if (!auth.ok) return auth;
+  if (!Number.isFinite(input.size) || input.size <= 0) {
+    return { ok: false, status: 400, error: UPLOAD_EMPTY_ERROR };
+  }
+  if (input.size > MEMORABILIA_MAX_BYTES) {
+    return { ok: false, status: 400, error: MEMORABILIA_SIZE_ERROR };
+  }
+  if (!MEMORABILIA_PATH.test(input.pathname)) {
+    return { ok: false, status: 400, error: UPLOAD_TYPE_ERROR };
+  }
+  const contentType = normalizeMemorabiliaType(input.name, input.contentType);
+  const extensions = TOKEN_TYPES[contentType];
+  if (!extensions) return { ok: false, status: 400, error: UPLOAD_TYPE_ERROR };
+  const pathExt = fileExtension(input.pathname);
+  if (!extensions.includes(pathExt)) {
+    return { ok: false, status: 400, error: UPLOAD_MISMATCH_ERROR };
+  }
+  return { ok: true, contentType, maximumSizeInBytes: MEMORABILIA_MAX_BYTES };
 }
 
 export function memorabiliaPathname(extension: string, now = new Date()): string {
@@ -249,7 +354,8 @@ export function renderComicSpread(frames: readonly PublicFrame[]): string {
       const caption = frame.caption
         ? `<figcaption class="comic-caption">${escapeHtml(frame.caption)}</figcaption>`
         : "";
-      return `<figure class="comic-panel${splash}" data-testid="${index === 0 ? "comic-frame-1" : "comic-frame"}"><img src="${escapeHtml(frame.src)}" alt="${escapeHtml(frame.alt)}"${dims} loading="lazy" decoding="async" />${caption}</figure>`;
+      const src = escapeHtml(frame.src);
+      return `<a class="comic-frame-link" href="${src}" target="_blank" rel="noopener"><figure class="comic-panel${splash}" data-testid="${index === 0 ? "comic-frame-1" : "comic-frame"}"><img src="${src}" alt="${escapeHtml(frame.alt)}"${dims} loading="lazy" decoding="async" />${caption}</figure></a>`;
     })
     .join("");
 }

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { IMAGE_MAX_BYTES, UPLOAD_IMAGE_SIZE_ERROR, UPLOAD_TYPE_ERROR } from "../chat/uploads.ts";
+import { UPLOAD_TYPE_ERROR } from "../chat/uploads.ts";
 import {
   acceptMemorabiliaUpload,
   authorizeFrameDelete,
@@ -15,7 +15,10 @@ import {
   COLLECTION_TITLE,
   COLLECTION_URL,
   homeBeatHref,
+  MEMORABILIA_MAX_BYTES,
+  MEMORABILIA_SIZE_ERROR,
   memorabiliaAdminDecision,
+  memorabiliaTokenDecision,
   movedIds,
   renderComicSpread,
   SEED_FRAME,
@@ -129,10 +132,7 @@ describe("memorabilia admin guard", () => {
       caption: "",
       put,
     });
-    const big = new Uint8Array(IMAGE_MAX_BYTES + 1);
-    big[0] = 0xff;
-    big[1] = 0xd8;
-    big[2] = 0xff;
+    const big = new Uint8Array(MEMORABILIA_MAX_BYTES + 1);
     const oversized = await acceptMemorabiliaUpload({
       signedIn: true,
       role: "admin",
@@ -147,8 +147,75 @@ describe("memorabilia admin guard", () => {
     assert.equal(oversized.ok, false);
     if (!pdf.ok) assert.equal(pdf.error, UPLOAD_TYPE_ERROR);
     if (!svg.ok) assert.equal(svg.error, UPLOAD_TYPE_ERROR);
-    if (!oversized.ok) assert.equal(oversized.error, UPLOAD_IMAGE_SIZE_ERROR);
+    if (!oversized.ok) assert.equal(oversized.error, MEMORABILIA_SIZE_ERROR);
     assert.equal(puts, 1);
+  });
+
+  it("guards the blob token route: admin only, images only, 25 MB", () => {
+    const jpg = `memorabilia/2026-10/${"a".repeat(32)}.jpg`;
+    const signedOut = memorabiliaTokenDecision({
+      signedIn: false,
+      role: "admin",
+      name: "a.jpg",
+      contentType: "image/jpeg",
+      size: 100,
+      pathname: jpg,
+    });
+    assert.equal(signedOut.ok, false);
+    if (!signedOut.ok) assert.equal(signedOut.status, 401);
+    const listener = memorabiliaTokenDecision({
+      signedIn: true,
+      role: "listener",
+      name: "a.jpg",
+      contentType: "image/jpeg",
+      size: 100,
+      pathname: jpg,
+    });
+    assert.equal(listener.ok, false);
+    if (!listener.ok) assert.equal(listener.status, 403);
+    const pdf = memorabiliaTokenDecision({
+      signedIn: true,
+      role: "admin",
+      name: "notes.pdf",
+      contentType: "application/pdf",
+      size: 100,
+      pathname: jpg,
+    });
+    assert.equal(pdf.ok, false);
+    if (!pdf.ok) assert.equal(pdf.error, UPLOAD_TYPE_ERROR);
+    const heic = memorabiliaTokenDecision({
+      signedIn: true,
+      role: "admin",
+      name: "iphone.heic",
+      contentType: "image/heic",
+      size: 1000,
+      pathname: `memorabilia/2026-10/${"c".repeat(32)}.heic`,
+    });
+    assert.equal(heic.ok, true);
+    if (heic.ok) {
+      assert.equal(heic.contentType, "image/heic");
+      assert.equal(heic.maximumSizeInBytes, MEMORABILIA_MAX_BYTES);
+    }
+    const capped = memorabiliaTokenDecision({
+      signedIn: true,
+      role: "admin",
+      name: "a.jpg",
+      contentType: "image/jpeg",
+      size: MEMORABILIA_MAX_BYTES,
+      pathname: jpg,
+    });
+    assert.equal(capped.ok, true);
+    if (capped.ok) assert.equal(capped.maximumSizeInBytes, 25 * 1024 * 1024);
+    const over = memorabiliaTokenDecision({
+      signedIn: true,
+      role: "admin",
+      name: "a.jpg",
+      contentType: "image/jpeg",
+      size: MEMORABILIA_MAX_BYTES + 1,
+      pathname: jpg,
+    });
+    assert.equal(over.ok, false);
+    if (!over.ok) assert.equal(over.error, MEMORABILIA_SIZE_ERROR);
   });
 
   it("refuses to delete frame 1 or let a listener delete anything", () => {
@@ -187,6 +254,8 @@ describe("memorabilia page", () => {
     assert.match(html, /Batman, on the Batcave base\./);
     assert.match(html, /width="921"/);
     assert.match(html, /height="2047"/);
+    assert.match(html, new RegExp(`href="${SEED_FRAME.src}"`));
+    assert.match(html, /target="_blank"/);
     assert.doesNotMatch(html, /type="file"|Add a frame|Delete/);
   });
 

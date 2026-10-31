@@ -131,9 +131,35 @@
     border: 6px solid var(--color-ink);
     background: var(--color-paper);
   }
+  .comic-frame-link {
+    display: contents;
+    color: inherit;
+    text-decoration: none;
+  }
   .comic-panel-splash {
     justify-self: center;
     width: min(100%, 40rem);
+  }
+  .comic-frame-link:focus-visible .comic-panel {
+    outline: 3px solid var(--color-crimson);
+    outline-offset: 3px;
+  }
+  .comic-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(20 20 20 / 0.88);
+    padding: 1rem;
+  }
+  .comic-lightbox img {
+    max-width: min(100%, 100vw);
+    max-height: calc(100dvh - 2rem);
+    object-fit: contain;
+    border: 4px solid var(--color-ink);
+    background: var(--color-paper);
   }
   .comic-panel img {
     display: block;

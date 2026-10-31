@@ -1,28 +1,34 @@
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { del, put } from "@vercel/blob";
+import { del, head, put } from "@vercel/blob";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { blobCredentials } from "@/lib/chat/blob-env.server";
 import { blobPublicHost, isTrustedBlobUrl } from "@/lib/chat/uploads";
 import { assertSameSiteRequest, CrossSiteRequestError } from "@/lib/auth/isolation.server";
 import { getSessionUser, requireUserId, UnauthorizedError } from "@/lib/auth/verify.server";
 import { dbSource, getSql, type Sql } from "@/lib/db";
+import { stripLocationMetadata } from "@/lib/memorabilia/gps";
 import {
-  acceptMemorabiliaUpload,
+  altForUpload,
   authorizeFrameDelete,
   authorizeFrameMove,
+  classifyMemorabiliaImage,
+  cleanCaption,
   collectionPageModel,
-  isSafeFrameSrc,
   LOCAL_UPLOAD_SRC,
   memorabiliaAdminDecision,
+  memorabiliaPathname,
+  memorabiliaTokenDecision,
   MemorabiliaHttpError,
+  MEMORABILIA_MAX_BYTES,
   movedIds,
   type PublicFrame,
   type StoredFrame,
 } from "@/lib/memorabilia/frames";
 
 const UPLOAD_DIR = join(process.cwd(), "public", "memorabilia", "uploads");
-const LOCAL_FILE = /^[a-f0-9]{32}\.(jpg|png|gif|webp)$/;
-const BODY_LIMIT = 5 * 1024 * 1024;
+const LOCAL_FILE = /^[a-f0-9]{32}\.(jpg|png|gif|webp|heic|heif)$/;
+const DIRECT_BODY_LIMIT = MEMORABILIA_MAX_BYTES + 1024 * 1024;
 
 type FrameRow = {
   id: unknown;
@@ -31,6 +37,10 @@ type FrameRow = {
   caption: string;
   sort_order?: unknown;
 };
+
+type TokenPayload = { userId: string; caption: string; commit: boolean };
+
+const DISPLAYABLE = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 function num(value: unknown): number {
   if (typeof value === "bigint") return Number(value);
@@ -156,7 +166,269 @@ function json(status: number, error: string): Response {
   return Response.json({ error }, { status });
 }
 
-export async function uploadMemorabilia(request: Request): Promise<Response> {
+function isUniqueViolation(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = "code" in err ? String(err.code) : "";
+  const message = "message" in err ? String(err.message) : "";
+  return code === "23505" || /unique|SQLITE_CONSTRAINT/i.test(message);
+}
+
+function readDeclared(raw: string | null): {
+  name: string;
+  type: string;
+  size: number;
+  caption: string;
+  commit: boolean;
+} | null {
+  if (!raw || raw.length > 2_000) return null;
+  try {
+    const parsed = JSON.parse(raw) as {
+      name?: unknown;
+      type?: unknown;
+      size?: unknown;
+      caption?: unknown;
+      commit?: unknown;
+    };
+    if (typeof parsed.name !== "string" || typeof parsed.type !== "string") return null;
+    if (typeof parsed.size !== "number" || !Number.isFinite(parsed.size)) return null;
+    const caption = cleanCaption(typeof parsed.caption === "string" ? parsed.caption : "");
+    if (typeof caption !== "string") return null;
+    return {
+      name: parsed.name,
+      type: parsed.type,
+      size: parsed.size,
+      caption,
+      commit: parsed.commit !== false,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readTokenPayload(raw: string | null | undefined): TokenPayload | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { userId?: unknown; caption?: unknown; commit?: unknown };
+    if (typeof parsed.userId !== "string" || !parsed.userId) return null;
+    const caption = cleanCaption(typeof parsed.caption === "string" ? parsed.caption : "");
+    if (typeof caption !== "string") return null;
+    return { userId: parsed.userId, caption, commit: parsed.commit === true };
+  } catch {
+    return null;
+  }
+}
+
+async function nextSort(sql: Sql): Promise<number> {
+  const existing = await sql<{ n: unknown }>`select count(*) as n from memorabilia_frame`;
+  return num(existing[0]?.n) + 1;
+}
+
+async function insertFrame(
+  sql: Sql,
+  input: {
+    url: string;
+    pathname: string;
+    originalUrl: string | null;
+    originalPathname: string | null;
+    alt: string;
+    caption: string;
+    userId: string;
+  },
+): Promise<void> {
+  const sort = await nextSort(sql);
+  await sql`
+    insert into memorabilia_frame
+      (url, pathname, original_url, original_pathname, alt_text, caption, sort_order, created_ms, created_by)
+    values (
+      ${input.url},
+      ${input.pathname},
+      ${input.originalUrl},
+      ${input.originalPathname},
+      ${input.alt},
+      ${input.caption},
+      ${sort},
+      ${Date.now()},
+      ${input.userId}
+    )
+  `;
+}
+
+async function lookupBlob(pathname: string): Promise<{ url: string; pathname: string; contentType: string; size: number }> {
+  const token = blobCredentials().token;
+  if (!token) throw new MemorabiliaHttpError(503, "Uploads are off.");
+  let meta: Awaited<ReturnType<typeof head>>;
+  try {
+    meta = await head(pathname, { token });
+  } catch {
+    throw new MemorabiliaHttpError(400, "That file isn't ready yet. Try again.");
+  }
+  const type = meta.contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  if (!DISPLAYABLE.has(type) && type !== "image/heic" && type !== "image/heif" && !type.endsWith("heic-sequence") && !type.endsWith("heif-sequence")) {
+    throw new MemorabiliaHttpError(400, "That file type isn't allowed.");
+  }
+  if (meta.size <= 0 || meta.size > MEMORABILIA_MAX_BYTES) {
+    throw new MemorabiliaHttpError(400, "Pictures need to be 25 MB or smaller.");
+  }
+  if (!isTrustedBlobUrl(meta.url, blobHost())) {
+    throw new MemorabiliaHttpError(400, "That picture isn't available.");
+  }
+  return { url: meta.url, pathname: meta.pathname, contentType: type, size: meta.size };
+}
+
+/**
+ * Blob client-token route. Bytes go to Vercel Blob, not through this function.
+ * 401 signed out, 403 for listeners, images only, 25 MB cap.
+ */
+export async function handleMemorabiliaClientUpload(request: Request): Promise<Response> {
+  let body: HandleUploadBody;
+  try {
+    body = (await request.json()) as HandleUploadBody;
+  } catch {
+    return json(400, "That file type isn't allowed.");
+  }
+  if (!body || (body.type !== "blob.generate-client-token" && body.type !== "blob.upload-completed")) {
+    return json(400, "That file type isn't allowed.");
+  }
+
+  let userId: string | null = null;
+  if (body.type === "blob.generate-client-token") {
+    try {
+      assertSameSiteRequest();
+      userId = await requireUserId(bearerFrom(request));
+      const role = await roleOf(await getSql(), userId);
+      const allowed = memorabiliaAdminDecision({ signedIn: true, role });
+      if (!allowed.ok) return json(allowed.status, allowed.error);
+    } catch (err) {
+      if (err instanceof UnauthorizedError) return json(401, "Unauthorized");
+      if (err instanceof CrossSiteRequestError) return json(403, err.message);
+      if (err instanceof MemorabiliaHttpError) return json(err.status, err.message);
+      const message = err instanceof Error ? err.message : "Unauthorized";
+      return json(message === "Unauthorized" ? 401 : 403, message);
+    }
+  }
+
+  if (!blobCredentials().token) return json(503, "Uploads are off.");
+
+  try {
+    const result = await handleUpload({
+      token: blobCredentials().token,
+      request,
+      body,
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        if (!userId) throw new MemorabiliaHttpError(401, "Unauthorized");
+        const sql = await getSql();
+        const role = await roleOf(sql, userId);
+        const declared = readDeclared(clientPayload);
+        if (!declared) throw new MemorabiliaHttpError(400, "That file type isn't allowed.");
+        const decision = memorabiliaTokenDecision({
+          signedIn: true,
+          role,
+          name: declared.name,
+          contentType: declared.type,
+          size: declared.size,
+          pathname,
+        });
+        if (!decision.ok) throw new MemorabiliaHttpError(decision.status, decision.error);
+        return {
+          allowedContentTypes: [decision.contentType],
+          maximumSizeInBytes: decision.maximumSizeInBytes,
+          addRandomSuffix: false,
+          validUntil: Date.now() + 5 * 60 * 1000,
+          tokenPayload: JSON.stringify({
+            userId,
+            caption: declared.caption,
+            commit: declared.commit,
+          } satisfies TokenPayload),
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        const payload = readTokenPayload(tokenPayload);
+        if (!payload?.commit) return;
+        const sql = await getSql();
+        const role = await roleOf(sql, payload.userId);
+        if (memorabiliaAdminDecision({ signedIn: true, role }).ok !== true) return;
+        if (!isTrustedBlobUrl(blob.url, blobHost())) return;
+        try {
+          await insertFrame(sql, {
+            url: blob.url,
+            pathname: blob.pathname,
+            originalUrl: null,
+            originalPathname: null,
+            alt: altForUpload(payload.caption),
+            caption: payload.caption,
+            userId: payload.userId,
+          });
+        } catch (err) {
+          if (!isUniqueViolation(err)) throw err;
+        }
+      },
+    });
+    return Response.json(result);
+  } catch (err) {
+    if (err instanceof MemorabiliaHttpError) return json(err.status, err.message);
+    if (err instanceof UnauthorizedError) return json(401, "Unauthorized");
+    const message = err instanceof Error && err.message ? err.message : "Couldn't upload that picture.";
+    console.error("memorabilia upload", message);
+    return json(400, message);
+  }
+}
+
+/** Admin-checked row write after the browser finishes a blob upload. */
+export async function recordMemorabiliaFrame(
+  userId: string,
+  input: { pathname: string; originalPathname?: string; caption: string },
+): Promise<{ ok: true }> {
+  const sql = await getSql();
+  const role = await roleOf(sql, userId);
+  const auth = memorabiliaAdminDecision({ signedIn: true, role });
+  if (!auth.ok) throw new Error(auth.error);
+  const caption = cleanCaption(input.caption);
+  if (typeof caption !== "string") throw new Error(caption.error);
+  const existing = await sql<{ id: unknown }>`
+    select id from memorabilia_frame where pathname = ${input.pathname}
+  `;
+  if (existing[0] && !input.originalPathname) return { ok: true };
+  const display = await lookupBlob(input.pathname);
+  if (!DISPLAYABLE.has(display.contentType)) {
+    throw new Error("That file type isn't allowed.");
+  }
+  let originalUrl: string | null = null;
+  let originalPathname: string | null = null;
+  if (input.originalPathname) {
+    const original = await lookupBlob(input.originalPathname);
+    originalUrl = original.url;
+    originalPathname = original.pathname;
+  }
+  if (existing[0]) {
+    await sql`
+      update memorabilia_frame
+      set original_url = ${originalUrl}, original_pathname = ${originalPathname}
+      where pathname = ${input.pathname}
+    `;
+    return { ok: true };
+  }
+  try {
+    await insertFrame(sql, {
+      url: display.url,
+      pathname: display.pathname,
+      originalUrl,
+      originalPathname,
+      alt: altForUpload(caption),
+      caption,
+      userId,
+    });
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+  }
+  return { ok: true };
+}
+
+/**
+ * Throwaway local database only. Preview and production send the file to Blob
+ * and never post the bytes here.
+ */
+export async function saveDirectMemorabilia(request: Request): Promise<Response> {
+  if (dbSource !== "pglite") return json(404, "Uploads are off.");
   try {
     assertSameSiteRequest();
     const userId = await requireUserId(bearerFrom(request));
@@ -165,57 +437,43 @@ export async function uploadMemorabilia(request: Request): Promise<Response> {
     const allowed = memorabiliaAdminDecision({ signedIn: true, role });
     if (!allowed.ok) return json(allowed.status, allowed.error);
     const declared = Number(request.headers.get("content-length") ?? "");
-    if (Number.isFinite(declared) && declared > BODY_LIMIT) {
-      return json(400, "Pictures need to be 4 MB or smaller.");
+    if (Number.isFinite(declared) && declared > DIRECT_BODY_LIMIT * 2) {
+      return json(400, "Pictures need to be 25 MB or smaller.");
     }
-    let form: FormData;
-    try {
-      form = await request.formData();
-    } catch {
-      return json(400, "Choose a picture.");
-    }
+    const form = await request.formData();
     const file = form.get("file");
+    const original = form.get("original");
     const captionField = form.get("caption");
     if (!(file instanceof File)) return json(400, "Choose a picture.");
-    if (captionField != null && typeof captionField !== "string") {
-      return json(400, "Caption needs to be text.");
-    }
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const result = await acceptMemorabiliaUpload({
-      signedIn: true,
-      role,
-      name: file.name,
-      contentType: file.type,
-      bytes,
-      caption: typeof captionField === "string" ? captionField : "",
-      put: (item) => storeBytes(item.pathname, item.bytes, item.contentType),
-    });
-    if (!result.ok) return json(result.status, result.error);
-    const host = blobHost();
-    const safe = isSafeFrameSrc(result.url, host);
-    const localOnTurso = dbSource !== "pglite" && LOCAL_UPLOAD_SRC.test(result.url);
-    if (!safe || localOnTurso) {
-      await removeStored(result.url).catch(() => undefined);
-      return json(500, "Couldn't store that picture.");
+    const caption = cleanCaption(typeof captionField === "string" ? captionField : "");
+    if (typeof caption !== "string") return json(400, caption.error);
+    const stored = await storeCheckedFile(file);
+    if (!stored.ok) return json(stored.status, stored.error);
+    if (!DISPLAYABLE.has(stored.contentType)) return json(400, "That file type isn't allowed.");
+    let originalUrl: string | null = null;
+    let originalPathname: string | null = null;
+    if (original instanceof File && original.size > 0) {
+      const kept = await storeCheckedFile(original, { preserve: true });
+      if (!kept.ok) {
+        await removeStored(stored.url).catch(() => undefined);
+        return json(kept.status, kept.error);
+      }
+      originalUrl = kept.url;
+      originalPathname = kept.pathname;
     }
     try {
-      const existing = await sql<{ n: unknown }>`select count(*) as n from memorabilia_frame`;
-      const sort = num(existing[0]?.n) + 1;
-      await sql`
-        insert into memorabilia_frame
-          (url, pathname, alt_text, caption, sort_order, created_ms, created_by)
-        values (
-          ${result.url},
-          ${result.pathname},
-          ${result.alt},
-          ${result.caption},
-          ${sort},
-          ${Date.now()},
-          ${userId}
-        )
-      `;
+      await insertFrame(sql, {
+        url: stored.url,
+        pathname: stored.pathname,
+        originalUrl,
+        originalPathname,
+        alt: altForUpload(caption),
+        caption,
+        userId,
+      });
     } catch (err) {
-      await removeStored(result.url).catch(() => undefined);
+      await removeStored(stored.url).catch(() => undefined);
+      if (originalUrl) await removeStored(originalUrl).catch(() => undefined);
       throw err;
     }
     return Response.json({ ok: true });
@@ -223,9 +481,25 @@ export async function uploadMemorabilia(request: Request): Promise<Response> {
     if (err instanceof UnauthorizedError) return json(401, "Unauthorized");
     if (err instanceof CrossSiteRequestError) return json(403, err.message);
     if (err instanceof MemorabiliaHttpError) return json(err.status, err.message);
-    console.error("memorabilia upload", err instanceof Error ? err.message : "error");
+    console.error("memorabilia direct", err instanceof Error ? err.message : "error");
     return json(500, "Couldn't store that picture.");
   }
+}
+
+async function storeCheckedFile(
+  file: File,
+  options?: { preserve?: boolean },
+): Promise<
+  | { ok: true; url: string; pathname: string; contentType: string }
+  | { ok: false; status: number; error: string }
+> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const classified = classifyMemorabiliaImage(file.name || "picture.jpg", file.type || "", bytes);
+  if (!classified.ok) return { ok: false, status: 400, error: classified.error };
+  const prepared = options?.preserve ? bytes : stripLocationMetadata(bytes, classified.contentType);
+  const pathname = memorabiliaPathname(classified.extension);
+  const stored = await storeBytes(pathname, prepared, classified.contentType);
+  return { ok: true, url: stored.url, pathname: stored.pathname, contentType: classified.contentType };
 }
 
 async function orderedIds(sql: Sql): Promise<number[]> {
@@ -250,13 +524,14 @@ export async function deleteMemorabiliaFrame(userId: string, frameId: number): P
   const role = await roleOf(sql, userId);
   const auth = authorizeFrameDelete({ signedIn: true, role, frameId: String(frameId) });
   if (!auth.ok) throw new Error(auth.error);
-  const rows = await sql<{ id: unknown; url: string }>`
-    select id, url from memorabilia_frame where id = ${auth.id}
+  const rows = await sql<{ id: unknown; url: string; original_url: string | null }>`
+    select id, url, original_url from memorabilia_frame where id = ${auth.id}
   `;
   const row = rows[0];
   if (!row) throw new Error("That frame isn't on the page.");
   try {
     await removeStored(String(row.url));
+    if (row.original_url) await removeStored(String(row.original_url));
   } catch {
     throw new Error("Couldn't delete that frame. Try again.");
   }
