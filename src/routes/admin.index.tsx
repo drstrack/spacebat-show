@@ -17,9 +17,7 @@ function AdminPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
-  const [pendingRemove, setPendingRemove] = useState<{ userId: string; label: string } | null>(
-    null,
-  );
+  const [pending, setPending] = useState<PendingAccountAction>(null);
 
   if (!stats) {
     return (
@@ -164,16 +162,15 @@ function AdminPage() {
                       size="sm"
                       variant="secondary"
                       disabled={busy === person.userId}
-                      onClick={() =>
-                        run(person.userId, () =>
-                          updateMember({
-                            data: {
-                              userId: person.userId,
-                              role: person.role === "admin" ? "listener" : "admin",
-                            },
-                          }),
-                        )
-                      }
+                      onClick={() => {
+                        setError("");
+                        setPending({
+                          kind: "role",
+                          userId: person.userId,
+                          label: accountLabel(person.name, person.email),
+                          next: person.role === "admin" ? "listener" : "admin",
+                        });
+                      }}
                     >
                       {person.role === "admin" ? "Make listener" : "Make admin"}
                     </Button>
@@ -189,7 +186,8 @@ function AdminPage() {
                         disabled={busy === person.userId}
                         onClick={() => {
                           setError("");
-                          setPendingRemove({
+                          setPending({
+                            kind: "remove",
                             userId: person.userId,
                             label: accountLabel(person.name, person.email),
                           });
@@ -206,35 +204,54 @@ function AdminPage() {
         </ul>
       </section>
       <ConfirmDialog
-        open={pendingRemove != null}
-        description={
-          pendingRemove
-            ? `Remove ${pendingRemove.label}? This deletes that account. Chat posts stay in the room, labeled ${DELETED_ACCOUNT_LABEL}.`
-            : ""
-        }
-        confirmLabel="Remove account"
-        pendingLabel="Removing"
-        pending={busy === pendingRemove?.userId}
-        error={pendingRemove ? error : ""}
+        open={pending != null}
+        description={pending ? pendingDescription(pending) : ""}
+        confirmLabel={pending ? pendingConfirmLabel(pending) : "Confirm"}
+        pendingLabel={pending?.kind === "remove" ? "Removing" : "Saving"}
+        pending={busy === pending?.userId}
+        error={pending ? error : ""}
         onOpenChange={(open) => {
           if (open || busy) return;
-          setPendingRemove(null);
+          setPending(null);
           setError("");
         }}
         onConfirm={() => {
-          const target = pendingRemove;
+          const target = pending;
           if (!target || busy) return;
-          void applyConfirmedRemoval("confirm", () =>
-            run(target.userId, () =>
-              updateMember({ data: { userId: target.userId, remove: true } }),
-            ),
-          ).then((removed) => {
-            if (removed) setPendingRemove(null);
+          const work =
+            target.kind === "remove"
+              ? () => updateMember({ data: { userId: target.userId, remove: true } })
+              : () =>
+                  updateMember({
+                    data: { userId: target.userId, role: target.next },
+                  });
+          void applyConfirmedRemoval("confirm", () => run(target.userId, work)).then((done) => {
+            if (done) setPending(null);
           });
         }}
       />
     </div>
   );
+}
+
+type PendingAccountAction =
+  | { kind: "remove"; userId: string; label: string }
+  | { kind: "role"; userId: string; label: string; next: "admin" | "listener" }
+  | null;
+
+function pendingDescription(pending: Exclude<PendingAccountAction, null>): string {
+  if (pending.kind === "remove") {
+    return `Remove ${pending.label}? This deletes that account. Chat posts stay in the room, labeled ${DELETED_ACCOUNT_LABEL}.`;
+  }
+  if (pending.next === "admin") {
+    return `Make ${pending.label} an admin?`;
+  }
+  return `Make ${pending.label} a listener? They’ll lose admin access.`;
+}
+
+function pendingConfirmLabel(pending: Exclude<PendingAccountAction, null>): string {
+  if (pending.kind === "remove") return "Remove account";
+  return pending.next === "admin" ? "Make admin" : "Make listener";
 }
 
 function listsOf(

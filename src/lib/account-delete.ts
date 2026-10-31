@@ -130,6 +130,53 @@ export async function purgeAccount(
 }
 
 /**
+ * Promote or demote a member. The actor must be an admin. A locked show
+ * account stays admin, an admin cannot demote themselves, and the last
+ * remaining admin cannot be demoted.
+ */
+export async function changeMemberRole(
+  sql: Sql,
+  input: {
+    actorId: string;
+    targetId: string;
+    role: "admin" | "listener";
+    lockedEmails: ReadonlySet<string>;
+  },
+): Promise<void> {
+  if (!input.actorId) throw new Error("Unauthorized");
+  const actors = await sql<{ role: string }>`
+    select role from member_profile where user_id = ${input.actorId}
+  `;
+  if (actors[0]?.role !== "admin") throw new Error("Crew only.");
+  if (!input.targetId) throw new Error("Missing account.");
+  if (input.role !== "admin" && input.role !== "listener") {
+    throw new Error("Pick admin or listener.");
+  }
+
+  const rows = await sql<{ email: string; role: string }>`
+    select u.email, m.role
+    from member_profile m
+    join "user" u on u.id = m.user_id
+    where m.user_id = ${input.targetId}
+  `;
+  const target = rows[0];
+  if (!target) throw new Error("No such account.");
+  const locked = input.lockedEmails.has((target.email ?? "").toLowerCase());
+  if (locked && input.role !== "admin") throw new Error("The show account stays admin.");
+  if (input.targetId === input.actorId && input.role !== "admin") {
+    throw new Error("You can’t remove your own admin access.");
+  }
+  if (input.role === "listener" && target.role === "admin") {
+    await assertKeepsLastAdmin(sql, target.role);
+  }
+  const updated = new Date().toISOString();
+  await sql`
+    update member_profile set role = ${input.role}, updated_at = ${updated}
+    where user_id = ${input.targetId}
+  `;
+}
+
+/**
  * Admin removal. The actor comes from the session. Refuses the actor's own
  * row, a locked show account, and the last remaining admin.
  */

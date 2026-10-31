@@ -10,6 +10,7 @@ import {
   accountLabel,
   applyConfirmedRemoval,
   chatAuthorLabel,
+  changeMemberRole,
   deleteOwnAccount,
   deletedPresenceLine,
   removeMemberAccount,
@@ -52,7 +53,8 @@ create table "verification" (
 );
 create table member_profile (
   user_id text primary key references "user" (id) on delete cascade,
-  role text not null
+  role text not null,
+  updated_at text
 );
 create table chat_member (
   user_id text primary key references "user" (id) on delete cascade,
@@ -490,6 +492,143 @@ describe("self-delete", () => {
       await assert.rejects(() => deleteOwnAccount(db.sql, "bea"), /The last admin stays/);
       assert.deepEqual(await userIds(db.sql), ["bea"]);
       assert.deepEqual(await ids(db.sql, '"account"', '"userId"'), ["bea"]);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+async function roles(sql: Sql): Promise<Record<string, string>> {
+  const rows = await sql<{ user_id: string; role: string }>`
+    select user_id, role from member_profile order by user_id
+  `;
+  return Object.fromEntries(rows.map((row) => [row.user_id, row.role]));
+}
+
+describe("role change confirmation", () => {
+  async function pair() {
+    const db = await openDb();
+    await addPerson(db.sql, {
+      id: "admin",
+      name: "Crew",
+      email: "crew@example.com",
+      role: "admin",
+      handle: "Crew",
+    });
+    await addPerson(db.sql, {
+      id: "ada",
+      name: "Ada Wing",
+      email: "ada@example.com",
+      role: "listener",
+      handle: "Ada",
+    });
+    return db;
+  }
+
+  function promote(sql: Sql) {
+    return changeMemberRole(sql, {
+      actorId: "admin",
+      targetId: "ada",
+      role: "admin",
+      lockedEmails: new Set(),
+    });
+  }
+
+  function demote(sql: Sql, targetId = "ada") {
+    return changeMemberRole(sql, {
+      actorId: "admin",
+      targetId,
+      role: "listener",
+      lockedEmails: new Set(),
+    });
+  }
+
+  it("cancel, escape, and outside click leave the role unchanged", async () => {
+    for (const gesture of ["cancel", "escape", "outside"] as const) {
+      const db = await pair();
+      try {
+        const before = await roles(db.sql);
+        const promoted = await applyConfirmedRemoval(gesture, () => promote(db.sql));
+        assert.equal(promoted, null);
+        assert.deepEqual(await roles(db.sql), before);
+        await promote(db.sql);
+        const demoted = await applyConfirmedRemoval(gesture, () => demote(db.sql));
+        assert.equal(demoted, null);
+        assert.deepEqual(await roles(db.sql), { admin: "admin", ada: "admin" });
+      } finally {
+        db.close();
+      }
+    }
+  });
+
+  it("confirm promotes only that account, and confirm demotes only that account", async () => {
+    const db = await pair();
+    try {
+      await addPerson(db.sql, {
+        id: "bea",
+        name: "Bea Bat",
+        email: "bea@example.com",
+        role: "listener",
+        handle: "Bea",
+      });
+      await applyConfirmedRemoval("confirm", () => promote(db.sql));
+      assert.deepEqual(await roles(db.sql), { ada: "admin", admin: "admin", bea: "listener" });
+      await applyConfirmedRemoval("confirm", () => demote(db.sql));
+      assert.deepEqual(await roles(db.sql), { ada: "listener", admin: "admin", bea: "listener" });
+    } finally {
+      db.close();
+    }
+  });
+
+  it("refuses to demote the last admin, yourself, a locked account, or a non-admin caller", async () => {
+    const db = await pair();
+    try {
+      await assert.rejects(() => demote(db.sql, "admin"), /You can’t remove your own admin access/);
+      assert.deepEqual(await roles(db.sql), { ada: "listener", admin: "admin" });
+
+      await assert.rejects(
+        () =>
+          changeMemberRole(db.sql, {
+            actorId: "ada",
+            targetId: "admin",
+            role: "listener",
+            lockedEmails: new Set(),
+          }),
+        /Crew only/,
+      );
+      assert.equal((await roles(db.sql)).admin, "admin");
+
+      await assert.rejects(
+        () =>
+          changeMemberRole(db.sql, {
+            actorId: "admin",
+            targetId: "admin",
+            role: "listener",
+            lockedEmails: new Set(["crew@example.com"]),
+          }),
+        /The show account stays admin/,
+      );
+      assert.equal((await roles(db.sql)).admin, "admin");
+
+      await promote(db.sql);
+      await changeMemberRole(db.sql, {
+        actorId: "ada",
+        targetId: "admin",
+        role: "listener",
+        lockedEmails: new Set(),
+      });
+      assert.deepEqual(await roles(db.sql), { ada: "admin", admin: "listener" });
+      await assert.rejects(
+        () =>
+          changeMemberRole(db.sql, {
+            actorId: "ada",
+            targetId: "ada",
+            role: "listener",
+            lockedEmails: new Set(),
+          }),
+        /You can’t remove your own admin access/,
+      );
+      assert.equal((await roles(db.sql)).ada, "admin");
     } finally {
       db.close();
     }

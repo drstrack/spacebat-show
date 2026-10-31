@@ -3,7 +3,7 @@ import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 /**
- * One confirmation dialog for removing an account.
+ * Shared "Are you sure?" dialog.
  * Cancel, Escape, and a click on the backdrop call `onOpenChange(false)` and
  * do not call `onConfirm`. Only the confirm button does.
  */
