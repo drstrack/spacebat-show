@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { dbSource, getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSessionUser } from "@/lib/auth/verify.server";
+import { deleteOwnAccount, removeMemberAccount } from "@/lib/account-delete";
 
 export type MemberLists = {
   podcastAlerts: boolean;
@@ -88,25 +89,27 @@ async function upsertProfile(userId: string, email: string | null, lists?: Membe
   return rows[0];
 }
 
-export const loadAccount = createServerFn({ method: "GET" }).handler(async (): Promise<AccountView | null> => {
-  const session = await getSessionUser();
-  if (!session) return null;
-  const sql = await getSql();
-  const users = await sql<{ name: string; email: string }>`
+export const loadAccount = createServerFn({ method: "GET" }).handler(
+  async (): Promise<AccountView | null> => {
+    const session = await getSessionUser();
+    if (!session) return null;
+    const sql = await getSql();
+    const users = await sql<{ name: string; email: string }>`
     select name, email from "user" where id = ${session.id}
   `;
-  const user = users[0];
-  const email = user?.email ?? session.email;
-  const profile = await upsertProfile(session.id, email);
-  if (!profile) return null;
-  return {
-    email,
-    name: user?.name ?? "",
-    role: profile.role === "admin" ? "admin" : "listener",
-    lists: listsFrom(profile),
-    durable: dbSource !== "pglite",
-  };
-});
+    const user = users[0];
+    const email = user?.email ?? session.email;
+    const profile = await upsertProfile(session.id, email);
+    if (!profile) return null;
+    return {
+      email,
+      name: user?.name ?? "",
+      role: profile.role === "admin" ? "admin" : "listener",
+      lists: listsFrom(profile),
+      durable: dbSource !== "pglite",
+    };
+  },
+);
 
 export const saveLists = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -122,9 +125,9 @@ export const saveLists = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const session = await getSessionUser();
-  const profile = await upsertProfile(context.userId, session?.email ?? null, data);
-  if (!profile) throw new Error("Couldn’t save that.");
-  return { lists: listsFrom(profile) };
+    const profile = await upsertProfile(context.userId, session?.email ?? null, data);
+    if (!profile) throw new Error("Couldn’t save that.");
+    return { lists: listsFrom(profile) };
   });
 
 export const recordPageView = createServerFn({ method: "POST" })
@@ -148,7 +151,8 @@ export type Analytics = {
   joinedWeek: number;
   visitsWeek: number;
   pages: { path: string; visits: number }[];
-    people: {
+  viewerId: string;
+  people: {
     userId: string;
     name: string;
     email: string;
@@ -176,14 +180,15 @@ function countOf(row: { n?: unknown } | undefined) {
   return Number(row?.n ?? 0);
 }
 
-export const loadAnalytics = createServerFn({ method: "GET" }).handler(async (): Promise<Analytics | null> => {
-  const session = await getSessionUser();
-  if (!session) return null;
-  const sql = await getSql();
-  const mine = await sql<{ role: string }>`
+export const loadAnalytics = createServerFn({ method: "GET" }).handler(
+  async (): Promise<Analytics | null> => {
+    const session = await getSessionUser();
+    if (!session) return null;
+    const sql = await getSql();
+    const mine = await sql<{ role: string }>`
     select role from member_profile where user_id = ${session.id}
   `;
-  if (mine[0]?.role !== "admin") return null;
+    if (mine[0]?.role !== "admin") return null;
 
     const [members, alerts, letter, merch, joined, visits, pages, people] = await Promise.all([
       sql<{ n: number }>`select count(*) as n from member_profile`,
@@ -216,6 +221,7 @@ export const loadAnalytics = createServerFn({ method: "GET" }).handler(async ():
       joinedWeek: countOf(joined[0]),
       visitsWeek: countOf(visits[0]),
       pages: pages.map((page) => ({ path: page.path, visits: Number(page.n) })),
+      viewerId: session.id,
       people: people.map((person) => ({
         userId: person.user_id,
         name: person.name ?? "",
@@ -228,32 +234,35 @@ export const loadAnalytics = createServerFn({ method: "GET" }).handler(async ():
         locked: adminEmails().has((person.email ?? "").toLowerCase()),
       })),
     };
-  });
+  },
+);
 
 export const updateMember = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: {
-    userId: string;
-    role?: "admin" | "listener";
-    lists?: MemberLists;
-    remove?: boolean;
-  }) => {
-    if (!input?.userId || typeof input.userId !== "string") throw new Error("Missing account.");
-    if (input.role && input.role !== "admin" && input.role !== "listener") {
-      throw new Error("Pick admin or listener.");
-    }
-    if (input.lists) {
-      const lists = input.lists;
-      if (
-        typeof lists.podcastAlerts !== "boolean" ||
-        typeof lists.showLetter !== "boolean" ||
-        typeof lists.merchLetter !== "boolean"
-      ) {
-        throw new Error("Choose the lists again.");
+  .validator(
+    (input: {
+      userId: string;
+      role?: "admin" | "listener";
+      lists?: MemberLists;
+      remove?: boolean;
+    }) => {
+      if (!input?.userId || typeof input.userId !== "string") throw new Error("Missing account.");
+      if (input.role && input.role !== "admin" && input.role !== "listener") {
+        throw new Error("Pick admin or listener.");
       }
-    }
-    return input;
-  })
+      if (input.lists) {
+        const lists = input.lists;
+        if (
+          typeof lists.podcastAlerts !== "boolean" ||
+          typeof lists.showLetter !== "boolean" ||
+          typeof lists.merchLetter !== "boolean"
+        ) {
+          throw new Error("Choose the lists again.");
+        }
+      }
+      return input;
+    },
+  )
   .handler(async ({ data, context }) => {
     const sql = await getSql();
     const mine = await sql<{ role: string }>`
@@ -272,8 +281,11 @@ export const updateMember = createServerFn({ method: "POST" })
     const locked = adminEmails().has((target.email ?? "").toLowerCase());
 
     if (data.remove) {
-      if (locked || data.userId === context.userId) throw new Error("That account stays.");
-      await sql`delete from "user" where id = ${data.userId}`;
+      await removeMemberAccount(sql, {
+        actorId: context.userId,
+        targetId: data.userId,
+        lockedEmails: adminEmails(),
+      });
       return { ok: true };
     }
 
@@ -302,3 +314,13 @@ export const updateMember = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Delete the signed-in user. The id comes from the session, never from the client. */
+export const deleteMyAccount = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    await deleteOwnAccount(sql, context.userId);
+    const { expireAuthCookies } = await import("@/lib/account-delete.server");
+    await expireAuthCookies();
+    return { ok: true as const };
+  });

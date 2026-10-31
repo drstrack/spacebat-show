@@ -25,6 +25,7 @@ import type {
   ChatMessage,
   ChatOnlineMember,
 } from "@/lib/chat/types";
+import { chatAuthorLabel } from "@/lib/account-delete";
 import { displayFileName, isTrustedBlobUrl } from "@/lib/chat/uploads";
 import {
   blobUploadsEnabled,
@@ -152,9 +153,7 @@ function toListItem(row: MessageRow, isAdmin: boolean): ChatListItem {
   const kind = messageKind(row.kind);
   const message: ChatMessage = {
     id,
-    handle:
-      row.handle?.trim() ||
-      (kind === "presence" ? "" : kind === "system" ? "SpaceBat" : "Listener"),
+    handle: chatAuthorLabel({ kind, userId: row.user_id, handle: row.handle }),
     body: row.body ?? "",
     createdMs: num(row.created_ms),
     kind,

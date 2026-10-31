@@ -1,3 +1,4 @@
+import { chatAuthorLabel } from "@/lib/account-delete";
 import { getSql, type Sql } from "@/lib/db";
 import { DEFAULT_BLOCKWORDS, normalizeBlockword } from "@/lib/chat/blockwords";
 import {
@@ -380,6 +381,8 @@ type ReportRow = {
   created_ms: number | string | bigint;
   body: string | null;
   deleted_ms: number | string | bigint | null;
+  user_id: string | null;
+  kind: string | null;
   handle: string | null;
 };
 
@@ -387,7 +390,7 @@ export async function listReports(actorId: string): Promise<ReportGroup[]> {
   const sql = await getSql();
   await requireAdmin(sql, actorId);
   const rows = await sql<ReportRow>`
-    select r.message_id, r.reason, r.created_ms, m.body, m.deleted_ms, c.handle
+    select r.message_id, r.reason, r.created_ms, m.body, m.deleted_ms, m.user_id, m.kind, c.handle
     from chat_report r
     join chat_message m on m.id = r.message_id
     left join chat_member c on c.user_id = m.user_id
@@ -401,7 +404,11 @@ export async function listReports(actorId: string): Promise<ReportGroup[]> {
     if (!existing) {
       groups.set(messageId, {
         messageId,
-        handle: row.handle?.trim() || "Listener",
+        handle: chatAuthorLabel({
+          kind: row.kind ?? "text",
+          userId: row.user_id,
+          handle: row.handle,
+        }),
         body: row.body ?? "",
         count: 1,
         reasons: [row.reason],
