@@ -384,6 +384,39 @@ test("document title entities are not double-escaped on og:title", () => {
   assert.doesNotMatch(out, /Cats &amp;amp; Dogs/);
 });
 
+test("share tags escape apostrophes, ampersands, and quotes once", () => {
+  // The same encoding TanStack Start writes into <title> and <meta content>.
+  const encoded = "Tom&#x27;s &quot;Show&quot; &amp; Co";
+  const html = `<html><head><title>${encoded}</title>
+    <meta name="description" content="${encoded}"/>
+    <meta name="spacebat:og-title" content="${encoded}"/>
+    <meta name="spacebat:og-description" content="${encoded}"/>
+    <meta name="twitter:title" content="${encoded}"/>
+    <meta name="twitter:description" content="${encoded}"/>
+  </head></html>`;
+  const out = injectGrokPwaHead(html, {
+    host: "www.spacebatshow.net",
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-escape-")),
+    site: { title: "SpaceBat", description: "Site fallback" },
+  });
+  const once = "Tom&#39;s &quot;Show&quot; &amp; Co";
+  assert.match(out, new RegExp(`property="og:title" content="${once}"`));
+  assert.match(out, new RegExp(`property="og:description" content="${once}"`));
+  assert.match(out, new RegExp(`name="description" content="${encoded}"`));
+  assert.doesNotMatch(out, /&amp;#(?:x27|39)|&#x27;s &amp;quot;|&amp;amp;|&amp;quot;/);
+  assert.doesNotMatch(out, /twitter:(?:title|description)" content="[^"]*&amp;#/);
+  const fromTitle = injectGrokPwaHead(
+    `<html><head><title>${encoded}</title><meta name="description" content="${encoded}"/></head></html>`,
+    {
+      host: "www.spacebatshow.net",
+      cwd: mkdtempSync(join(tmpdir(), "grok-og-escape-title-")),
+      site: {},
+    },
+  );
+  assert.match(fromTitle, new RegExp(`property="og:title" content="${once}"`));
+  assert.doesNotMatch(fromTitle, /&amp;#x27;|&amp;quot;|&amp;amp;/);
+});
+
 test("site.json title wins over the host slug", () => {
   const out = injectGrokPwaHead("<html><head></head></html>", {
     host: "wild-race.grok.me",
