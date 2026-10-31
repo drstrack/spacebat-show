@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { dbSource, getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSessionUser } from "@/lib/auth/verify.server";
-import { deleteOwnAccount, removeMemberAccount } from "@/lib/account-delete";
+import { changeMemberRole, deleteOwnAccount, removeMemberAccount } from "@/lib/account-delete";
 
 export type MemberLists = {
   podcastAlerts: boolean;
@@ -278,7 +278,6 @@ export const updateMember = createServerFn({ method: "POST" })
     `;
     const target = rows[0];
     if (!target) throw new Error("No such account.");
-    const locked = adminEmails().has((target.email ?? "").toLowerCase());
 
     if (data.remove) {
       await removeMemberAccount(sql, {
@@ -290,14 +289,12 @@ export const updateMember = createServerFn({ method: "POST" })
     }
 
     if (data.role) {
-      if (locked && data.role !== "admin") throw new Error("The show account stays admin.");
-      if (data.userId === context.userId && data.role !== "admin") {
-        throw new Error("You can’t remove your own admin access.");
-      }
-      await sql`
-        update member_profile set role = ${data.role}, updated_at = ${stamp()}
-        where user_id = ${data.userId}
-      `;
+      await changeMemberRole(sql, {
+        actorId: context.userId,
+        targetId: data.userId,
+        role: data.role,
+        lockedEmails: adminEmails(),
+      });
     }
 
     if (data.lists) {
