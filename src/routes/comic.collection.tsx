@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MemorabiliaCrew } from "@/components/memorabilia-crew";
 import { MemorabiliaSpread } from "@/components/memorabilia-spread";
-import { collectionHeadMeta, COLLECTION_DESCRIPTION } from "@/lib/memorabilia/frames";
+import { collectionHeadMeta, COLLECTION_INTRO } from "@/lib/memorabilia/frames";
 import { loadMemorabilia } from "@/lib/memorabilia/frames.functions";
 
 export const Route = createFileRoute("/comic/collection")({
@@ -20,11 +20,9 @@ function CollectionPage() {
         <div className="panel bg-paper p-6 sm:p-10">
           <span className="caption-box w-fit">John Mulligan</span>
           <h1 className="mt-4 max-w-3xl font-display text-5xl leading-none tracking-wide sm:text-6xl">
-            Comic memorabilia.
+            Comic and movie collectibles.
           </h1>
-          <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted">
-            {COLLECTION_DESCRIPTION} The first frame is the Batman on the Batcave base.
-          </p>
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted">{COLLECTION_INTRO}</p>
         </div>
       </header>
 

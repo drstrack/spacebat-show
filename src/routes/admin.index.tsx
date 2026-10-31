@@ -79,7 +79,7 @@ function AdminPage() {
           to="/comic/collection"
           className="font-display text-2xl tracking-wide text-crimson hover:underline"
         >
-          John's comic memorabilia
+          John's comic and movie collectibles
         </Link>
       </p>
       <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

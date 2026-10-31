@@ -9,10 +9,16 @@ import {
 /** Public page. Linked from the Comics tile on the home page. */
 export const COLLECTION_PATH = "/comic/collection";
 
-export const COLLECTION_TITLE = "John's Comic Memorabilia Collection";
+export const COLLECTION_TITLE = "John's Collection: Comic & Movie Collectibles";
+
+/** Document title and og:title. The site name stays on the end. */
+export const COLLECTION_PAGE_TITLE = `${COLLECTION_TITLE} · SpaceBat`;
 
 export const COLLECTION_DESCRIPTION =
-  "John Mulligan's comic memorabilia, one photo to a panel. John co-hosts the SpaceBat podcast.";
+  "John Mulligan's collection of comic and movie collectibles, one piece per panel. John co-hosts the SpaceBat podcast.";
+
+export const COLLECTION_INTRO =
+  "This is John Mulligan's personal collection of comic and movie collectibles. Each panel shows one piece from his shelves. Click any photo to see it full size. John co-hosts the SpaceBat podcast.";
 
 export const COLLECTION_URL = "https://www.spacebatshow.net/comic/collection";
 
@@ -123,7 +129,7 @@ export function cleanCaption(raw: unknown): string | { error: string } {
 }
 
 export function altForUpload(caption: string): string {
-  return caption || "A piece from John Mulligan's comic memorabilia collection.";
+  return caption || "A piece from John Mulligan's collection of comic and movie collectibles.";
 }
 
 function sniffHeic(bytes: Uint8Array): boolean {
@@ -410,9 +416,9 @@ export function renderComicSpread(frames: readonly PublicFrame[]): string {
 export function collectionHeadMeta() {
   return {
     meta: [
-      { title: `${COLLECTION_TITLE} · SpaceBat` },
+      { title: COLLECTION_PAGE_TITLE },
       { name: "description", content: COLLECTION_DESCRIPTION },
-      { name: "spacebat:og-title", content: COLLECTION_TITLE },
+      { name: "spacebat:og-title", content: COLLECTION_PAGE_TITLE },
       { name: "spacebat:og-description", content: COLLECTION_DESCRIPTION },
       { name: "spacebat:og-image", content: SEED_FRAME.src },
       { name: "spacebat:og-image:width", content: String(SEED_FRAME.width) },
