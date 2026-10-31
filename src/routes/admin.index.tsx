@@ -1,6 +1,8 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+import { accountLabel, applyConfirmedRemoval, DELETED_ACCOUNT_LABEL } from "@/lib/account-delete";
 import { loadAnalytics, updateMember, type MemberLists } from "@/lib/account.functions";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/admin/")({
@@ -15,6 +17,9 @@ function AdminPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  const [pendingRemove, setPendingRemove] = useState<{ userId: string; label: string } | null>(
+    null,
+  );
 
   if (!stats) {
     return (
@@ -33,14 +38,16 @@ function AdminPage() {
     );
   }
 
-  async function run(id: string, work: () => Promise<unknown>) {
+  async function run(id: string, work: () => Promise<unknown>): Promise<boolean> {
     setError("");
     setBusy(id);
     try {
       await work();
       await router.invalidate();
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn’t save.");
+      return false;
     } finally {
       setBusy("");
     }
@@ -170,19 +177,27 @@ function AdminPage() {
                     >
                       {person.role === "admin" ? "Make listener" : "Make admin"}
                     </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy === person.userId}
-                      onClick={() =>
-                        run(person.userId, () =>
-                          updateMember({ data: { userId: person.userId, remove: true } }),
-                        )
-                      }
-                    >
-                      Remove
-                    </Button>
+                    {person.userId === stats.viewerId ? (
+                      <span className="text-sm text-muted">
+                        This is you. Delete it from the account page.
+                      </span>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy === person.userId}
+                        onClick={() => {
+                          setError("");
+                          setPendingRemove({
+                            userId: person.userId,
+                            label: accountLabel(person.name, person.email),
+                          });
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
@@ -190,6 +205,34 @@ function AdminPage() {
           ))}
         </ul>
       </section>
+      <ConfirmDialog
+        open={pendingRemove != null}
+        description={
+          pendingRemove
+            ? `Remove ${pendingRemove.label}? This deletes that account. Chat posts stay in the room, labeled ${DELETED_ACCOUNT_LABEL}.`
+            : ""
+        }
+        confirmLabel="Remove account"
+        pendingLabel="Removing"
+        pending={busy === pendingRemove?.userId}
+        error={pendingRemove ? error : ""}
+        onOpenChange={(open) => {
+          if (open || busy) return;
+          setPendingRemove(null);
+          setError("");
+        }}
+        onConfirm={() => {
+          const target = pendingRemove;
+          if (!target || busy) return;
+          void applyConfirmedRemoval("confirm", () =>
+            run(target.userId, () =>
+              updateMember({ data: { userId: target.userId, remove: true } }),
+            ),
+          ).then((removed) => {
+            if (removed) setPendingRemove(null);
+          });
+        }}
+      />
     </div>
   );
 }

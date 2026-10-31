@@ -1,5 +1,6 @@
 import { del, head } from "@vercel/blob";
 import { blobCredentials } from "@/lib/chat/blob-env.server";
+import { DELETED_ACCOUNT_LABEL } from "@/lib/account-delete";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { dbSource, getSql, type Sql } from "@/lib/db";
 import { CHAT_RULES_VERSION } from "@/lib/chat/rules";
@@ -141,7 +142,10 @@ async function readRate(sql: Sql, userId: string, isAdmin: boolean) {
   });
 }
 
-export async function assertCanUpload(userId: string, now = Date.now()): Promise<{ isAdmin: boolean }> {
+export async function assertCanUpload(
+  userId: string,
+  now = Date.now(),
+): Promise<{ isAdmin: boolean }> {
   const sql = await getSql();
   const [member, isAdmin] = await Promise.all([
     loadMember(sql, userId),
@@ -176,7 +180,11 @@ function toAttachment(row: UploadRow): ChatAttachment | null {
   };
 }
 
-async function findOwnByPath(sql: Sql, userId: string, pathname: string): Promise<ChatAttachment | null> {
+async function findOwnByPath(
+  sql: Sql,
+  userId: string,
+  pathname: string,
+): Promise<ChatAttachment | null> {
   const rows = await sql.query<UploadRow>(
     `select id, url, original_name, size, content_type, kind
      from chat_upload
@@ -271,7 +279,10 @@ async function ingestBlob(input: {
   const classified = classifyUpload(meta.pathname || input.pathname, meta.contentType, meta.size);
   if (!classified.ok || !isTrustedBlobUrl(meta.url, configuredBlobHost())) {
     await removeOneBlob(meta.url).catch(() => undefined);
-    throw new UploadHttpError(400, classified.ok ? "That attachment isn't available." : classified.error);
+    throw new UploadHttpError(
+      400,
+      classified.ok ? "That attachment isn't available." : classified.error,
+    );
   }
   try {
     return await recordChatUpload({
@@ -410,7 +421,10 @@ export async function takeUploadForMessage(
   return rows[0] ? toAttachment(rows[0]) : null;
 }
 
-export async function deleteUploadsForMessages(sql: Sql, messageIds: readonly number[]): Promise<void> {
+export async function deleteUploadsForMessages(
+  sql: Sql,
+  messageIds: readonly number[],
+): Promise<void> {
   const ids = [...new Set(messageIds.filter((id) => Number.isInteger(id) && id > 0))];
   if (ids.length === 0) return;
   const placeholders = ids.map((_, index) => `$${index + 1}`).join(", ");
@@ -418,7 +432,10 @@ export async function deleteUploadsForMessages(sql: Sql, messageIds: readonly nu
     `select id, url from chat_upload where deleted_ms is null and message_id in (${placeholders})`,
     ids,
   );
-  await markDeleted(sql, rows.map((row) => ({ id: num(row.id), url: String(row.url) })));
+  await markDeleted(
+    sql,
+    rows.map((row) => ({ id: num(row.id), url: String(row.url) })),
+  );
 }
 
 async function markDeleted(sql: Sql, rows: { id: number; url: string }[]): Promise<void> {
@@ -460,10 +477,13 @@ export async function listChatUploads(actorId: string): Promise<ListedUpload[]> 
     created_ms: number | string | bigint;
     message_id: number | string | bigint | null;
     handle: string | null;
+    owner_id: string | null;
   }>`
-    select u.id, u.url, u.original_name, u.size, u.content_type, u.kind, u.created_ms, u.message_id, c.handle
+    select u.id, u.url, u.original_name, u.size, u.content_type, u.kind, u.created_ms, u.message_id, c.handle,
+      usr.id as owner_id
     from chat_upload u
     left join chat_member c on c.user_id = u.user_id
+    left join "user" usr on usr.id = u.user_id
     where u.deleted_ms is null
     order by u.created_ms desc
     limit 50
@@ -481,14 +501,17 @@ export async function listChatUploads(actorId: string): Promise<ListedUpload[]> 
       contentType: row.content_type,
       kind: row.kind,
       createdMs: num(row.created_ms),
-      handle: row.handle?.trim() || "Listener",
+      handle: row.owner_id ? row.handle?.trim() || "Listener" : DELETED_ACCOUNT_LABEL,
       messageId: row.message_id == null ? null : num(row.message_id),
     });
   }
   return listed;
 }
 
-export async function adminDeleteChatUpload(actorId: string, uploadId: number): Promise<{ id: number }> {
+export async function adminDeleteChatUpload(
+  actorId: string,
+  uploadId: number,
+): Promise<{ id: number }> {
   const sql = await getSql();
   if (!(await profileIsAdmin(sql, actorId))) throw new Error("Crew only.");
   const rows = await sql.query<{ id: number | string | bigint; url: string }>(

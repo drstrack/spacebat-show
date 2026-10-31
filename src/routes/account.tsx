@@ -1,7 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { signOut } from "@/lib/auth/client";
-import { loadAccount, saveLists, type MemberLists } from "@/lib/account.functions";
+import { accountLabel, applyConfirmedRemoval, DELETED_ACCOUNT_LABEL } from "@/lib/account-delete";
+import { deleteMyAccount, loadAccount, saveLists, type MemberLists } from "@/lib/account.functions";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/account")({
@@ -21,6 +23,9 @@ function AccountPage() {
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   if (accountKey !== syncedKey) {
     setSyncedKey(accountKey);
     setLists(account?.lists ?? null);
@@ -30,12 +35,32 @@ function AccountPage() {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 sm:px-6">
         <h1 className="font-display text-5xl tracking-wide">Sign in first</h1>
-        <p className="mt-3 text-sm text-muted">Accounts hold podcast alerts, the newsletter, and merch drops.</p>
+        <p className="mt-3 text-sm text-muted">
+          Accounts hold podcast alerts, the newsletter, and merch drops.
+        </p>
         <Button asChild className="mt-6">
           <Link to="/login">Sign in</Link>
         </Button>
       </div>
     );
+  }
+
+  async function deleteAndLeave(): Promise<true> {
+    setDeletePending(true);
+    setDeleteError("");
+    try {
+      await deleteMyAccount();
+      try {
+        await signOut("/");
+      } catch {
+        window.location.assign("/");
+      }
+      return true;
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Couldn’t delete that account.");
+      setDeletePending(false);
+      throw err;
+    }
   }
 
   async function save(event: FormEvent) {
@@ -61,8 +86,8 @@ function AccountPage() {
       <p className="mt-2 text-sm text-muted">{account.email}</p>
       {!account.durable ? (
         <p className="mt-4 border-4 border-ink bg-caption px-4 py-3 text-sm text-ink">
-          Accounts on this host aren’t being stored yet. Connect the Turso database
-          and sign-ups will stick.
+          Accounts on this host aren’t being stored yet. Connect the Turso database and sign-ups
+          will stick.
         </p>
       ) : null}
       <form onSubmit={save} className="mt-8 space-y-3">
@@ -115,6 +140,43 @@ function AccountPage() {
           </Button>
         </div>
       </form>
+      <section className="mt-10 border-4 border-ink bg-surface px-4 py-4">
+        <h2 className="font-display text-3xl tracking-wide">Account</h2>
+        <p className="mt-2 text-sm text-muted">
+          Delete your account and sign-in. Posts you already made stay in the chat, labeled{" "}
+          {DELETED_ACCOUNT_LABEL}.
+        </p>
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-4"
+          onClick={() => {
+            setDeleteError("");
+            setDeleteOpen(true);
+          }}
+        >
+          Delete my account
+        </Button>
+      </section>
+      <ConfirmDialog
+        open={deleteOpen}
+        description={`Delete ${accountLabel(account.name, account.email)}? This deletes your account and signs you out. Chat posts stay in the room, labeled ${DELETED_ACCOUNT_LABEL}.`}
+        confirmLabel="Delete my account"
+        pendingLabel="Deleting"
+        pending={deletePending}
+        error={deleteError}
+        onOpenChange={(open) => {
+          if (open || deletePending) return;
+          setDeleteOpen(false);
+          setDeleteError("");
+        }}
+        onConfirm={() => {
+          if (deletePending) return;
+          void applyConfirmedRemoval("confirm", deleteAndLeave).catch(() => {
+            // deleteAndLeave already recorded the message.
+          });
+        }}
+      />
     </div>
   );
 }
