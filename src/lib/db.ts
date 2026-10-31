@@ -1,5 +1,6 @@
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
 import { bindLibsql } from "./sql-bind";
+import { bootstrapSqliteSchema } from "./sqlite-migrate";
 import { pickTursoKeys } from "./turso-keys";
 
 /** Which database backend is active. */
@@ -231,55 +232,24 @@ async function createPgliteSql(): Promise<Sql> {
 
 let sqlPromise: Promise<Sql> | null = null;
 
-/** Postgres migration files also run on Turso, which is SQLite. */
-function toSqlite(sqlText: string): string {
-  return sqlText
-    .replace(/\btimestamptz\b/gi, "text")
-    .replace(/\bboolean\b/gi, "integer")
-    .replace(/\bbigserial\b/gi, "integer")
-    .replace(/\bdate\b/gi, "text")
-    .replace(/\bdefault\s+true\b/gi, "default 1")
-    .replace(/\bdefault\s+false\b/gi, "default 0")
-    .replace(/\bdefault\s+now\(\)/gi, "default (datetime('now'))")
-    .replace(/\bdefault\s+current_date\b/gi, "default (date('now'))")
-    .replace(/\bnow\(\)/gi, "datetime('now')");
-}
-
-function sqlStatements(sqlText: string): string[] {
-  return sqlText
-    .split(/;\s*(?:\r?\n|$)/)
-    .map((part) => part.trim())
-    .filter(
-      (part) =>
-        part && !part.split("\n").every((line) => !line.trim() || line.trim().startsWith("--")),
-    );
-}
-
 async function createTursoSql(): Promise<Sql> {
   if (!tursoConfig) throw new Error("Turso is not configured");
   const { createClient } = await import("@libsql/client");
   const client = createClient({ url: tursoConfig.url, authToken: tursoConfig.token });
-  await client.execute(
-    "create table if not exists _migrations (name text primary key, applied_at text not null default (datetime('now')))",
-  );
   const migrations = import.meta.glob("/migrations/*.sql", {
     query: "?raw",
     import: "default",
     eager: true,
   }) as Record<string, string>;
-  const doneRows = await client.execute("select name from _migrations");
-  const done = doneRows.rows.map((row) => String(row.name));
-  for (const { name, path } of pendingMigrations(Object.keys(migrations), done)) {
-    for (const statement of sqlStatements(toSqlite(migrations[path]))) {
-      await client.execute(statement);
-    }
-    // Two cold starts can both see the file as pending. The SQL is idempotent;
-    // the bookkeeping insert must not fail the second one with a unique error.
-    await client.execute({
-      sql: "insert or ignore into _migrations (name) values (?)",
-      args: [name],
-    });
-  }
+  // `_migrations` is written only after a file's statements succeed.
+  // A parse error leaves that file pending for the next boot.
+  await bootstrapSqliteSchema(
+    client,
+    pendingMigrations(Object.keys(migrations), []).flatMap(({ name, path }) => {
+      const sql = migrations[path];
+      return sql == null ? [] : [{ name, sql }];
+    }),
+  );
   return toSql(
     async <T>(text: string, params: unknown[]) => {
       const bound = bindLibsql(text, params);
