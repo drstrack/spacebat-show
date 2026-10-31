@@ -32,6 +32,7 @@ import { Route as ApiAlertsRunRouteImport } from './routes/api/alerts/run'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatPresenceRouteImport } from './routes/api/chat/presence'
 import { Route as ApiChatUploadRouteImport } from './routes/api/chat/upload'
+import { Route as ApiMemorabiliaDirectRouteImport } from './routes/api/memorabilia/direct'
 import { Route as ApiMemorabiliaUploadRouteImport } from './routes/api/memorabilia/upload'
 
 const IndexRoute = IndexRouteImport.update({
@@ -149,6 +150,11 @@ const ApiChatUploadRoute = ApiChatUploadRouteImport.update({
   path: '/api/chat/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMemorabiliaDirectRoute = ApiMemorabiliaDirectRouteImport.update({
+  id: '/api/memorabilia/direct',
+  path: '/api/memorabilia/direct',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMemorabiliaUploadRoute = ApiMemorabiliaUploadRouteImport.update({
   id: '/api/memorabilia/upload',
   path: '/api/memorabilia/upload',
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/presence': typeof ApiChatPresenceRoute
   '/api/chat/upload': typeof ApiChatUploadRoute
+  '/api/memorabilia/direct': typeof ApiMemorabiliaDirectRoute
   '/api/memorabilia/upload': typeof ApiMemorabiliaUploadRoute
 }
 export interface FileRoutesByTo {
@@ -204,6 +211,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/presence': typeof ApiChatPresenceRoute
   '/api/chat/upload': typeof ApiChatUploadRoute
+  '/api/memorabilia/direct': typeof ApiMemorabiliaDirectRoute
   '/api/memorabilia/upload': typeof ApiMemorabiliaUploadRoute
 }
 export interface FileRoutesById {
@@ -231,6 +239,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/presence': typeof ApiChatPresenceRoute
   '/api/chat/upload': typeof ApiChatUploadRoute
+  '/api/memorabilia/direct': typeof ApiMemorabiliaDirectRoute
   '/api/memorabilia/upload': typeof ApiMemorabiliaUploadRoute
 }
 export interface FileRouteTypes {
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/chat/presence'
     | '/api/chat/upload'
+    | '/api/memorabilia/direct'
     | '/api/memorabilia/upload'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -284,6 +294,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/chat/presence'
     | '/api/chat/upload'
+    | '/api/memorabilia/direct'
     | '/api/memorabilia/upload'
   id:
     | '__root__'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/chat/presence'
     | '/api/chat/upload'
+    | '/api/memorabilia/direct'
     | '/api/memorabilia/upload'
   fileRoutesById: FileRoutesById
 }
@@ -335,6 +347,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatPresenceRoute: typeof ApiChatPresenceRoute
   ApiChatUploadRoute: typeof ApiChatUploadRoute
+  ApiMemorabiliaDirectRoute: typeof ApiMemorabiliaDirectRoute
   ApiMemorabiliaUploadRoute: typeof ApiMemorabiliaUploadRoute
 }
 
@@ -501,6 +514,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/memorabilia/direct': {
+      id: '/api/memorabilia/direct'
+      path: '/api/memorabilia/direct'
+      fullPath: '/api/memorabilia/direct'
+      preLoaderRoute: typeof ApiMemorabiliaDirectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/memorabilia/upload': {
       id: '/api/memorabilia/upload'
       path: '/api/memorabilia/upload'
@@ -545,6 +565,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatPresenceRoute: ApiChatPresenceRoute,
   ApiChatUploadRoute: ApiChatUploadRoute,
+  ApiMemorabiliaDirectRoute: ApiMemorabiliaDirectRoute,
   ApiMemorabiliaUploadRoute: ApiMemorabiliaUploadRoute,
 }
 export const routeTree = rootRouteImport
