@@ -182,7 +182,7 @@ function AdminChatPage() {
       <section className="mt-10">
         <h2 className="font-display text-3xl tracking-wide">Announcements</h2>
         <p className="mt-2 text-sm text-muted">
-          Joins and leaves. Delete one here if it should come down.
+          Old joins and leaves. They stay in the record and are not shown in the room.
         </p>
         {announcements?.length === 0 ? (
           <p className="mt-3 text-sm text-muted">No announcements yet.</p>

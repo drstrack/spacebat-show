@@ -1,23 +1,22 @@
 /**
- * Join and leave announcements.
+ * Who is in the room.
  *
  * The room already polls for messages. Each open room also heartbeats. A
- * second tab, a refresh, or a short blip only moves `last_seen_ms`. The leave
- * line is posted once that heartbeat has been missing for two minutes, which
- * is long enough that closing the tab (the heartbeat stops) still announces
- * it, and short enough that a reload does not. Coming back within three
- * minutes of the last heartbeat does not post another join.
+ * second tab, a refresh, or a short blip only moves `last_seen_ms`. After two
+ * minutes without a heartbeat they drop off the Online list. Coming back
+ * within three minutes keeps the same visit. None of this writes a chat
+ * message.
  */
 
 /** Client heartbeat interval. Stays under the leave timeout, including a background tab. */
 export const PRESENCE_HEARTBEAT_MS = 20_000;
 
-/** No heartbeat for this long, and the room says they left. */
+/** No heartbeat for this long, and they are no longer online. */
 export const PRESENCE_LEAVE_MS = 120_000;
 
 /**
- * A return within this long of the last heartbeat does not post a new join.
- * Longer than the leave timeout, so a short absence is one leave and no join.
+ * A return within this long of the last heartbeat stays the same visit.
+ * Longer than the leave timeout, so a short absence does not start a new one.
  */
 export const PRESENCE_REJOIN_MS = 3 * 60_000;
 
@@ -57,14 +56,6 @@ function num(value: unknown): number {
 export function presenceBody(handle: string, action: "join" | "leave"): string {
   const name = handle.trim().replace(/\s+/g, " ") || "Someone";
   return action === "join" ? `${name} joined the chat` : `${name} left the chat`;
-}
-
-export function presenceEventKey(
-  action: "join" | "leave",
-  userId: string,
-  sessionMs: number,
-): string {
-  return `presence:${action}:${userId}:${sessionMs}`;
 }
 
 export function planBeat(row: PresenceSnapshot | null, now: number): BeatPlan {
@@ -116,33 +107,9 @@ async function refreshPresence(sql: PresenceSql, userId: string, now: number): P
   return rows.length > 0;
 }
 
-/**
- * The message row is written only after the presence update wins, so two
- * tabs cannot both announce. `user_id` stays null: this is not a member post.
- * Turso is SQLite and cannot put the insert in the same statement as the
- * update, so a follow-up repair posts a leave if the process died in between.
- */
-async function insertAnnouncement(
-  sql: PresenceSql,
-  userId: string,
-  handle: string,
-  action: "join" | "leave",
-  sessionMs: number,
-  createdMs: number,
-): Promise<void> {
-  const body = presenceBody(handle, action);
-  const eventKey = presenceEventKey(action, userId, sessionMs);
-  await sql`
-    insert into chat_message (room, user_id, kind, body, created_ms, event_key)
-    values (${ROOM}, null, 'presence', ${body}, ${createdMs}, ${eventKey})
-    on conflict (event_key) do nothing
-  `;
-}
-
 async function claimJoin(
   sql: PresenceSql,
   userId: string,
-  handle: string,
   sessionMs: number,
   now: number,
 ): Promise<boolean> {
@@ -158,15 +125,12 @@ async function claimJoin(
       and chat_presence.last_seen_ms <= ${now - PRESENCE_REJOIN_MS}
     returning user_id
   `;
-  if (rows.length === 0) return false;
-  await insertAnnouncement(sql, userId, handle, "join", sessionMs, now);
-  return true;
+  return rows.length > 0;
 }
 
 async function claimLeave(
   sql: PresenceSql,
   userId: string,
-  handle: string,
   sessionMs: number,
   now: number,
 ): Promise<boolean> {
@@ -180,9 +144,7 @@ async function claimLeave(
       and last_seen_ms <= ${now - PRESENCE_LEAVE_MS}
     returning user_id
   `;
-  if (rows.length === 0) return false;
-  await insertAnnouncement(sql, userId, handle, "leave", sessionMs, now);
-  return true;
+  return rows.length > 0;
 }
 
 async function resumePresence(
@@ -215,7 +177,7 @@ async function resumePresence(
   return rows.length > 0;
 }
 
-async function beat(sql: PresenceSql, userId: string, handle: string, now: number): Promise<void> {
+async function beat(sql: PresenceSql, userId: string, now: number): Promise<void> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const row = await readPresence(sql, userId);
     const plan = planBeat(row, now);
@@ -228,12 +190,12 @@ async function beat(sql: PresenceSql, userId: string, handle: string, now: numbe
       continue;
     }
     if (plan.type === "insert-join") {
-      if (!(await claimJoin(sql, userId, handle, plan.sessionMs, now))) continue;
+      if (!(await claimJoin(sql, userId, plan.sessionMs, now))) continue;
       return;
     }
-    if (!(await claimLeave(sql, userId, handle, plan.sessionMs, now))) continue;
+    if (!(await claimLeave(sql, userId, plan.sessionMs, now))) continue;
     if (plan.then === "join") {
-      await claimJoin(sql, userId, handle, plan.nextSessionMs, now);
+      await claimJoin(sql, userId, plan.nextSessionMs, now);
     } else {
       await resumePresence(sql, userId, plan.nextSessionMs, now, plan.sessionMs);
     }
@@ -244,45 +206,12 @@ async function beat(sql: PresenceSql, userId: string, handle: string, now: numbe
 type StaleRow = {
   user_id: string;
   session_ms: number | string | bigint | null;
-  handle: string | null;
 };
-
-async function repairLeaves(sql: PresenceSql): Promise<void> {
-  const rows = await sql<{
-    user_id: string;
-    session_ms: number | string | bigint;
-    left_ms: number | string | bigint;
-    handle: string | null;
-  }>`
-    select p.user_id, p.session_ms, p.left_ms, c.handle
-    from chat_presence p
-    left join chat_member c on c.user_id = p.user_id
-    where p.room = ${ROOM}
-      and p.state = 'gone'
-      and p.session_ms is not null
-      and p.left_ms is not null
-      and not exists (
-        select 1 from chat_message m
-        where m.event_key = 'presence:leave:' || p.user_id || ':' || cast(p.session_ms as text)
-      )
-  `;
-  for (const row of rows) {
-    await insertAnnouncement(
-      sql,
-      row.user_id,
-      row.handle?.trim() || "Someone",
-      "leave",
-      num(row.session_ms),
-      num(row.left_ms),
-    );
-  }
-}
 
 async function sweepLeaves(sql: PresenceSql, now: number): Promise<void> {
   const rows = await sql<StaleRow>`
-    select p.user_id, p.session_ms, c.handle
+    select p.user_id, p.session_ms
     from chat_presence p
-    left join chat_member c on c.user_id = p.user_id
     where p.room = ${ROOM}
       and p.state = 'here'
       and p.session_ms is not null
@@ -290,8 +219,7 @@ async function sweepLeaves(sql: PresenceSql, now: number): Promise<void> {
   `;
   for (const row of rows) {
     if (row.session_ms == null) continue;
-    const sessionMs = num(row.session_ms);
-    await claimLeave(sql, row.user_id, row.handle?.trim() || "Someone", sessionMs, now);
+    await claimLeave(sql, row.user_id, num(row.session_ms), now);
   }
 }
 
@@ -302,18 +230,16 @@ async function sweepLeaves(sql: PresenceSql, now: number): Promise<void> {
 export async function touchPresence(
   sql: PresenceSql,
   userId: string,
-  handle: string,
   now = Date.now(),
 ): Promise<void> {
   await sweepLeaves(sql, now);
-  await repairLeaves(sql);
-  await beat(sql, userId, handle, now);
+  await beat(sql, userId, now);
 }
 
 /**
  * Tab close. Refreshes a member who is still inside the leave window so the
- * timeout starts at the close, and posts leaves that are already due. It does
- * not announce a join: closing the tab is not coming back.
+ * timeout starts at the close, and marks visits that are already over. It
+ * does not start a new visit: closing the tab is not coming back.
  */
 export async function pulsePresence(
   sql: PresenceSql,
@@ -321,7 +247,6 @@ export async function pulsePresence(
   now = Date.now(),
 ): Promise<void> {
   await sweepLeaves(sql, now);
-  await repairLeaves(sql);
   await refreshPresence(sql, userId, now);
 }
 
@@ -334,8 +259,8 @@ export type OnlineMember = {
 const HTTP_IMAGE = /^https?:\/\//i;
 
 /**
- * Members still inside the leave window. Same cutoff as a leave announcement:
- * a heartbeat older than that means they have left, so they are not listed.
+ * Members still inside the leave window. A heartbeat older than that means
+ * they have left, so they are not listed.
  * The row carries a room name and an https avatar when the account has one.
  */
 export async function listOnline(

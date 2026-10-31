@@ -119,8 +119,13 @@ function toFeedRow(item: ChatListItem): FeedRow {
 
 function mergeRows(current: FeedRow[], incoming: ChatListItem[]): FeedRow[] {
   const incomingIds = new Set(incoming.map((item) => item.id));
-  const next = current.filter((row) => row.pending || !incomingIds.has(row.id));
-  for (const item of incoming) next.push(toFeedRow(item));
+  const next = current.filter(
+    (row) => (row.pending || !incomingIds.has(row.id)) && !("kind" in row && row.kind === "presence"),
+  );
+  for (const item of incoming) {
+    if (!isRemoved(item) && item.kind === "presence") continue;
+    next.push(toFeedRow(item));
+  }
   next.sort((a, b) => {
     if (a.pending && b.pending) return a.createdMs - b.createdMs;
     if (a.pending) return 1;
@@ -444,7 +449,7 @@ export function ChatRoom({ layout = "page" }: { layout?: "page" | "popout" }) {
         const body = new Blob(["1"], { type: "text/plain" });
         navigator.sendBeacon?.("/api/chat/presence", body);
       } catch {
-        /* heartbeats stop with the page, so the leave still posts */
+        /* heartbeats stop with the page, so Online drops them after the timeout */
       }
     };
     window.addEventListener("pagehide", onPageHide);
@@ -1072,24 +1077,7 @@ function MessageRow({
   if (row.deleted) {
     return <p className="text-sm text-muted">message removed</p>;
   }
-  if (row.kind === "presence") {
-    return (
-      <div className="flex flex-col items-center gap-0.5 px-2">
-        <p className="max-w-full break-words text-center text-xs leading-5 text-muted">
-          {row.body}
-        </p>
-        {isAdmin ? (
-          <button
-            type="button"
-            onClick={() => onDeleteSystem(row.id)}
-            className="text-[11px] text-muted underline-offset-2 hover:text-crimson hover:underline"
-          >
-            Remove
-          </button>
-        ) : null}
-      </div>
-    );
-  }
+  if (row.kind === "presence") return null;
   if (row.kind === "system") {
     return (
       <div className="flex flex-col items-center gap-1">

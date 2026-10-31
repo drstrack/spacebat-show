@@ -38,7 +38,7 @@ describe("planBeat", () => {
     assert.equal(planBeat(here(T0), T0 + PRESENCE_LEAVE_MS - 1).type, "refresh");
   });
 
-  it("announces a leave without a new join inside the rejoin window", () => {
+  it("plans a leave without a new visit inside the rejoin window", () => {
     const plan = planBeat(here(T0), T0 + PRESENCE_LEAVE_MS);
     assert.equal(plan.type, "leave");
     if (plan.type === "leave") assert.equal(plan.then, "resume");
@@ -47,7 +47,7 @@ describe("planBeat", () => {
     if (later.type === "leave") assert.equal(later.then, "resume");
   });
 
-  it("announces a leave and a join once they have been gone a few minutes", () => {
+  it("plans a leave and a new visit once they have been gone a few minutes", () => {
     const plan = planBeat(here(T0), T0 + PRESENCE_REJOIN_MS);
     assert.equal(plan.type, "leave");
     if (plan.type === "leave") assert.equal(plan.then, "join");
@@ -151,97 +151,150 @@ async function lines(sql: PresenceSql): Promise<Stored[]> {
   }));
 }
 
+async function presenceOf(sql: PresenceSql, userId: string) {
+  const rows = await sql<{ state: string; last_seen_ms: number | string | bigint }>`
+    select state, last_seen_ms from chat_presence where user_id = ${userId}
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  const lastSeenMs = typeof row.last_seen_ms === "bigint" ? Number(row.last_seen_ms) : Number(row.last_seen_ms);
+  return { state: row.state, lastSeenMs };
+}
+
 function presenceSuite(open: () => Promise<{ sql: PresenceSql; close: () => Promise<void> }>) {
-  it("posts one join for the first heartbeat, including a second tab", async () => {
+  it("entering and leaving writes no chat message and still updates presence", async () => {
     const { sql, close } = await open();
     try {
       await names(sql, "dan", "Dan");
-      await touchPresence(sql, "dan", "Dan", T0);
-      await touchPresence(sql, "dan", "Dan", T0 + 1_000);
+      await touchPresence(sql, "dan", T0);
+      assert.deepEqual(await lines(sql), []);
+      assert.deepEqual(await presenceOf(sql, "dan"), { state: "here", lastSeenMs: T0 });
+      assert.deepEqual(
+        (await listOnline(sql, "dan", T0)).map((member) => member.handle),
+        ["Dan"],
+      );
+
+      const backAt = T0 + PRESENCE_LEAVE_MS + 15_000;
+      await touchPresence(sql, "dan", backAt);
+      assert.deepEqual(await lines(sql), []);
+      assert.deepEqual(await presenceOf(sql, "dan"), { state: "here", lastSeenMs: backAt });
+      assert.deepEqual(
+        (await listOnline(sql, "dan", backAt)).map((member) => member.handle),
+        ["Dan"],
+      );
+
+      await names(sql, "sam", "Sam");
+      const goneAt = backAt + PRESENCE_LEAVE_MS;
+      await touchPresence(sql, "sam", goneAt);
+      assert.deepEqual(await lines(sql), []);
+      assert.equal((await presenceOf(sql, "dan"))?.state, "gone");
+      assert.deepEqual(await presenceOf(sql, "sam"), { state: "here", lastSeenMs: goneAt });
+      assert.deepEqual(
+        (await listOnline(sql, "sam", goneAt)).map((member) => member.handle),
+        ["Sam"],
+      );
+    } finally {
+      await close();
+    }
+  });
+
+  it("records the first heartbeat without a chat message, including a second tab", async () => {
+    const { sql, close } = await open();
+    try {
+      await names(sql, "dan", "Dan");
+      await touchPresence(sql, "dan", T0);
+      await touchPresence(sql, "dan", T0 + 1_000);
       await Promise.all([
-        touchPresence(sql, "dan", "Dan", T0 + 2_000),
-        touchPresence(sql, "dan", "Dan", T0 + 2_000),
+        touchPresence(sql, "dan", T0 + 2_000),
+        touchPresence(sql, "dan", T0 + 2_000),
       ]);
-      const stored = await lines(sql);
-      assert.deepEqual(stored, [{ body: "Dan joined the chat", kind: "presence", userId: null }]);
+      assert.deepEqual(await lines(sql), []);
+      assert.deepEqual(await presenceOf(sql, "dan"), { state: "here", lastSeenMs: T0 + 2_000 });
     } finally {
       await close();
     }
   });
 
-  it("stays quiet across a refresh", async () => {
+  it("stays quiet across a refresh and keeps them online", async () => {
     const { sql, close } = await open();
     try {
       await names(sql, "dan", "Dan");
-      await touchPresence(sql, "dan", "Dan", T0);
-      await touchPresence(sql, "dan", "Dan", T0 + 30_000);
+      await touchPresence(sql, "dan", T0);
+      await touchPresence(sql, "dan", T0 + 30_000);
+      assert.deepEqual(await lines(sql), []);
+      assert.deepEqual(await presenceOf(sql, "dan"), { state: "here", lastSeenMs: T0 + 30_000 });
       assert.deepEqual(
-        (await lines(sql)).map((row) => row.body),
-        ["Dan joined the chat"],
+        (await listOnline(sql, "dan", T0 + 30_000)).map((member) => member.handle),
+        ["Dan"],
       );
     } finally {
       await close();
     }
   });
 
-  it("posts a leave without a re-join when they return inside a few minutes", async () => {
+  it("returns inside a few minutes without a chat message", async () => {
     const { sql, close } = await open();
     try {
       await names(sql, "dan", "Dan");
-      await touchPresence(sql, "dan", "Dan", T0);
-      await touchPresence(sql, "dan", "Dan", T0 + PRESENCE_LEAVE_MS + 15_000);
-      assert.deepEqual(
-        (await lines(sql)).map((row) => row.body),
-        ["Dan joined the chat", "Dan left the chat"],
-      );
+      await touchPresence(sql, "dan", T0);
+      const backAt = T0 + PRESENCE_LEAVE_MS + 15_000;
+      await touchPresence(sql, "dan", backAt);
+      assert.deepEqual(await lines(sql), []);
+      assert.deepEqual(await presenceOf(sql, "dan"), { state: "here", lastSeenMs: backAt });
     } finally {
       await close();
     }
   });
 
-  it("posts a leave and a join after they have been gone longer than that", async () => {
+  it("starts a new visit after a long absence without a chat message", async () => {
     const { sql, close } = await open();
     try {
       await names(sql, "dan", "Dan");
-      await touchPresence(sql, "dan", "Dan", T0);
-      await touchPresence(sql, "dan", "Dan", T0 + PRESENCE_REJOIN_MS + 1_000);
-      assert.deepEqual(
-        (await lines(sql)).map((row) => row.body),
-        ["Dan joined the chat", "Dan left the chat", "Dan joined the chat"],
-      );
+      await touchPresence(sql, "dan", T0);
+      const backAt = T0 + PRESENCE_REJOIN_MS + 1_000;
+      await touchPresence(sql, "dan", backAt);
+      assert.deepEqual(await lines(sql), []);
+      assert.deepEqual(await presenceOf(sql, "dan"), { state: "here", lastSeenMs: backAt });
+      const rows = await sql<{ session_ms: number | string | bigint }>`
+        select session_ms from chat_presence where user_id = ${"dan"}
+      `;
+      const sessionMs = Number(rows[0]?.session_ms);
+      assert.equal(sessionMs, backAt);
     } finally {
       await close();
     }
   });
 
-  it("lets someone else in the room announce the leave after the tab closes", async () => {
+  it("lets someone else in the room mark the leave, with no chat message", async () => {
     const { sql, close } = await open();
     try {
       await names(sql, "dan", "Dan");
       await names(sql, "sam", "Sam");
-      await touchPresence(sql, "dan", "Dan", T0);
-      await touchPresence(sql, "sam", "Sam", T0 + PRESENCE_LEAVE_MS - 5_000);
-      await touchPresence(sql, "sam", "Sam", T0 + PRESENCE_LEAVE_MS);
+      await touchPresence(sql, "dan", T0);
+      await touchPresence(sql, "sam", T0 + PRESENCE_LEAVE_MS - 5_000);
+      await touchPresence(sql, "sam", T0 + PRESENCE_LEAVE_MS);
+      assert.deepEqual(await lines(sql), []);
+      assert.equal((await presenceOf(sql, "dan"))?.state, "gone");
+      assert.equal((await presenceOf(sql, "sam"))?.state, "here");
       assert.deepEqual(
-        (await lines(sql)).map((row) => row.body),
-        ["Dan joined the chat", "Sam joined the chat", "Dan left the chat"],
+        (await listOnline(sql, "sam", T0 + PRESENCE_LEAVE_MS)).map((member) => member.handle),
+        ["Sam"],
       );
     } finally {
       await close();
     }
   });
 
-  it("treats a closed tab as a leave once the timeout has already elapsed", async () => {
+  it("treats a closed tab as gone once the timeout has elapsed, with no chat message", async () => {
     const { sql, close } = await open();
     try {
       await names(sql, "dan", "Dan");
-      await touchPresence(sql, "dan", "Dan", T0);
+      await touchPresence(sql, "dan", T0);
       await pulsePresence(sql, "dan", T0 + 30_000);
       await pulsePresence(sql, "dan", T0 + PRESENCE_REJOIN_MS + 1_000);
-      assert.deepEqual(
-        (await lines(sql)).map((row) => row.body),
-        ["Dan joined the chat", "Dan left the chat"],
-      );
+      assert.deepEqual(await lines(sql), []);
+      assert.equal((await presenceOf(sql, "dan"))?.state, "gone");
+      assert.deepEqual(await listOnline(sql, "dan", T0 + PRESENCE_REJOIN_MS + 1_000), []);
     } finally {
       await close();
     }
@@ -259,10 +312,10 @@ function presenceSuite(open: () => Promise<{ sql: PresenceSql; close: () => Prom
           (${"dan"}, ${"Dan Account"}, ${"dan@secret.test"}, ${"https://cdn.example/dan.png"}),
           (${"sam"}, ${"Sam Account"}, ${"sam@secret.test"}, ${"javascript:alert(1)"})
       `;
-      await touchPresence(sql, "dan", "Dan", T0);
-      await touchPresence(sql, "sam", "Sam", T0);
-      await touchPresence(sql, "bea", "Bea", T0);
-      await touchPresence(sql, "ada", "Ada", T0);
+      await touchPresence(sql, "dan", T0);
+      await touchPresence(sql, "sam", T0);
+      await touchPresence(sql, "bea", T0);
+      await touchPresence(sql, "ada", T0);
       await sql`update chat_member set banned_ms = ${T0} where user_id = ${"bea"}`;
       await sql`update chat_presence set state = 'gone' where user_id = ${"ada"}`;
 
@@ -287,16 +340,16 @@ function presenceSuite(open: () => Promise<{ sql: PresenceSql; close: () => Prom
     }
   });
 
-  it("stores a blocked-word name and does not count the line as that member's post", async () => {
+  it("keeps a blocked-word name on the online list and posts no chat line", async () => {
     const { sql, close } = await open();
     try {
       await names(sql, "dan", "ass");
-      await touchPresence(sql, "dan", "ass", T0);
-      const stored = await lines(sql);
-      assert.equal(stored[0]?.body, "ass joined the chat");
-      assert.equal(stored[0]?.kind, "presence");
-      assert.equal(stored[0]?.userId, null);
-      assert.equal(containsBlockedWord(stored[0]?.body ?? "", ["ass"]), "ass");
+      await touchPresence(sql, "dan", T0);
+      assert.deepEqual(await lines(sql), []);
+      assert.deepEqual(
+        (await listOnline(sql, "dan", T0)).map((member) => member.handle),
+        ["ass"],
+      );
     } finally {
       await close();
     }
@@ -319,7 +372,7 @@ describe("presence on postgres", () => {
       await db.exec(POSTGRES_SCHEMA);
       const sql = pgSql(db);
       await names(sql, "dan", "Dan");
-      await touchPresence(sql, "dan", "Dan", T0);
+      await touchPresence(sql, "dan", T0);
       await sql`
       insert into chat_message (room, user_id, kind, body, created_ms, event_key)
       values ('main', 'dan', 'presence', 'Dan joined the chat', ${T0}, 'extra-presence')
