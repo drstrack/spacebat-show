@@ -53,7 +53,7 @@ export async function runPodcastAlerts(now = new Date()) {
   return { ok: true as const, morning, scheduleChange, posted: postedCount };
 }
 
-/** Wednesday note does not read the feed. A down Podhome response still sends it once. */
+/** Skipped-morning note does not read the feed. A down Podhome response still sends it once. */
 async function sendMovedWednesday(now: Date) {
   const change = scheduleChangeMorningAlert(now, origin());
   if (!change) return 0;

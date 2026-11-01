@@ -81,10 +81,10 @@ export type AlertMail =
 
 /**
  * Morning podcast alerts for one cron run.
- * One-off through 2026-10-30 00:00 America/New_York: the schedule-change
- * import and showsForAlertSchedule call go away with schedule-change.ts.
- * Show-day mail still uses alert_log kind "show-day". The Wednesday note
- * uses a different kind and ref, so the two cannot dedupe into each other.
+ * An open schedule exception can add one skipped-morning note and, the next
+ * morning, one show-day reminder. Show-day mail uses alert_log kind
+ * "show-day". The skipped morning uses a different kind and ref, so the two
+ * cannot dedupe into each other. Each night contributes at most one reminder.
  */
 export function planAlertMorning(
   xml: string,

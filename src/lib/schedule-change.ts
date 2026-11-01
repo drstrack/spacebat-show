@@ -1,66 +1,45 @@
 /**
- * One-off: the Wednesday, Oct 28, 2026 SpaceBat Show moves to
- * Thursday, Oct 29, 2026 at 8:30 PM America/New_York.
+ * Applies src/lib/schedule-exceptions.ts to the notice, the chat live
+ * banner, welcome mail, and podcast alerts. A future one-week move is a
+ * new entry in that list. Expired entries drop out at midnight ET the day
+ * after the moved show, with no deploy.
  *
- * The notice hides at the end of that day (2026-10-30 00:00 America/New_York).
- * The chat live banner treats 8:30–10:30 PM ET that Thursday as the show
- * window (the usual Podhome live item is two hours) and does not treat
- * Wednesday evening as that window.
- *
- * Podcast alerts, and only podcast alerts, also use this module:
- * - shift a Podhome pending item dated Wed Oct 28 onto Thu Oct 29
- * - if that leaves no show on Thu Oct 29, add one synthetic Thursday show
- * - on Wed Oct 28 from 7–10 AM ET, send one schedule-change note
- * Welcome mail adds a Thursday sentence while the notice is visible.
- *
- * After the cutoff, delete this module, its test,
- * src/components/schedule-change-notice.tsx, and the call sites
- * (alerts, welcome copy, live banner, pages). The synthetic show is not
- * written to the site or the chat.
+ * Podcast alerts, and only podcast alerts, also:
+ * - move a Podhome pending item dated on skipDate onto showStart
+ * - if that night is still empty, add one synthetic show
+ * - on the skipped morning, 7–10 AM ET, send one schedule-change note
+ * The Thursday reminder stays kind "show-day", so the two notes cannot
+ * dedupe into each other, and a night never produces two reminders.
  */
 
-export const SCHEDULE_CHANGE_NOTICE =
-  "Schedule change: this week's live SpaceBat Show is Thursday, Oct 29 at 8:30 PM ET (not Wednesday).";
+import {
+  activeScheduleException,
+  instant,
+  nyDateKey,
+  nyMonthDay,
+  nyWeekday,
+  type ResolvedScheduleException,
+} from "./schedule-exceptions.ts";
 
-const TIME_ZONE = "America/New_York";
-
-/** Wednesday night that was moved. Calendar date in America/New_York. */
-const MOVED_FROM_DATE = "2026-10-28";
-
-/** Thursday the show moved to. Calendar date in America/New_York. */
-const MOVED_TO_DATE = "2026-10-29";
-
-/**
- * Alert-only id for the synthetic Thu Oct 29 show. Podcast-alert mail is the
- * only reader. alert_log dedupes the Thursday reminder on kind + this id + start.
- */
-export const SCHEDULE_CHANGE_SHOW_ID = "schedule-change-2026-10-29";
-
-/** Distinct from the Thursday "show-day" reminder so each sends once. */
 export const SCHEDULE_CHANGE_ALERT_KIND = "schedule-change";
-export const SCHEDULE_CHANGE_ALERT_REF = "2026-10-28";
 
-/** Inclusive show start: Thu Oct 29, 2026 8:30 PM America/New_York. */
-const MOVED_SHOW_START_MS = zonedTimeToUtc(2026, 10, 29, 20, 30);
-
-/** Exclusive show end: Thu Oct 29, 2026 10:30 PM America/New_York. */
-const MOVED_SHOW_END_MS = zonedTimeToUtc(2026, 10, 29, 22, 30);
-
-/** Exclusive cutoff: Fri Oct 30, 2026 00:00 America/New_York. */
-export const SCHEDULE_CHANGE_ENDS_AT_MS = zonedTimeToUtc(2026, 10, 30, 0, 0);
+export function scheduleChangeNote(now: number | Date): string | null {
+  return activeScheduleException(now)?.note ?? null;
+}
 
 export function scheduleChangeVisible(now: number | Date): boolean {
-  return instant(now) < SCHEDULE_CHANGE_ENDS_AT_MS;
+  return activeScheduleException(now) != null;
 }
 
 /**
- * Auto-mode live banner for this week only.
- * True during Thu Oct 29, 2026 8:30–10:30 PM America/New_York.
- * False on Wed Oct 28 (the night that was moved) and after the cutoff.
+ * Auto-mode live banner. True only inside the moved show's two-hour window.
+ * False on the skipped night and after the cutoff.
  */
 export function liveBannerOverrideActive(now: number | Date): boolean {
+  const active = activeScheduleException(now);
+  if (!active) return false;
   const t = instant(now);
-  return t >= MOVED_SHOW_START_MS && t < MOVED_SHOW_END_MS;
+  return t >= active.showStartMs && t < active.showEndMs;
 }
 
 export type LiveBannerSnapshot = {
@@ -70,162 +49,140 @@ export type LiveBannerSnapshot = {
 };
 
 /**
- * While the Thursday window is open, Auto mode reports the room on air even
+ * While the moved window is open, Auto mode reports the room on air even
  * if the stream probe has not flipped yet. A real on-air state is left alone.
- * An active manual "off" still wins. Nothing is forced on Wednesday.
+ * An active manual "off" still wins. The skipped night is not forced on.
  */
 export function applyLiveBannerOverride(
   live: LiveBannerSnapshot,
   manual: { mode: string | null; untilMs: number | null },
   now: number | Date,
 ): LiveBannerSnapshot {
+  const active = activeScheduleException(now);
   const t = instant(now);
   const manualOff = manual.mode === "off" && manual.untilMs != null && t < manual.untilMs;
-  if (live.isLive || manualOff || !liveBannerOverrideActive(t)) return live;
-  return { isLive: true, sinceMs: MOVED_SHOW_START_MS, source: null };
+  if (!active || live.isLive || manualOff || t < active.showStartMs || t >= active.showEndMs) {
+    return live;
+  }
+  return { isLive: true, sinceMs: active.showStartMs, source: null };
 }
 
-/** Shift a Podhome live item that is still set for Wed Oct 28 onto Thu Oct 29, 8:30 PM ET. */
+/** Move a Podhome live item that is still set for the skipped date onto the new start. */
 export function applyScheduleChange<T extends { start: string }>(
   shows: T[],
   now: number | Date,
 ): T[] {
-  if (!scheduleChangeVisible(now)) return shows;
+  const active = activeScheduleException(now);
+  if (!active) return shows;
+  const start = new Date(active.showStartMs).toISOString();
   return shows.map((show) => {
-    const start = new Date(show.start);
-    if (Number.isNaN(start.getTime())) return show;
-    if (nyDateKey(start) !== MOVED_FROM_DATE) return show;
-    return { ...show, start: new Date(MOVED_SHOW_START_MS).toISOString() };
+    const when = new Date(show.start);
+    if (Number.isNaN(when.getTime())) return show;
+    if (nyDateKey(when) !== active.skipDate) return show;
+    return { ...show, start };
   });
 }
 
 type AlertShow = { id: string; title: string; start: string };
 
 /**
- * Alert schedule for this week. Shifts a Wednesday item, then adds one
- * synthetic Thursday show when Podhome still has nothing on Oct 29.
- * Does not add a Wednesday show. Does not duplicate a Thursday item or a
- * Wednesday item that was just shifted. After the cutoff, returns shows unchanged.
- * Call this from podcast alerts only.
+ * Alert schedule while an exception is open. One show on the moved night:
+ * the Podhome item already on that date, else the skipped-date item shifted
+ * forward, else one synthetic show. Other nights are left alone. After the
+ * cutoff, returns shows unchanged. Call this from podcast alerts only.
  */
 export function showsForAlertSchedule<T extends AlertShow>(shows: T[], now: number | Date): T[] {
-  const shifted = applyScheduleChange(shows, now);
-  if (!scheduleChangeVisible(now)) return shifted;
-  if (shifted.some((show) => onNyDate(show.start, MOVED_TO_DATE))) return shifted;
-  return [...shifted, syntheticThursdayShow() as T];
+  const active = activeScheduleException(now);
+  if (!active) return shows;
+  const start = new Date(active.showStartMs).toISOString();
+  const kept: T[] = [];
+  let moved: T | null = null;
+  let already: T | null = null;
+  for (const show of shows) {
+    const when = new Date(show.start);
+    if (Number.isNaN(when.getTime())) {
+      kept.push(show);
+      continue;
+    }
+    const day = nyDateKey(when);
+    if (day === active.showDate) {
+      if (!already) already = show;
+      continue;
+    }
+    if (day === active.skipDate) {
+      if (!moved) moved = { ...show, start };
+      continue;
+    }
+    kept.push(show);
+  }
+  const night = already ?? moved ?? (syntheticShow(active) as T);
+  return [...kept, night];
 }
 
 export type ScheduleChangeAlert = {
   kind: typeof SCHEDULE_CHANGE_ALERT_KIND;
-  ref: typeof SCHEDULE_CHANGE_ALERT_REF;
+  ref: string;
   subject: string;
   text: string;
 };
 
 /**
- * One note on the morning of the moved Wednesday (7–10 AM ET, same window as
- * the show-day reminder). Null on Thursday, outside that window, and after
- * the cutoff. The caller sends it with alert_log kind/ref, independent of
- * whether Podhome has a live item.
+ * One note on the morning of the skipped date (7–10 AM ET, same window as
+ * the show-day reminder). Null on the moved morning, outside that window,
+ * and after the cutoff. The caller logs kind "schedule-change" and ref
+ * skipDate, independent of whether Podhome has a live item.
  */
 export function scheduleChangeMorningAlert(
   now: number | Date,
   site: string,
 ): ScheduleChangeAlert | null {
-  if (!movedWednesdayMorning(now)) return null;
+  const active = activeScheduleException(now);
+  if (!active || !skippedMorning(active, now)) return null;
   const home = site.replace(/\/$/, "");
+  const when = new Date(active.showStartMs);
+  const weekday = nyWeekday(when);
+  const resume = resumeLabel(active.skipDate);
   return {
     kind: SCHEDULE_CHANGE_ALERT_KIND,
-    ref: SCHEDULE_CHANGE_ALERT_REF,
+    ref: active.skipDate,
     subject: "No live show tonight",
     text:
-      `No live show tonight (Wednesday). John and Dan moved this week's show.\n\n` +
-      `This week's live show is Thursday, Oct 29 at 8:30 PM ET. ` +
-      `Regular Wednesday 8:30 PM shows resume next week.\n\n` +
-      `Come listen with us Thursday:\n${home}/podcast#live\n\n` +
+      `No live show tonight, see you ${weekday}.\n\n` +
+      `${active.note}\n\n` +
+      `Regular Wednesday 8:30 PM ET shows resume ${resume}.\n\n` +
+      `Come listen with us ${weekday}:\n${home}/podcast#live\n\n` +
       `You asked for these notes. Turn them off anytime:\n${home}/account\n`,
   };
 }
 
-function syntheticThursdayShow(): AlertShow {
+function syntheticShow(active: ResolvedScheduleException): AlertShow {
   return {
-    id: SCHEDULE_CHANGE_SHOW_ID,
+    id: active.showId,
     title: "The SpaceBat Show",
-    start: new Date(MOVED_SHOW_START_MS).toISOString(),
+    start: new Date(active.showStartMs).toISOString(),
   };
 }
 
-function movedWednesdayMorning(now: number | Date): boolean {
-  if (!scheduleChangeVisible(now)) return false;
+function skippedMorning(active: ResolvedScheduleException, now: number | Date): boolean {
   const date = typeof now === "number" ? new Date(now) : now;
-  if (nyDateKey(date) !== MOVED_FROM_DATE) return false;
-  const hour = zonedParts(date.getTime()).hour;
+  if (nyDateKey(date) !== active.skipDate) return false;
+  const hour = nyHour(date);
   return hour >= 7 && hour <= 10;
 }
 
-function onNyDate(start: string, date: string): boolean {
-  const when = new Date(start);
-  if (Number.isNaN(when.getTime())) return false;
-  return nyDateKey(when) === date;
+/** The standing Wednesday a week after the skipped date. */
+function resumeLabel(skipDate: string): string {
+  const [year, month, day] = skipDate.split("-").map(Number);
+  const nextWeek = new Date(Date.UTC(year!, month! - 1, day! + 7, 12));
+  return nyMonthDay(nextWeek);
 }
 
-function instant(now: number | Date): number {
-  return typeof now === "number" ? now : now.getTime();
-}
-
-function nyDateKey(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function zonedParts(utcMs: number) {
-  const formatted = new Intl.DateTimeFormat("en-US", {
-    timeZone: TIME_ZONE,
+function nyHour(date: Date): number {
+  const hour = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "numeric",
     hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(new Date(utcMs));
-  const pick = (type: Intl.DateTimeFormatPartTypes) =>
-    Number(formatted.find((part) => part.type === type)?.value);
-  let hour = pick("hour");
-  if (hour === 24) hour = 0;
-  return {
-    year: pick("year"),
-    month: pick("month"),
-    day: pick("day"),
-    hour,
-    minute: pick("minute"),
-    second: pick("second"),
-  };
-}
-
-/** UTC epoch for a wall-clock time in America/New_York. */
-function zonedTimeToUtc(year: number, month: number, day: number, hour: number, minute: number) {
-  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, 0);
-  const offset = zoneOffset(utcGuess);
-  let utc = utcGuess - offset;
-  const adjusted = zoneOffset(utc);
-  if (adjusted !== offset) utc = utcGuess - adjusted;
-  return utc;
-}
-
-function zoneOffset(utcMs: number): number {
-  const parts = zonedParts(utcMs);
-  const asUtc = Date.UTC(
-    parts.year,
-    parts.month - 1,
-    parts.day,
-    parts.hour,
-    parts.minute,
-    parts.second,
-  );
-  return asUtc - utcMs;
+  }).format(date);
+  const value = Number(hour);
+  return value === 24 ? 0 : value;
 }
