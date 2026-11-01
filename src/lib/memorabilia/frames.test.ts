@@ -24,8 +24,10 @@ import {
   memorabiliaFinalizeDecision,
   memorabiliaTokenDecision,
   movedIds,
+  imagePixelSize,
+  previousFrameFile,
   renderComicSpread,
-  SEED_FRAME,
+  COLLECTION_SHARE_FALLBACK,
 } from "./frames.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -273,11 +275,10 @@ describe("memorabilia admin guard", () => {
     assert.equal(heicPair.ok, true);
   });
 
-  it("refuses to delete frame 1 or let a listener delete anything", () => {
-    assert.equal(
-      authorizeFrameDelete({ signedIn: true, role: "admin", frameId: "seed" }).ok,
-      false,
-    );
+  it("lets an admin delete any saved frame and refuses everyone else", () => {
+    const seed = authorizeFrameDelete({ signedIn: true, role: "admin", frameId: "seed" });
+    assert.equal(seed.ok, false);
+    if (!seed.ok) assert.equal(seed.status, 400);
     const listener = authorizeFrameDelete({ signedIn: true, role: "listener", frameId: "3" });
     assert.equal(listener.ok, false);
     if (!listener.ok) assert.equal(listener.status, 403);
@@ -290,43 +291,70 @@ describe("memorabilia admin guard", () => {
 });
 
 describe("memorabilia page", () => {
-  it("renders frame 1 first, as a comic panel, with no upload controls", () => {
+  const frameOne = {
+    id: 1,
+    src: COLLECTION_SHARE_FALLBACK.src,
+    alt: "A large blue-and-grey Batman statue on a Batcave-style base, with several small Batman busts around it, on a wooden coffee table.",
+    caption: "Batman, on the Batcave base.",
+    width: COLLECTION_SHARE_FALLBACK.width,
+    height: COLLECTION_SHARE_FALLBACK.height,
+  };
+
+  it("renders a saved first frame as a comic panel, with no upload controls", () => {
+    const model = collectionPageModel({
+      rows: [frameOne],
+      signedIn: false,
+      role: null,
+      blobHost: null,
+    });
+    assert.equal(model.canManage, false);
+    assert.equal(model.frames[0]?.id, "1");
+    assert.equal(model.frames[0]?.src, frameOne.src);
+    const html = renderComicSpread(model.frames);
+    assert.match(html, /data-testid="comic-frame-1"/);
+    assert.match(html, /class="comic-panel comic-panel-splash"/);
+    assert.match(html, new RegExp(`src="${frameOne.src}"`));
+    assert.match(html, /loading="lazy"/);
+    assert.match(html, /decoding="async"/);
+    assert.match(html, new RegExp(`alt="${frameOne.alt}"`));
+    assert.match(html, /Batman, on the Batcave base\./);
+    assert.match(html, /width="921"/);
+    assert.match(html, /height="1038"/);
+    assert.match(html, new RegExp(`href="${frameOne.src}"`));
+    assert.match(html, /target="_blank"/);
+    assert.doesNotMatch(html, /type="file"|Add a frame|Delete/);
+  });
+
+  it("shows an empty wall when no frames are stored", () => {
     const model = collectionPageModel({
       rows: [],
       signedIn: false,
       role: null,
       blobHost: null,
     });
-    assert.equal(model.canManage, false);
-    assert.equal(model.frames[0], SEED_FRAME);
-    const html = renderComicSpread(model.frames);
-    assert.match(html, /data-testid="comic-frame-1"/);
-    assert.match(html, /class="comic-panel comic-panel-splash"/);
-    assert.match(html, new RegExp(`src="${SEED_FRAME.src}"`));
-    assert.match(html, /loading="lazy"/);
-    assert.match(html, /decoding="async"/);
-    assert.match(html, new RegExp(`alt="${SEED_FRAME.alt}"`));
-    assert.match(html, /Batman, on the Batcave base\./);
-    assert.match(html, /width="921"/);
-    assert.match(html, /height="2047"/);
-    assert.match(html, new RegExp(`href="${SEED_FRAME.src}"`));
-    assert.match(html, /target="_blank"/);
-    assert.doesNotMatch(html, /type="file"|Add a frame|Delete/);
+    assert.deepEqual(model.frames, []);
+    const head = collectionHeadMeta(null);
+    assert.ok(
+      head.meta.some(
+        (tag) =>
+          "name" in tag && tag.name === "spacebat:og-image" && tag.content === COLLECTION_SHARE_FALLBACK.src,
+      ),
+    );
   });
 
-  it("keeps frame 1 first when later frames exist and hides the desk from listeners", () => {
+  it("keeps the first saved frame first when later frames exist and hides the desk from listeners", () => {
     const src = `https://${HOST}/memorabilia/2026-10/cccccccccccccccccccccccccccccccc.jpg`;
     const listener = collectionPageModel({
-      rows: [{ id: 2, src, alt: "Bust", caption: "Bust" }],
+      rows: [frameOne, { id: 2, src, alt: "Bust", caption: "Bust" }],
       signedIn: true,
       role: "listener",
       blobHost: HOST,
     });
     assert.equal(listener.canManage, false);
-    assert.equal(listener.frames[0].id, "seed");
+    assert.equal(listener.frames[0]?.id, "1");
     assert.equal(listener.frames[1]?.src, src);
     const admin = collectionPageModel({
-      rows: [{ id: 2, src, alt: "Bust", caption: "Bust" }],
+      rows: [frameOne, { id: 2, src, alt: "Bust", caption: "Bust" }],
       signedIn: true,
       role: "admin",
       blobHost: HOST,
@@ -355,7 +383,7 @@ describe("memorabilia page", () => {
     });
     assert.deepEqual(
       model.frames.map((frame) => frame.id),
-      ["seed", "4"],
+      ["4"],
     );
     const html = renderComicSpread(model.frames);
     assert.doesNotMatch(html, /evil\.example|<script>/);
@@ -363,10 +391,23 @@ describe("memorabilia page", () => {
   });
 
   it("ships frame 1 as the real jpeg and lists the page for sharing", () => {
-    const bytes = readFileSync(join(root, "public/memorabilia/frame-01-batman-statue.jpg"));
+    const bytes = readFileSync(join(root, "public/memorabilia/frame-01-batman-statue-v2.jpg"));
     assert.equal(bytes[0], 0xff);
     assert.equal(bytes[1], 0xd8);
     assert.equal(bytes[2], 0xff);
+    assert.deepEqual(imagePixelSize(bytes, "image/jpeg"), {
+      width: COLLECTION_SHARE_FALLBACK.width,
+      height: COLLECTION_SHARE_FALLBACK.height,
+    });
+    assert.equal(previousFrameFile(COLLECTION_SHARE_FALLBACK.src, HOST), "keep");
+    assert.equal(
+      previousFrameFile(`https://${HOST}/memorabilia/2026-10/${"a".repeat(32)}.jpg`, HOST),
+      "blob",
+    );
+    assert.equal(
+      previousFrameFile("/memorabilia/uploads/dddddddddddddddddddddddddddddddd.jpg", HOST),
+      "local",
+    );
     const sitemap = readFileSync(join(root, "public/sitemap.xml"), "utf8");
     assert.match(sitemap, new RegExp(COLLECTION_URL.replace(/[.]/g, "\\.")));
     const head = collectionHeadMeta();
@@ -384,7 +425,9 @@ describe("memorabilia page", () => {
       altForUpload(""),
       "A piece from John Mulligan's collection of comic and movie collectibles.",
     );
-    assert.equal(head.meta[0]?.title, COLLECTION_PAGE_TITLE);
+    const title = head.meta[0];
+    assert.ok(title && "title" in title);
+    assert.equal(title.title, COLLECTION_PAGE_TITLE);
     assert.ok(
       head.meta.some(
         (tag) =>
@@ -410,13 +453,34 @@ describe("memorabilia page", () => {
     assert.ok(
       head.meta.some(
         (tag) =>
-          "name" in tag && tag.name === "spacebat:og-image" && tag.content === SEED_FRAME.src,
+          "name" in tag &&
+          tag.name === "spacebat:og-image" &&
+          tag.content === COLLECTION_SHARE_FALLBACK.src,
       ),
     );
     assert.ok(
       head.meta.some(
         (tag) => "name" in tag && tag.name === "spacebat:og-url" && tag.content === COLLECTION_URL,
       ),
+    );
+    const replaced = collectionHeadMeta({
+      src: `https://${HOST}/memorabilia/2026-10/${"b".repeat(32)}.jpg`,
+      width: 640,
+      height: 480,
+    });
+    assert.ok(
+      replaced.meta.some(
+        (tag) =>
+          "name" in tag &&
+          tag.name === "spacebat:og-image" &&
+          tag.content === `https://${HOST}/memorabilia/2026-10/${"b".repeat(32)}.jpg`,
+      ),
+    );
+    assert.ok(
+      replaced.meta.some((tag) => "name" in tag && tag.name === "spacebat:og-image:width" && tag.content === "640"),
+    );
+    assert.ok(
+      replaced.meta.some((tag) => "name" in tag && tag.name === "spacebat:og-image:height" && tag.content === "480"),
     );
   });
 

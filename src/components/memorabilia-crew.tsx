@@ -1,6 +1,6 @@
 import { upload } from "@vercel/blob/client";
 import { useRouter } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,13 @@ import {
   memorabiliaPathname,
   type PublicFrame,
 } from "@/lib/memorabilia/frames";
-import { deleteMemorabilia, moveMemorabilia, recordMemorabilia } from "@/lib/memorabilia/frames.functions";
+import {
+  deleteMemorabilia,
+  editMemorabiliaCaption,
+  moveMemorabilia,
+  recordMemorabilia,
+  replaceMemorabilia,
+} from "@/lib/memorabilia/frames.functions";
 
 const HEIC_JPEG_QUALITY = 0.95;
 
@@ -87,14 +93,29 @@ async function prepareUpload(file: File): Promise<{ display: File; original: Fil
   return { display: file, original: null };
 }
 
+async function imageSize(file: File): Promise<{ width: number; height: number } | null> {
+  if (typeof createImageBitmap !== "function") return null;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const size = { width: bitmap.width, height: bitmap.height };
+    bitmap.close();
+    if (size.width < 1 || size.height < 1) return null;
+    return size;
+  } catch {
+    return null;
+  }
+}
+
 export function MemorabiliaCrew({ frames }: { frames: readonly PublicFrame[] }) {
   const router = useRouter();
+  const replaceRef = useRef<HTMLInputElement>(null);
+  const replaceId = useRef<string | null>(null);
   const [caption, setCaption] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [pending, setPending] = useState<PublicFrame | null>(null);
-
-  const uploaded = frames.filter((frame) => !frame.seed);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
 
   async function refresh() {
     await router.invalidate();
@@ -125,8 +146,9 @@ export function MemorabiliaCrew({ frames }: { frames: readonly PublicFrame[] }) 
         setError(MEMORABILIA_SIZE_ERROR);
         return;
       }
+      const size = await imageSize(prepared.display);
       try {
-        await uploadToBlob(prepared, caption);
+        await uploadToBlob(prepared, caption, size);
       } catch (err) {
         if (!(await blobStoreIsOff(err))) throw err;
         await uploadDirect(prepared, caption);
@@ -149,6 +171,63 @@ export function MemorabiliaCrew({ frames }: { frames: readonly PublicFrame[] }) 
       await refresh();
     } catch (err) {
       setError(errorText(err, "Couldn't move that frame."));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function onReplace(event: ChangeEvent<HTMLInputElement>) {
+    const frameId = replaceId.current;
+    const picked = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!frameId || !picked) return;
+    setError("");
+    if (picked.size > MEMORABILIA_MAX_BYTES) {
+      setError(MEMORABILIA_SIZE_ERROR);
+      return;
+    }
+    setBusy(frameId);
+    try {
+      const prepared = await prepareUpload(picked);
+      if (prepared.display.size > MEMORABILIA_MAX_BYTES || (prepared.original && prepared.original.size > MEMORABILIA_MAX_BYTES)) {
+        setError(MEMORABILIA_SIZE_ERROR);
+        return;
+      }
+      const size = await imageSize(prepared.display);
+      const frame = frames.find((item) => item.id === frameId);
+      try {
+        const stored = await sendPrepared(prepared, frame?.caption ?? "");
+        await replaceMemorabilia({
+          data: {
+            id: Number(frameId),
+            pathname: stored.pathname,
+            originalPathname: stored.originalPathname,
+            width: size?.width,
+            height: size?.height,
+          },
+        });
+      } catch (err) {
+        if (!(await blobStoreIsOff(err))) throw err;
+        await uploadDirect(prepared, frame?.caption ?? "", frameId);
+      }
+      await refresh();
+    } catch (err) {
+      setError(errorText(err, "Couldn't replace that picture."));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function saveCaption(event: FormEvent<HTMLFormElement>, frame: PublicFrame) {
+    event.preventDefault();
+    setError("");
+    setBusy(frame.id);
+    try {
+      await editMemorabiliaCaption({ data: { id: Number(frame.id), caption: draft } });
+      setEditing(null);
+      await refresh();
+    } catch (err) {
+      setError(errorText(err, "Couldn't save that caption."));
     } finally {
       setBusy("");
     }
@@ -210,10 +289,17 @@ export function MemorabiliaCrew({ frames }: { frames: readonly PublicFrame[] }) 
         </Button>
       </form>
 
+      <input
+        ref={replaceRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif"
+        className="sr-only"
+        aria-label="Replacement picture"
+        onChange={(event) => void onReplace(event)}
+      />
       <h3 className="mt-8 font-display text-3xl tracking-wide">On the wall</h3>
       <ul className="mt-3 border-t-4 border-ink">
         {frames.map((frame, index) => {
-          const uploadIndex = uploaded.findIndex((item) => item.id === frame.id);
           return (
             <li
               key={frame.id}
@@ -227,45 +313,90 @@ export function MemorabiliaCrew({ frames }: { frames: readonly PublicFrame[] }) 
                 />
                 <div className="min-w-0">
                   <p className="font-display text-2xl tracking-wide">Frame {index + 1}</p>
-                  <p className="truncate text-sm text-muted">
-                    {frame.seed ? "Ships with the site." : frame.caption || "No caption"}
-                  </p>
+                  {editing === frame.id ? (
+                    <form className="mt-2 flex min-w-0 flex-wrap items-center gap-2" onSubmit={(event) => void saveCaption(event, frame)}>
+                      <Input
+                        value={draft}
+                        maxLength={CAPTION_MAX}
+                        aria-label={`Caption for frame ${index + 1}`}
+                        className="min-w-0 flex-1"
+                        onChange={(event) => setDraft(event.target.value)}
+                      />
+                      <Button type="submit" size="sm" disabled={busy === frame.id}>
+                        {busy === frame.id ? "Saving" : "Save"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy === frame.id}
+                        onClick={() => setEditing(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </form>
+                  ) : (
+                    <p className="truncate text-sm text-muted">{frame.caption || "No caption"}</p>
+                  )}
                 </div>
               </div>
-              {frame.seed ? null : (
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    disabled={busy === frame.id || uploadIndex <= 0}
-                    onClick={() => void move(frame, "earlier")}
-                  >
-                    Earlier
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy === frame.id || uploadIndex === uploaded.length - 1}
-                    onClick={() => void move(frame, "later")}
-                  >
-                    Later
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy === frame.id}
-                    onClick={() => {
-                      setError("");
-                      setPending(frame);
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              )}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy === frame.id || index === 0}
+                  onClick={() => void move(frame, "earlier")}
+                >
+                  Earlier
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy === frame.id || index === frames.length - 1}
+                  onClick={() => void move(frame, "later")}
+                >
+                  Later
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy === frame.id}
+                  onClick={() => {
+                    replaceId.current = frame.id;
+                    replaceRef.current?.click();
+                  }}
+                >
+                  {busy === frame.id ? "Working" : "Replace"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy === frame.id}
+                  onClick={() => {
+                    setError("");
+                    setDraft(frame.caption);
+                    setEditing(frame.id);
+                  }}
+                >
+                  Caption
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy === frame.id}
+                  onClick={() => {
+                    setError("");
+                    setPending(frame);
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
             </li>
           );
         })}
@@ -312,15 +443,33 @@ async function sendBlob(file: File, caption: string) {
   });
 }
 
-async function uploadToBlob(prepared: { display: File; original: File | null }, caption: string) {
+async function sendPrepared(
+  prepared: { display: File; original: File | null },
+  caption: string,
+): Promise<{ pathname: string; originalPathname?: string }> {
   const display = await sendBlob(prepared.display, caption);
   let originalPathname: string | undefined;
   if (prepared.original) {
     const original = await sendBlob(prepared.original, caption);
     originalPathname = original.pathname;
   }
+  return { pathname: display.pathname, originalPathname };
+}
+
+async function uploadToBlob(
+  prepared: { display: File; original: File | null },
+  caption: string,
+  size: { width: number; height: number } | null,
+) {
+  const stored = await sendPrepared(prepared, caption);
   await recordMemorabilia({
-    data: { pathname: display.pathname, originalPathname, caption },
+    data: {
+      pathname: stored.pathname,
+      originalPathname: stored.originalPathname,
+      caption,
+      width: size?.width,
+      height: size?.height,
+    },
   });
 }
 
@@ -352,10 +501,15 @@ async function blobStoreIsOff(err: unknown): Promise<boolean> {
   return payload?.error === "Uploads are off.";
 }
 
-async function uploadDirect(prepared: { display: File; original: File | null }, caption: string) {
+async function uploadDirect(
+  prepared: { display: File; original: File | null },
+  caption: string,
+  frameId?: string,
+) {
   const body = new FormData();
   body.set("file", prepared.display);
   body.set("caption", caption);
+  if (frameId) body.set("frameId", frameId);
   if (prepared.original) body.set("original", prepared.original);
   const headers = new Headers();
   const token = getBearerToken();

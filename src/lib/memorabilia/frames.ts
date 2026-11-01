@@ -33,17 +33,13 @@ export const MEMORABILIA_PATH =
   /^memorabilia\/\d{4}-\d{2}\/[a-f0-9]{32}\.(jpg|png|gif|webp|heic|heif)$/;
 
 /**
- * Frame 1 ships with the site. It is not a database row, so the page still
- * has a first panel when nobody has uploaded anything.
+ * Share card when the wall is empty. The first real frame, including the
+ * picture migration 0011 inserts, replaces this.
  */
-export const SEED_FRAME = {
-  id: "seed",
-  src: "/memorabilia/frame-01-batman-statue.jpg",
-  alt: "A large blue-and-grey Batman statue on a Batcave-style base, with several small Batman busts around it, on a wooden coffee table.",
-  caption: "Batman, on the Batcave base.",
-  seed: true,
+export const COLLECTION_SHARE_FALLBACK = {
+  src: "/memorabilia/frame-01-batman-statue-v2.jpg",
   width: 921,
-  height: 2047,
+  height: 1038,
 } as const;
 
 export type PublicFrame = {
@@ -51,7 +47,6 @@ export type PublicFrame = {
   src: string;
   alt: string;
   caption: string;
-  seed: boolean;
   width?: number;
   height?: number;
 };
@@ -61,6 +56,8 @@ export type StoredFrame = {
   src: string;
   alt: string;
   caption: string;
+  width?: number;
+  height?: number;
 };
 
 /** Local PGLite uploads, when the chat blob token is not set. */
@@ -343,6 +340,68 @@ export function memorabiliaFinalizeDecision(input: {
   return { ok: true };
 }
 
+/** Pixel size of a JPEG or PNG. Other types, including HEIC, return null. */
+export function imagePixelSize(
+  bytes: Uint8Array,
+  contentType: string,
+): { width: number; height: number } | null {
+  const type = contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  if (type === "image/jpeg" || type === "image/jpg") return jpegPixelSize(bytes);
+  if (type === "image/png") return pngPixelSize(bytes);
+  return null;
+}
+
+function jpegPixelSize(bytes: Uint8Array): { width: number; height: number } | null {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+  let index = 2;
+  while (index + 9 < bytes.length) {
+    if (bytes[index] !== 0xff) return null;
+    const marker = bytes[index + 1] ?? 0;
+    if (marker === 0xd8 || marker === 0xd9) {
+      index += 2;
+      continue;
+    }
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd9)) {
+      index += 2;
+      continue;
+    }
+    const length = ((bytes[index + 2] ?? 0) << 8) + (bytes[index + 3] ?? 0);
+    if (length < 2 || index + 2 + length > bytes.length) return null;
+    const startOfFrame = marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+    if (startOfFrame) {
+      const height = ((bytes[index + 5] ?? 0) << 8) + (bytes[index + 6] ?? 0);
+      const width = ((bytes[index + 7] ?? 0) << 8) + (bytes[index + 8] ?? 0);
+      if (width <= 0 || height <= 0) return null;
+      return { width, height };
+    }
+    index += 2 + length;
+  }
+  return null;
+}
+
+function pngPixelSize(bytes: Uint8Array): { width: number; height: number } | null {
+  if (bytes.length < 24 || bytes[0] !== 0x89 || bytes[1] !== 0x50) return null;
+  const width = readUint32(bytes, 16);
+  const height = readUint32(bytes, 20);
+  if (width <= 0 || height <= 0) return null;
+  return { width, height };
+}
+
+function readUint32(bytes: Uint8Array, offset: number): number {
+  return (
+    ((bytes[offset] ?? 0) * 0x1000000 +
+      ((bytes[offset + 1] ?? 0) << 16) +
+      ((bytes[offset + 2] ?? 0) << 8) +
+      (bytes[offset + 3] ?? 0)) >>>
+    0
+  );
+}
+
+export function framePixelSize(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 20_000) return null;
+  return value;
+}
+
 export function memorabiliaPathname(extension: string, now = new Date()): string {
   const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   const bytes = new Uint8Array(16);
@@ -351,29 +410,40 @@ export function memorabiliaPathname(extension: string, now = new Date()): string
   return `memorabilia/${month}/${random}.${extension}`;
 }
 
+/** Pictures shipped under public/memorabilia, not the local upload folder. */
+const STATIC_FRAME_SRC = /^\/memorabilia\/[a-z0-9][a-z0-9.-]*\.(jpg|jpeg|png|gif|webp)$/;
+
 export function isSafeFrameSrc(src: string, blobHost: string | null): boolean {
-  if (src === SEED_FRAME.src) return true;
+  if (STATIC_FRAME_SRC.test(src)) return true;
   if (LOCAL_UPLOAD_SRC.test(src)) return true;
   return isTrustedBlobUrl(src, blobHost);
+}
+
+/** What to do with the previous file when a frame's picture is replaced. */
+export function previousFrameFile(src: string, blobHost: string | null): "blob" | "local" | "keep" {
+  if (isTrustedBlobUrl(src, blobHost)) return "blob";
+  if (LOCAL_UPLOAD_SRC.test(src)) return "local";
+  return "keep";
 }
 
 export function assembleFrames(
   rows: readonly StoredFrame[],
   blobHost: string | null,
 ): PublicFrame[] {
-  const uploaded: PublicFrame[] = [];
+  const frames: PublicFrame[] = [];
   for (const row of rows) {
     if (!Number.isInteger(row.id) || row.id <= 0) continue;
-    if (!isSafeFrameSrc(row.src, blobHost) || row.src === SEED_FRAME.src) continue;
-    uploaded.push({
+    if (!isSafeFrameSrc(row.src, blobHost)) continue;
+    frames.push({
       id: String(row.id),
       src: row.src,
       alt: row.alt || altForUpload(row.caption),
       caption: row.caption,
-      seed: false,
+      width: row.width,
+      height: row.height,
     });
   }
-  return [SEED_FRAME, ...uploaded];
+  return frames;
 }
 
 export function collectionPageModel(input: {
@@ -413,19 +483,21 @@ export function renderComicSpread(frames: readonly PublicFrame[]): string {
     .join("");
 }
 
-export function collectionHeadMeta() {
-  return {
-    meta: [
-      { title: COLLECTION_PAGE_TITLE },
-      { name: "description", content: COLLECTION_DESCRIPTION },
-      { name: "spacebat:og-title", content: COLLECTION_PAGE_TITLE },
-      { name: "spacebat:og-description", content: COLLECTION_DESCRIPTION },
-      { name: "spacebat:og-image", content: SEED_FRAME.src },
-      { name: "spacebat:og-image:width", content: String(SEED_FRAME.width) },
-      { name: "spacebat:og-image:height", content: String(SEED_FRAME.height) },
-      { name: "spacebat:og-url", content: COLLECTION_URL },
-    ],
-  };
+export function collectionHeadMeta(first?: { src: string; width?: number; height?: number } | null) {
+  const src = first?.src || COLLECTION_SHARE_FALLBACK.src;
+  const width = first?.src ? first.width : COLLECTION_SHARE_FALLBACK.width;
+  const height = first?.src ? first.height : COLLECTION_SHARE_FALLBACK.height;
+  const meta: Array<{ title: string } | { name: string; content: string }> = [
+    { title: COLLECTION_PAGE_TITLE },
+    { name: "description", content: COLLECTION_DESCRIPTION },
+    { name: "spacebat:og-title", content: COLLECTION_PAGE_TITLE },
+    { name: "spacebat:og-description", content: COLLECTION_DESCRIPTION },
+    { name: "spacebat:og-image", content: src },
+  ];
+  if (width && width > 0) meta.push({ name: "spacebat:og-image:width", content: String(width) });
+  if (height && height > 0) meta.push({ name: "spacebat:og-image:height", content: String(height) });
+  meta.push({ name: "spacebat:og-url", content: COLLECTION_URL });
+  return { meta };
 }
 
 export type StoredUpload = { url: string; pathname: string };
@@ -482,9 +554,6 @@ export function authorizeFrameDelete(input: {
 }): { ok: true; id: number } | { ok: false; status: number; error: string } {
   const auth = memorabiliaAdminDecision({ signedIn: input.signedIn, role: input.role });
   if (!auth.ok) return auth;
-  if (input.frameId === SEED_FRAME.id) {
-    return { ok: false, status: 400, error: "That frame stays." };
-  }
   if (!/^[1-9]\d{0,15}$/.test(input.frameId)) {
     return { ok: false, status: 400, error: "That frame isn't on the page." };
   }
