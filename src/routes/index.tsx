@@ -2,9 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { HostPortrait } from "@/components/host-portrait";
 import { LivePlayer } from "@/components/live-player";
 import { ScheduleChangeNotice } from "@/components/schedule-change-notice";
+import { TopicTiles } from "@/components/topic-tiles";
 import { Button } from "@/components/ui/button";
-import { beats, hosts, show } from "@/data/show";
-import { homeBeatHref } from "@/lib/memorabilia/frames";
+import { hosts, show } from "@/data/show";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -61,20 +61,7 @@ function Home() {
           </p>
         </div>
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {beats.map((b) => (
-            <Link
-              key={b.label}
-              to={homeBeatHref(b.label)}
-              className="panel group relative block aspect-[3/4] overflow-hidden"
-            >
-              <img
-                src={b.cover}
-                alt=""
-                className="h-full w-full object-cover transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105"
-              />
-              <span className="caption-box absolute bottom-3 left-3">{b.label}</span>
-            </Link>
-          ))}
+          <TopicTiles />
         </div>
       </section>
 

@@ -99,19 +99,6 @@ export function memorabiliaAdminDecision(input: {
   return { ok: true };
 }
 
-export function homeBeatHref(
-  label: "Comics" | "Movies" | "Tech" | "Politics" | "Markets",
-): "/podcast" | "/comic/collection" {
-  return label === "Comics" ? "/comic/collection" : "/podcast";
-}
-
-/** Podcast topic tiles. Only Comics leaves the page. */
-export function podcastBeatHref(
-  label: "Comics" | "Movies" | "Tech" | "Politics" | "Markets",
-): "/comic/collection" | null {
-  return label === "Comics" ? "/comic/collection" : null;
-}
-
 export function cleanCaption(raw: unknown): string | { error: string } {
   if (raw == null) return "";
   if (typeof raw !== "string") return { error: "Caption needs to be text." };

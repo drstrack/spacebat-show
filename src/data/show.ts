@@ -289,14 +289,6 @@ export const storyLegend = [
   },
 ];
 
-export const beats = [
-  { label: "Comics", cover: "/images/ep-comics.webp" },
-  { label: "Movies", cover: "/images/ep-movies.webp" },
-  { label: "Tech", cover: "/images/ep-tech.webp" },
-  { label: "Politics", cover: "/images/ep-politics.webp" },
-  { label: "Markets", cover: "/images/ep-markets.webp" },
-] as const;
-
 /** Episodes go here with a listenUrl when John and Dan publish one. */
 export const episodes: Episode[] = [];
 
