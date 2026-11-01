@@ -18,6 +18,7 @@ import {
   altForUpload,
   COLLECTION_URL,
   homeBeatHref,
+  podcastBeatHref,
   MEMORABILIA_MAX_BYTES,
   MEMORABILIA_SIZE_ERROR,
   memorabiliaAdminDecision,
@@ -488,6 +489,11 @@ describe("memorabilia page", () => {
     assert.equal(homeBeatHref("Comics"), "/comic/collection");
     assert.equal(homeBeatHref("Movies"), "/podcast");
     assert.equal(homeBeatHref("Markets"), "/podcast");
+    assert.equal(podcastBeatHref("Comics"), "/comic/collection");
+    assert.equal(podcastBeatHref("Movies"), null);
+    assert.equal(podcastBeatHref("Tech"), null);
+    assert.equal(podcastBeatHref("Politics"), null);
+    assert.equal(podcastBeatHref("Markets"), null);
   });
 
   it("moves uploaded frames without passing the ends", () => {
