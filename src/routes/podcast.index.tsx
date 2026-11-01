@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { EpisodeCard } from "@/components/episode-card";
 import { HostPortrait } from "@/components/host-portrait";
@@ -5,6 +6,7 @@ import { LivePlayer } from "@/components/live-player";
 import { ScheduleChangeNotice, StandingShowTime } from "@/components/schedule-change-notice";
 import { Button } from "@/components/ui/button";
 import { beats, hosts } from "@/data/show";
+import { podcastBeatHref } from "@/lib/memorabilia/frames";
 import { loadPublishedEpisodes } from "@/lib/podcast-feed.functions";
 
 export const Route = createFileRoute("/podcast/")({
@@ -50,14 +52,34 @@ function PodcastPage() {
       </div>
 
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {beats.map((b) => (
-          <figure key={b.label} className="panel relative aspect-[3/4] overflow-hidden">
-            <img src={b.cover} alt="" className="h-full w-full object-cover" />
-            <figcaption className="caption-box absolute bottom-3 left-3">
-              {b.label}
-            </figcaption>
-          </figure>
-        ))}
+        {beats.map((b) => {
+          const href = podcastBeatHref(b.label);
+          const tile = (
+            <figure className="panel relative aspect-[3/4] overflow-hidden">
+              <img
+                src={b.cover}
+                alt=""
+                className={
+                  href
+                    ? "h-full w-full object-cover transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105"
+                    : "h-full w-full object-cover"
+                }
+              />
+              <figcaption className="caption-box absolute bottom-3 left-3">{b.label}</figcaption>
+            </figure>
+          );
+          if (!href) return <Fragment key={b.label}>{tile}</Fragment>;
+          return (
+            <Link
+              key={b.label}
+              to={href}
+              aria-label="Comics: see John's collection"
+              className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+            >
+              {tile}
+            </Link>
+          );
+        })}
       </div>
 
       <section id="episodes" className="mt-14">
