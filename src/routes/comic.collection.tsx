@@ -7,7 +7,7 @@ import { loadMemorabilia } from "@/lib/memorabilia/frames.functions";
 export const Route = createFileRoute("/comic/collection")({
   loader: () => loadMemorabilia(),
   staleTime: 0,
-  head: () => collectionHeadMeta(),
+  head: ({ loaderData }) => collectionHeadMeta(loaderData?.frames[0] ?? null),
   component: CollectionPage,
 });
 

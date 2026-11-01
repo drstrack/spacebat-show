@@ -15,6 +15,8 @@ import {
   classifyMemorabiliaImage,
   cleanCaption,
   collectionPageModel,
+  framePixelSize,
+  imagePixelSize,
   LOCAL_UPLOAD_SRC,
   memorabiliaAdminDecision,
   memorabiliaFinalizeDecision,
@@ -23,6 +25,7 @@ import {
   MemorabiliaHttpError,
   MEMORABILIA_MAX_BYTES,
   movedIds,
+  previousFrameFile,
   type PublicFrame,
   type StoredFrame,
 } from "@/lib/memorabilia/frames";
@@ -36,6 +39,8 @@ type FrameRow = {
   url: string;
   alt_text: string;
   caption: string;
+  width?: unknown;
+  height?: unknown;
   sort_order?: unknown;
 };
 
@@ -61,7 +66,7 @@ async function roleOf(sql: Sql, userId: string): Promise<string | null> {
 
 async function readRows(sql: Sql): Promise<StoredFrame[]> {
   const rows = await sql<FrameRow>`
-    select id, url, alt_text, caption
+    select id, url, alt_text, caption, width, height
     from memorabilia_frame
     order by sort_order asc, id asc
   `;
@@ -69,18 +74,22 @@ async function readRows(sql: Sql): Promise<StoredFrame[]> {
   for (const row of rows) {
     const id = num(row.id);
     if (id <= 0) continue;
+    const width = framePixelSize(num(row.width));
+    const height = framePixelSize(num(row.height));
     stored.push({
       id,
       src: String(row.url ?? ""),
       alt: String(row.alt_text ?? ""),
       caption: String(row.caption ?? ""),
+      width: width ?? undefined,
+      height: height ?? undefined,
     });
   }
   return stored;
 }
 
 /**
- * Public list plus the crew flag. A database problem still returns frame 1
+ * Public list plus the crew flag. A database problem returns an empty wall
  * and hides the upload desk.
  */
 export async function loadCollectionPage(): Promise<{ frames: PublicFrame[]; canManage: boolean }> {
@@ -211,12 +220,14 @@ async function insertFrame(
     alt: string;
     caption: string;
     userId: string;
+    width: number | null;
+    height: number | null;
   },
 ): Promise<void> {
   const sort = await nextSort(sql);
   await sql`
     insert into memorabilia_frame
-      (url, pathname, original_url, original_pathname, alt_text, caption, sort_order, created_ms, created_by)
+      (url, pathname, original_url, original_pathname, alt_text, caption, sort_order, created_ms, created_by, width, height)
     values (
       ${input.url},
       ${input.pathname},
@@ -226,7 +237,9 @@ async function insertFrame(
       ${input.caption},
       ${sort},
       ${Date.now()},
-      ${input.userId}
+      ${input.userId},
+      ${input.width},
+      ${input.height}
     )
   `;
 }
@@ -329,7 +342,7 @@ export async function handleMemorabiliaClientUpload(request: Request): Promise<R
 /** Admin-checked row write after the browser finishes a blob upload. */
 export async function recordMemorabiliaFrame(
   userId: string,
-  input: { pathname: string; originalPathname?: string; caption: string },
+  input: { pathname: string; originalPathname?: string; caption: string; width?: number | null; height?: number | null },
 ): Promise<{ ok: true }> {
   const sql = await getSql();
   const role = await roleOf(sql, userId);
@@ -372,11 +385,93 @@ export async function recordMemorabiliaFrame(
       alt: altForUpload(caption),
       caption,
       userId,
+      width: input.width ?? null,
+      height: input.height ?? null,
     });
   } catch (err) {
     if (!isUniqueViolation(err)) throw err;
   }
   return { ok: true };
+}
+
+/** Swap the picture on an existing frame. Static files are never deleted. */
+export async function replaceMemorabiliaFrame(
+  userId: string,
+  input: { id: number; pathname: string; originalPathname?: string; width?: number | null; height?: number | null },
+): Promise<{ ok: true }> {
+  const sql = await getSql();
+  const role = await roleOf(sql, userId);
+  const auth = authorizeFrameDelete({ signedIn: true, role, frameId: String(input.id) });
+  if (!auth.ok) throw new Error(auth.error);
+  const rows = await sql<{ url: string; original_url: string | null }>`
+    select url, original_url from memorabilia_frame where id = ${auth.id}
+  `;
+  const current = rows[0];
+  if (!current) throw new Error("That frame isn't on the page.");
+  const display = await lookupBlob(input.pathname);
+  let original: { url: string; pathname: string; contentType: string; size: number } | null = null;
+  if (input.originalPathname) original = await lookupBlob(input.originalPathname);
+  const decision = memorabiliaFinalizeDecision({
+    signedIn: true,
+    role,
+    displayContentType: display.contentType,
+    displaySize: display.size,
+    originalContentType: original?.contentType,
+    originalSize: original?.size,
+  });
+  if (!decision.ok) throw new Error(decision.error);
+  const originalUrl = original?.url ?? null;
+  const originalPathname = original?.pathname ?? null;
+  await sql`
+    update memorabilia_frame
+    set url = ${display.url},
+        pathname = ${display.pathname},
+        original_url = ${originalUrl},
+        original_pathname = ${originalPathname},
+        width = ${input.width ?? null},
+        height = ${input.height ?? null}
+    where id = ${auth.id}
+  `;
+  await forgetPreviousFiles([String(current.url), current.original_url ? String(current.original_url) : null], [
+    display.url,
+    originalUrl,
+  ]);
+  return { ok: true };
+}
+
+export async function updateMemorabiliaCaption(
+  userId: string,
+  frameId: number,
+  captionInput: string,
+): Promise<{ ok: true }> {
+  const sql = await getSql();
+  const role = await roleOf(sql, userId);
+  const auth = authorizeFrameDelete({ signedIn: true, role, frameId: String(frameId) });
+  if (!auth.ok) throw new Error(auth.error);
+  const caption = cleanCaption(captionInput);
+  if (typeof caption !== "string") throw new Error(caption.error);
+  const rows = await sql<{ id: unknown }>`
+    update memorabilia_frame
+    set caption = ${caption}, alt_text = ${altForUpload(caption)}
+    where id = ${auth.id}
+    returning id
+  `;
+  if (!rows[0]) throw new Error("That frame isn't on the page.");
+  return { ok: true };
+}
+
+async function forgetPreviousFiles(previous: readonly (string | null)[], next: readonly (string | null)[]): Promise<void> {
+  const kept = new Set(next.filter((url): url is string => Boolean(url)));
+  const host = blobHost();
+  for (const url of previous) {
+    if (!url || kept.has(url)) continue;
+    if (previousFrameFile(url, host) === "keep") continue;
+    try {
+      await removeStored(url);
+    } catch (err) {
+      console.error("memorabilia replace", err instanceof Error ? err.message : "error");
+    }
+  }
 }
 
 /**
@@ -417,6 +512,40 @@ export async function saveDirectMemorabilia(request: Request): Promise<Response>
       originalUrl = kept.url;
       originalPathname = kept.pathname;
     }
+    const frameField = form.get("frameId");
+    const frameId = typeof frameField === "string" ? Number(frameField) : NaN;
+    if (Number.isInteger(frameId) && frameId > 0) {
+      const auth = authorizeFrameDelete({ signedIn: true, role, frameId: String(frameId) });
+      if (!auth.ok) {
+        await removeStored(stored.url).catch(() => undefined);
+        if (originalUrl) await removeStored(originalUrl).catch(() => undefined);
+        return json(auth.status, auth.error);
+      }
+      const existing = await sql<{ url: string; original_url: string | null }>`
+        select url, original_url from memorabilia_frame where id = ${auth.id}
+      `;
+      const current = existing[0];
+      if (!current) {
+        await removeStored(stored.url).catch(() => undefined);
+        if (originalUrl) await removeStored(originalUrl).catch(() => undefined);
+        return json(400, "That frame isn't on the page.");
+      }
+      await sql`
+        update memorabilia_frame
+        set url = ${stored.url},
+            pathname = ${stored.pathname},
+            original_url = ${originalUrl},
+            original_pathname = ${originalPathname},
+            width = ${stored.width},
+            height = ${stored.height}
+        where id = ${auth.id}
+      `;
+      await forgetPreviousFiles(
+        [String(current.url), current.original_url ? String(current.original_url) : null],
+        [stored.url, originalUrl],
+      );
+      return Response.json({ ok: true });
+    }
     try {
       await insertFrame(sql, {
         url: stored.url,
@@ -426,6 +555,8 @@ export async function saveDirectMemorabilia(request: Request): Promise<Response>
         alt: altForUpload(caption),
         caption,
         userId,
+        width: stored.width,
+        height: stored.height,
       });
     } catch (err) {
       await removeStored(stored.url).catch(() => undefined);
@@ -446,7 +577,7 @@ async function storeCheckedFile(
   file: File,
   options?: { preserve?: boolean },
 ): Promise<
-  | { ok: true; url: string; pathname: string; contentType: string }
+  | { ok: true; url: string; pathname: string; contentType: string; width: number | null; height: number | null }
   | { ok: false; status: number; error: string }
 > {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -455,7 +586,15 @@ async function storeCheckedFile(
   const prepared = options?.preserve ? bytes : stripLocationMetadata(bytes, classified.contentType);
   const pathname = memorabiliaPathname(classified.extension);
   const stored = await storeBytes(pathname, prepared, classified.contentType);
-  return { ok: true, url: stored.url, pathname: stored.pathname, contentType: classified.contentType };
+  const pixels = imagePixelSize(prepared, classified.contentType);
+  return {
+    ok: true,
+    url: stored.url,
+    pathname: stored.pathname,
+    contentType: classified.contentType,
+    width: pixels?.width ?? null,
+    height: pixels?.height ?? null,
+  };
 }
 
 async function orderedIds(sql: Sql): Promise<number[]> {

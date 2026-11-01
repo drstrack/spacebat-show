@@ -153,4 +153,44 @@ describe("sqlite migrations", () => {
       client.close();
     }
   });
+
+  it("inserts frame 1 once and does not recreate it after it is deleted", async () => {
+    const client = memory();
+    try {
+      const files = migrationFiles();
+      await bootstrapSqliteSchema(client, files);
+      const frames = await client.execute(
+        "select url, pathname, caption, alt_text, sort_order, width, height from memorabilia_frame order by sort_order, id",
+      );
+      assert.equal(frames.rows.length, 1);
+      const frame = frames.rows[0];
+      assert.equal(frame?.url, "/memorabilia/frame-01-batman-statue-v2.jpg");
+      assert.equal(frame?.pathname, "static/frame-01-batman-statue-v2.jpg");
+      assert.equal(frame?.caption, "Batman, on the Batcave base.");
+      assert.equal(
+        frame?.alt_text,
+        "A large blue-and-grey Batman statue on a Batcave-style base, with several small Batman busts around it, on a wooden coffee table.",
+      );
+      assert.equal(Number(frame?.sort_order), 0);
+      assert.equal(Number(frame?.width), 921);
+      assert.equal(Number(frame?.height), 1038);
+      const marker = await client.execute("select id, note from memorabilia_seed");
+      assert.equal(marker.rows.length, 1);
+      assert.equal(Number(marker.rows[0]?.id), 1);
+
+      await client.execute("delete from memorabilia_frame");
+      await client.execute({
+        sql: "delete from _migrations where name = ?",
+        args: ["0011_memorabilia_frame_one.sql"],
+      });
+      await bootstrapSqliteSchema(client, files);
+      const again = await client.execute("select count(*) as n from memorabilia_frame");
+      assert.equal(Number(again.rows[0]?.n), 0);
+      const markerAgain = await client.execute("select count(*) as n from memorabilia_seed");
+      assert.equal(Number(markerAgain.rows[0]?.n), 1);
+      assert.ok((await appliedNames(client)).includes("0011_memorabilia_frame_one.sql"));
+    } finally {
+      client.close();
+    }
+  });
 });
