@@ -1,6 +1,6 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { SCHEDULE_CHANGE_NOTICE, scheduleChangeVisible } from "@/lib/schedule-change";
+import { scheduleChangeNote, scheduleChangeVisible } from "@/lib/schedule-change";
 import { cn } from "@/lib/utils";
 
 const rootRoute = getRouteApi("__root__");
@@ -10,7 +10,7 @@ const STANDING_SHOW_TIME = "The SpaceBat Show is Live every Wednesday at 8:30pm 
 /**
  * Server and client share the root loader clock for the first paint, so the
  * notice cannot hydrate to a different sentence. After mount, the client clock
- * hides it at 2026-10-30 00:00 America/New_York.
+ * hides it at midnight America/New_York the day after the moved show.
  */
 function useScheduleNow(): number {
   const { scheduleNowMs } = rootRoute.useLoaderData();
@@ -28,7 +28,8 @@ function useScheduleNow(): number {
 
 export function ScheduleChangeNotice({ className }: { className?: string }) {
   const nowMs = useScheduleNow();
-  if (!scheduleChangeVisible(nowMs)) return null;
+  const note = scheduleChangeNote(nowMs);
+  if (!note) return null;
 
   return (
     <aside
@@ -38,9 +39,7 @@ export function ScheduleChangeNotice({ className }: { className?: string }) {
         className,
       )}
     >
-      <p className="font-display text-lg leading-tight tracking-wide sm:text-2xl">
-        {SCHEDULE_CHANGE_NOTICE}
-      </p>
+      <p className="font-display text-lg leading-tight tracking-wide sm:text-2xl">{note}</p>
     </aside>
   );
 }

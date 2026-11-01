@@ -1,98 +1,91 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { parseScheduledShows } from "./podcast-alert-plan.ts";
 import {
   applyLiveBannerOverride,
   applyScheduleChange,
   liveBannerOverrideActive,
   SCHEDULE_CHANGE_ALERT_KIND,
-  SCHEDULE_CHANGE_ALERT_REF,
-  SCHEDULE_CHANGE_ENDS_AT_MS,
-  SCHEDULE_CHANGE_NOTICE,
-  SCHEDULE_CHANGE_SHOW_ID,
   scheduleChangeMorningAlert,
+  scheduleChangeNote,
   scheduleChangeVisible,
   showsForAlertSchedule,
   type LiveBannerSnapshot,
 } from "./schedule-change.ts";
-import { parseScheduledShows } from "./podcast-alert-plan.ts";
+import { americaNewYorkToUtc, resolveScheduleException, scheduleExceptions } from "./schedule-exceptions.ts";
 
 const quiet: LiveBannerSnapshot = { isLive: false, sinceMs: null, source: null };
 const auto = { mode: null, untilMs: null };
+const resolved = resolveScheduleException(scheduleExceptions[0]!);
+const NOTE = "This week only: SpaceBat is live Thursday, Nov 5 at 8:30 PM ET.";
 
-test("cutoff is midnight at the end of Oct 29 in America/New_York", () => {
-  assert.equal(new Date(SCHEDULE_CHANGE_ENDS_AT_MS).toISOString(), "2026-10-30T04:00:00.000Z");
-  assert.equal(
-    SCHEDULE_CHANGE_NOTICE,
-    "Schedule change: this week's live SpaceBat Show is Thursday, Oct 29 at 8:30 PM ET (not Wednesday).",
-  );
+function at(month: number, day: number, hour: number, minute = 0) {
+  return new Date(americaNewYorkToUtc(2026, month, day, hour, minute));
+}
+
+const DURING = at(11, 2, 12);
+const AFTER = at(11, 6, 0);
+const THU_START = "2026-11-06T01:30:00.000Z";
+const WED_START = "2026-11-05T01:30:00.000Z";
+const NEXT_WED = "2026-11-12T01:30:00.000Z";
+
+test("the notice follows the open exception and is gone at midnight ET Nov 6", () => {
+  assert.equal(scheduleChangeNote(DURING), NOTE);
+  assert.equal(scheduleChangeVisible(at(11, 6, 0, 0)), false);
+  assert.equal(scheduleChangeVisible(new Date(resolved.endsAtMs - 1)), true);
+  assert.equal(scheduleChangeVisible(resolved.endsAtMs), false);
+  assert.equal(scheduleChangeNote(AFTER), null);
 });
 
-test("schedule notice is visible before the cutoff and hidden after", () => {
-  assert.equal(scheduleChangeVisible(new Date("2026-10-25T16:00:00.000Z")), true);
-  assert.equal(scheduleChangeVisible(new Date("2026-10-30T03:59:59.000Z")), true);
-  assert.equal(scheduleChangeVisible(SCHEDULE_CHANGE_ENDS_AT_MS), false);
-  assert.equal(scheduleChangeVisible(new Date("2026-10-30T04:00:00.000Z")), false);
-  assert.equal(scheduleChangeVisible(new Date("2026-11-04T01:30:00.000Z")), false);
-});
+test("live banner override is Thursday Nov 5 8:30–10:30 PM ET and not Wednesday Nov 4", () => {
+  assert.equal(liveBannerOverrideActive(at(11, 4, 20, 30)), false);
+  assert.equal(liveBannerOverrideActive(at(11, 4, 22, 0)), false);
+  assert.equal(liveBannerOverrideActive(at(11, 5, 20, 29)), false);
+  assert.equal(liveBannerOverrideActive(at(11, 5, 20, 30)), true);
+  assert.equal(liveBannerOverrideActive(at(11, 5, 22, 29)), true);
+  assert.equal(liveBannerOverrideActive(at(11, 5, 22, 30)), false);
+  assert.equal(liveBannerOverrideActive(AFTER), false);
+  assert.equal(liveBannerOverrideActive(at(11, 11, 20, 30)), false);
 
-test("live banner override applies Thursday Oct 29 evening and not Wednesday Oct 28", () => {
-  const wednesdayShow = new Date("2026-10-29T00:30:00.000Z");
-  const thursdayShow = new Date("2026-10-30T00:30:00.000Z");
-  const thursdayLate = new Date("2026-10-30T02:00:00.000Z");
-  const thursdayOver = new Date("2026-10-30T02:30:00.000Z");
-
-  assert.equal(liveBannerOverrideActive(wednesdayShow), false);
-  assert.equal(liveBannerOverrideActive(new Date("2026-10-29T01:30:00.000Z")), false);
-  assert.equal(liveBannerOverrideActive(new Date("2026-10-30T00:29:00.000Z")), false);
-  assert.equal(liveBannerOverrideActive(thursdayShow), true);
-  assert.equal(liveBannerOverrideActive(thursdayLate), true);
-  assert.equal(liveBannerOverrideActive(thursdayOver), false);
-  assert.equal(liveBannerOverrideActive(new Date("2026-11-05T01:30:00.000Z")), false);
-
-  const wednesday = applyLiveBannerOverride(quiet, auto, wednesdayShow);
+  const wednesday = applyLiveBannerOverride(quiet, auto, at(11, 4, 20, 30));
   assert.equal(wednesday.isLive, false);
   assert.equal(wednesday.sinceMs, null);
 
-  const thursday = applyLiveBannerOverride(quiet, auto, thursdayShow);
+  const thursday = applyLiveBannerOverride(quiet, auto, at(11, 5, 20, 30));
   assert.equal(thursday.isLive, true);
   assert.equal(thursday.source, null);
-  assert.equal(new Date(thursday.sinceMs!).toISOString(), "2026-10-30T00:30:00.000Z");
+  assert.equal(new Date(thursday.sinceMs!).toISOString(), THU_START);
 
   const alreadyLive = applyLiveBannerOverride(
     { isLive: true, sinceMs: 111, source: "stream" },
     auto,
-    thursdayShow,
+    at(11, 5, 21, 0),
   );
   assert.equal(alreadyLive.sinceMs, 111);
   assert.equal(alreadyLive.source, "stream");
 
   const heldOff = applyLiveBannerOverride(
     quiet,
-    { mode: "off", untilMs: thursdayShow.getTime() + 60_000 },
-    thursdayShow,
+    { mode: "off", untilMs: at(11, 5, 20, 31).getTime() },
+    at(11, 5, 20, 30),
   );
   assert.equal(heldOff.isLive, false);
 });
 
-test("a Podhome item still set for Wed Oct 28 moves to Thu Oct 29 8:30 PM ET", () => {
+test("a Podhome item still set for Wed Nov 4 moves to Thu Nov 5 8:30 PM ET", () => {
   const shows = [
-    { id: "this-week", title: "SpaceBat", start: "2026-10-29T00:30:00.000Z" },
-    { id: "already", title: "Moved", start: "2026-10-30T00:30:00.000Z" },
-    { id: "next", title: "November", start: "2026-11-05T01:30:00.000Z" },
+    { id: "this-week", title: "SpaceBat", start: WED_START },
+    { id: "already", title: "Moved", start: THU_START },
+    { id: "next", title: "November 11", start: NEXT_WED },
   ];
-  const during = applyScheduleChange(shows, new Date("2026-10-25T16:00:00.000Z"));
-  assert.equal(during[0]?.start, "2026-10-30T00:30:00.000Z");
-  assert.equal(during[1]?.start, "2026-10-30T00:30:00.000Z");
-  assert.equal(during[2]?.start, "2026-11-05T01:30:00.000Z");
+  const during = applyScheduleChange(shows, DURING);
+  assert.equal(during[0]?.start, THU_START);
+  assert.equal(during[1]?.start, THU_START);
+  assert.equal(during[2]?.start, NEXT_WED);
 
-  const after = applyScheduleChange(shows, new Date("2026-10-30T04:00:00.000Z"));
-  assert.equal(after[0]?.start, "2026-10-29T00:30:00.000Z");
+  const after = applyScheduleChange(shows, AFTER);
+  assert.equal(after[0]?.start, WED_START);
 });
-
-const DURING = new Date("2026-10-27T16:00:00.000Z");
-const AFTER = new Date("2026-10-30T04:00:00.000Z");
-const THU_START = "2026-10-30T00:30:00.000Z";
-const WED_START = "2026-10-29T00:30:00.000Z";
 
 function feed(items: string) {
   return `<rss><channel>${items}</channel></rss>`;
@@ -109,7 +102,7 @@ test("empty feed adds one synthetic Thursday show and never a Wednesday show", (
   const shows = showsForAlertSchedule(parseScheduledShows(feed("")), DURING);
   assert.equal(shows.length, 1);
   assert.deepEqual(shows[0], {
-    id: SCHEDULE_CHANGE_SHOW_ID,
+    id: resolved.showId,
     title: "The SpaceBat Show",
     start: THU_START,
   });
@@ -125,7 +118,7 @@ test("a Wednesday-only feed shifts onto Thursday and is not duplicated", () => {
   assert.equal(shows[0]?.id, "live-wed");
   assert.equal(shows[0]?.title, "Moved night");
   assert.equal(shows[0]?.start, THU_START);
-  assert.notEqual(shows[0]?.id, SCHEDULE_CHANGE_SHOW_ID);
+  assert.notEqual(shows[0]?.id, resolved.showId);
 });
 
 test("a feed that already lists Thursday is unchanged", () => {
@@ -142,47 +135,52 @@ test("after the cutoff there is no synthetic show and no shift", () => {
   assert.equal(showsForAlertSchedule([], AFTER).length, 0);
 });
 
-test("Wednesday and Thursday items together do not grow a third show", () => {
+test("Wednesday and Thursday items together stay one show, the Thursday item", () => {
   const parsed = parseScheduledShows(
     feed(pending("live-wed", WED_START) + pending("live-thu", THU_START)),
   );
   const shows = showsForAlertSchedule(parsed, DURING);
   assert.deepEqual(
     shows.map((show) => show.id),
-    ["live-wed", "live-thu"],
+    ["live-thu"],
   );
   assert.equal(shows[0]?.start, THU_START);
-  assert.equal(shows[1]?.start, THU_START);
 });
 
-test("the Wednesday schedule-change note is one stable alert and is not the Thursday reminder", () => {
+test("next Wednesday is left on the calendar", () => {
+  const parsed = parseScheduledShows(feed(pending("live-next", NEXT_WED, "Back to Wednesday")));
+  const shows = showsForAlertSchedule(parsed, DURING);
+  assert.equal(shows.length, 2);
+  assert.equal(shows[0]?.id, "live-next");
+  assert.equal(shows[0]?.start, new Date(NEXT_WED).toISOString());
+  assert.equal(shows[1]?.id, resolved.showId);
+});
+
+test("the skipped Wednesday morning note is one stable alert and is not the Thursday reminder", () => {
   const site = "https://www.spacebatshow.net";
-  const morning = scheduleChangeMorningAlert(new Date("2026-10-28T12:00:00.000Z"), site);
-  const later = scheduleChangeMorningAlert(new Date("2026-10-28T14:30:00.000Z"), site);
+  const morning = scheduleChangeMorningAlert(at(11, 4, 8), site);
+  const later = scheduleChangeMorningAlert(at(11, 4, 10, 30), site);
   assert.ok(morning);
   assert.equal(morning.kind, SCHEDULE_CHANGE_ALERT_KIND);
-  assert.equal(morning.ref, SCHEDULE_CHANGE_ALERT_REF);
+  assert.equal(morning.ref, "2026-11-04");
   assert.equal(morning.kind, "schedule-change");
   assert.notEqual(morning.kind, "show-day");
   assert.deepEqual(later, morning);
   assert.equal(morning.subject, "No live show tonight");
   assert.equal(
     morning.text,
-    "No live show tonight (Wednesday). John and Dan moved this week's show.\n\n" +
-      "This week's live show is Thursday, Oct 29 at 8:30 PM ET. " +
-      "Regular Wednesday 8:30 PM shows resume next week.\n\n" +
+    "No live show tonight, see you Thursday.\n\n" +
+      `${NOTE}\n\n` +
+      "Regular Wednesday 8:30 PM ET shows resume November 11.\n\n" +
       "Come listen with us Thursday:\nhttps://www.spacebatshow.net/podcast#live\n\n" +
       "You asked for these notes. Turn them off anytime:\nhttps://www.spacebatshow.net/account\n",
   );
 
-  assert.equal(scheduleChangeMorningAlert(new Date("2026-10-28T10:59:00.000Z"), site), null);
-  assert.ok(scheduleChangeMorningAlert(new Date("2026-10-28T11:00:00.000Z"), site));
-  assert.ok(scheduleChangeMorningAlert(new Date("2026-10-28T14:59:00.000Z"), site));
-  assert.equal(scheduleChangeMorningAlert(new Date("2026-10-28T15:00:00.000Z"), site), null);
-  assert.equal(scheduleChangeMorningAlert(new Date("2026-10-29T12:00:00.000Z"), site), null);
+  assert.equal(scheduleChangeMorningAlert(at(11, 4, 6, 59), site), null);
+  assert.ok(scheduleChangeMorningAlert(at(11, 4, 7), site));
+  assert.ok(scheduleChangeMorningAlert(at(11, 4, 10, 59), site));
+  assert.equal(scheduleChangeMorningAlert(at(11, 4, 11), site), null);
+  assert.equal(scheduleChangeMorningAlert(at(11, 5, 8), site), null);
   assert.equal(scheduleChangeMorningAlert(AFTER, site), null);
-  assert.equal(
-    scheduleChangeMorningAlert(new Date("2026-10-28T12:00:00.000Z"), site)?.ref,
-    later?.ref,
-  );
+  assert.equal(scheduleChangeMorningAlert(at(11, 4, 8), site)?.ref, later?.ref);
 });

@@ -1,9 +1,8 @@
-import { scheduleChangeVisible } from "../schedule-change.ts";
+import { scheduleChangeNote } from "../schedule-change.ts";
 
 const CREW = "spacebatshow@gmail.com";
 
 const WEDNESDAY_LINE = "The show is live Wednesdays at 8:30pm EST:";
-const THIS_WEEK_LINE = "This week only, the show is Thursday, Oct 29 at 8:30 PM ET.";
 
 function site() {
   return (process.env.BETTER_AUTH_URL?.trim() || "https://www.spacebatshow.net").replace(/\/$/, "");
@@ -26,9 +25,10 @@ async function send(key: string, from: string, message: Record<string, string>) 
   if (!response.ok) console.error("signup mail failed", response.status);
 }
 
-/** Welcome body. The Thursday sentence drops out on its own after the cutoff. */
+/** Welcome body. The one-week sentence drops out on its own after the cutoff. */
 export function welcomeText(name: string, home: string, now: number | Date = new Date()): string {
-  const week = scheduleChangeVisible(now) ? `\n\n${THIS_WEEK_LINE}` : "";
+  const note = scheduleChangeNote(now);
+  const week = note ? `\n\n${note}` : "";
   return (
     `${greeting(name)}` +
     `You're in. John and Dan are glad you made an account.\n\n` +

@@ -7,7 +7,7 @@ import {
   planAlertMorning,
   showsDueThisMorning,
 } from "./podcast-alert-plan.ts";
-import { SCHEDULE_CHANGE_SHOW_ID } from "./schedule-change.ts";
+import { resolveScheduleException, scheduleExceptions } from "./schedule-exceptions.ts";
 
 const FEED = `
 <rss>
@@ -66,11 +66,12 @@ describe("podcast alert plan", () => {
 });
 
 const SITE = "https://www.spacebatshow.net";
-const THU_START = "2026-10-30T00:30:00.000Z";
-const WED_START = "2026-10-29T00:30:00.000Z";
+const MOVED = resolveScheduleException(scheduleExceptions[0]!);
+const THU_START = new Date(MOVED.showStartMs).toISOString();
+const WED_START = "2026-11-05T01:30:00.000Z";
 
 function atEt(day: number, hour: number, minute = 0) {
-  return new Date(Date.UTC(2026, 9, day, hour + 4, minute, 0));
+  return new Date(Date.UTC(2026, 10, day, hour + 5, minute, 0));
 }
 
 function pending(guid: string, start: string) {
@@ -84,17 +85,18 @@ describe("this week's moved show", () => {
   const empty = "<rss><channel></channel></rss>";
   const wednesday = `<rss><channel>${pending("live-wed", WED_START)}</channel></rss>`;
   const thursday = `<rss><channel>${pending("live-thu", THU_START)}</channel></rss>`;
+  const both = `<rss><channel>${pending("live-wed", WED_START)}${pending("live-thu", THU_START)}</channel></rss>`;
 
   it("adds nothing to showsDueThisMorning on Wednesday morning and one Thursday show the next morning", () => {
     for (const hour of [7, 8, 9, 10]) {
-      const wed = atEt(28, hour);
+      const wed = atEt(4, hour);
       const wedPlan = planAlertMorning(empty, wed, SITE);
       assert.equal(showsDueThisMorning(wed, wedPlan.shows).length, 0);
 
-      const thu = atEt(29, hour);
+      const thu = atEt(5, hour);
       const due = showsDueThisMorning(thu, planAlertMorning(empty, thu, SITE).shows);
       assert.equal(due.length, 1);
-      assert.equal(due[0]?.id, SCHEDULE_CHANGE_SHOW_ID);
+      assert.equal(due[0]?.id, MOVED.showId);
       assert.match(formatShowWhen(due[0]!.start), /Thursday/);
       assert.match(formatShowWhen(due[0]!.start), /8:30/);
       assert.match(formatShowWhen(due[0]!.start), /PM/);
@@ -103,12 +105,13 @@ describe("this week's moved show", () => {
 
   it("sends one schedule-change email on Wednesday morning and no We're on today", () => {
     for (const hour of [7, 8, 9, 10]) {
-      for (const xml of [empty, wednesday, thursday]) {
-        const mails = planAlertMorning(xml, atEt(28, hour), SITE).mails;
+      for (const xml of [empty, wednesday, thursday, both]) {
+        const mails = planAlertMorning(xml, atEt(4, hour), SITE).mails;
         assert.equal(mails.length, 1);
         assert.equal(mails[0]?.kind, "schedule-change");
-        assert.equal(mails[0]?.ref, "2026-10-28");
+        assert.equal(mails[0]?.ref, "2026-11-04");
         assert.equal(mails[0]?.subject, "No live show tonight");
+        assert.match(mails[0]?.text ?? "", /see you Thursday/);
         assert.equal(
           mails.filter((mail) => mail.subject === "We're on today" || mail.kind === "show-day")
             .length,
@@ -116,16 +119,16 @@ describe("this week's moved show", () => {
         );
       }
     }
-    const early = planAlertMorning(empty, atEt(28, 6, 59), SITE).mails;
-    const late = planAlertMorning(empty, atEt(28, 11), SITE).mails;
+    const early = planAlertMorning(empty, atEt(4, 6, 59), SITE).mails;
+    const late = planAlertMorning(empty, atEt(4, 11), SITE).mails;
     assert.deepEqual(early, []);
     assert.deepEqual(late, []);
   });
 
   it("sends one We're on today for Thursday 8:30 PM and not the schedule-change note", () => {
-    for (const xml of [empty, wednesday, thursday]) {
+    for (const xml of [empty, wednesday, thursday, both]) {
       for (const hour of [8, 9, 10]) {
-        const mails = planAlertMorning(xml, atEt(29, hour), SITE).mails;
+        const mails = planAlertMorning(xml, atEt(5, hour), SITE).mails;
         assert.equal(mails.length, 1);
         assert.equal(mails[0]?.kind, "show-day");
         assert.equal(mails[0]?.subject, "We're on today");
@@ -135,26 +138,25 @@ describe("this week's moved show", () => {
         assert.equal(mails[0]?.text.includes("No live show tonight"), false);
       }
     }
-    const fromEmpty = planAlertMorning(empty, atEt(29, 8), SITE).mails[0];
-    assert.equal(fromEmpty?.ref, `${SCHEDULE_CHANGE_SHOW_ID}:${THU_START}`);
-    const fromWednesday = planAlertMorning(wednesday, atEt(29, 8), SITE).mails[0];
+    const fromEmpty = planAlertMorning(empty, atEt(5, 8), SITE).mails[0];
+    assert.equal(fromEmpty?.ref, `${MOVED.showId}:${THU_START}`);
+    const fromWednesday = planAlertMorning(wednesday, atEt(5, 8), SITE).mails[0];
     assert.equal(fromWednesday?.ref, `live-wed:${THU_START}`);
-    const fromThursday = planAlertMorning(thursday, atEt(29, 8), SITE).mails[0];
+    const fromThursday = planAlertMorning(thursday, atEt(5, 8), SITE).mails[0];
     assert.equal(fromThursday?.ref, `live-thu:${THU_START}`);
+    const fromBoth = planAlertMorning(both, atEt(5, 8), SITE).mails[0];
+    assert.equal(fromBoth?.ref, `live-thu:${THU_START}`);
   });
 
   it("sends neither email after the cutoff", () => {
-    const fridayMorning = atEt(30, 8);
-    for (const xml of [empty, wednesday, thursday]) {
+    const fridayMorning = atEt(6, 8);
+    for (const xml of [empty, wednesday, thursday, both]) {
       const plan = planAlertMorning(xml, fridayMorning, SITE);
       assert.deepEqual(plan.mails, []);
     }
     const wed = planAlertMorning(wednesday, fridayMorning, SITE);
     assert.equal(wed.shows.length, 1);
     assert.equal(wed.shows[0]?.start, new Date(WED_START).toISOString());
-    assert.equal(
-      planAlertMorning(empty, new Date("2026-10-30T04:00:00.000Z"), SITE).shows.length,
-      0,
-    );
+    assert.equal(planAlertMorning(empty, new Date("2026-11-06T05:00:00.000Z"), SITE).shows.length, 0);
   });
 });
