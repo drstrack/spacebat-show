@@ -241,6 +241,27 @@ export function unratedCount(entries: readonly MediaEntry[], host: MediaHost): n
   return entries.filter((entry) => entry.ratings[host] === "unrated").length;
 }
 
+export type RatingView = "unrated" | "rated" | "all";
+
+export function idsForRatingView(
+  entries: readonly MediaEntry[],
+  host: MediaHost,
+  view: RatingView,
+): string[] {
+  return entries
+    .filter((entry) => view === "all" || (entry.ratings[host] === "unrated") === (view === "unrated"))
+    .map((entry) => entry.id);
+}
+
+/** Keep a captured view even after a title in it is saved. */
+export function holdVisibleIds(captured: readonly string[], entries: readonly MediaEntry[]): MediaEntry[] {
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  return captured.flatMap((id) => {
+    const entry = byId.get(id);
+    return entry ? [entry] : [];
+  });
+}
+
 /** Unrated titles first for that host. Everyone else keeps title order. */
 export function orderForRater(entries: readonly MediaEntry[], host: MediaHost | null): MediaEntry[] {
   const byTitle = (list: readonly MediaEntry[]) =>

@@ -11,6 +11,8 @@ import {
   mediaRatingDecision,
   mediaTabLabel,
   applyStableOrder,
+  holdVisibleIds,
+  idsForRatingView,
   nextHostRating,
   orderForRater,
   ratingWrite,
@@ -207,6 +209,28 @@ describe("movies and tv", () => {
       orderForRater(tapped, "dan").map((entry) => entry.id),
       ["z", "a", "m"],
     );
+  });
+
+  it("keeps a saved title in the not-rated view until that view is rebuilt", () => {
+    const sample = (id: string, title: string, dan: MediaRatingChoice): MediaEntry => ({
+      ...mediaCatalog[0]!,
+      id,
+      title,
+      ratings: { john: "unrated", dan },
+    });
+    const entries = [sample("a", "Alpha", "unrated"), sample("b", "Beta", "ok"), sample("c", "Coral", "unrated")];
+    const visible = idsForRatingView(entries, "dan", "unrated");
+    assert.deepEqual(visible, ["a", "c"]);
+    const saved = entries.map((entry) =>
+      entry.id === "a" ? { ...entry, ratings: { ...entry.ratings, dan: "two_up" as const } } : entry,
+    );
+    assert.deepEqual(
+      holdVisibleIds(visible, saved).map((entry) => entry.id),
+      ["a", "c"],
+    );
+    assert.deepEqual(idsForRatingView(saved, "dan", "unrated"), ["c"]);
+    assert.deepEqual(idsForRatingView(saved, "dan", "rated"), ["a", "b"]);
+    assert.equal(idsForRatingView(saved, "dan", "all").length, 3);
   });
 
   it("keeps a cycled rating pending until it is written", () => {

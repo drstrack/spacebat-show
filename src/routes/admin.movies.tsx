@@ -11,11 +11,13 @@ import {
   MEDIA_RATING_LABEL,
   formatRating,
   mediaBlobPathname,
-  applyStableOrder,
+  holdVisibleIds,
+  idsForRatingView,
   mediaPicture,
   nextHostRating,
   orderForRater,
   unratedCount,
+  type RatingView,
   type MediaEntry,
   type MediaHost,
   type MediaRatingChoice,
@@ -74,6 +76,8 @@ function AdminMoviesPage() {
   const [ratingOverride, setRatingOverride] = useState<Record<string, MediaRatingChoice>>({});
   const [ratingStatus, setRatingStatus] = useState<Record<string, "saving" | "saved" | "error">>({});
   const pinnedIds = useRef<string[] | null>(null);
+  const viewIds = useRef<string[] | null>(null);
+  const [ratingView, setRatingView] = useState<RatingView>("unrated");
   const [orderVersion, setOrderVersion] = useState(0);
   const pendingCount = Object.keys(ratingOverride).filter((key) => {
     const [who, id] = key.split(":");
@@ -302,7 +306,10 @@ function AdminMoviesPage() {
     const viewed = data.items.map((item) =>
       host ? { ...item, ratings: { ...item.ratings, [host]: shownRating(item, host) } } : item,
     );
-    pinnedIds.current = orderForRater(viewed, host).map((item) => item.id);
+    const nextOrder = orderForRater(viewed, host).map((item) => item.id);
+    pinnedIds.current = nextOrder;
+    const visible = new Set(viewIds.current ?? nextOrder);
+    viewIds.current = nextOrder.filter((id) => visible.has(id));
     setOrderVersion((version) => version + 1);
   }
 
@@ -340,32 +347,61 @@ function AdminMoviesPage() {
     });
   }
 
-  async function saveRating(item: MediaEntry) {
-    if (!host || !isPending(item)) return;
-    const next = shownRating(item, host);
-    const key = `${host}:${item.id}`;
-    setRatingStatus((prev) => ({ ...prev, [item.id]: "saving" }));
+  function discardChanges() {
+    const pendingIds = new Set(data.items.filter((item) => isPending(item)).map((item) => item.id));
+    setRatingOverride({});
+    setRatingStatus((prev) => {
+      const copy = { ...prev };
+      for (const id of pendingIds) delete copy[id];
+      return copy;
+    });
+  }
+
+  async function saveAllRatings() {
+    if (!host) return;
+    const waiting = data.items.filter((item) => isPending(item));
+    if (waiting.length === 0) return;
+    const planned = waiting.map((item) => ({
+      id: item.id,
+      rating: shownRating(item, host),
+      key: `${host}:${item.id}`,
+    }));
+    setRatingStatus((prev) => {
+      const copy = { ...prev };
+      for (const row of planned) copy[row.id] = "saving";
+      return copy;
+    });
     try {
-      await rateMovie({ data: { id: item.id, rating: next } });
+      await Promise.all(planned.map((row) => rateMovie({ data: { id: row.id, rating: row.rating } })));
       await router.invalidate();
       setRatingOverride((prev) => {
-        if (prev[key] !== next) return prev;
         const copy = { ...prev };
-        delete copy[key];
+        for (const row of planned) {
+          if (copy[row.key] === row.rating) delete copy[row.key];
+        }
         return copy;
       });
-      setRatingStatus((prev) => ({ ...prev, [item.id]: "saved" }));
+      setRatingStatus((prev) => {
+        const copy = { ...prev };
+        for (const row of planned) copy[row.id] = "saved";
+        return copy;
+      });
     } catch (err) {
-      setRatingStatus((prev) => ({ ...prev, [item.id]: "error" }));
+      setRatingStatus((prev) => {
+        const copy = { ...prev };
+        for (const row of planned) copy[row.id] = "error";
+        return copy;
+      });
       setError(err instanceof Error ? err.message : "Couldn't save");
     }
   }
 
-  async function saveAllRatings() {
-    const waiting = data.items.filter((item) => isPending(item));
-    for (const item of waiting) {
-      await saveRating(item);
-    }
+  function chooseView(next: RatingView) {
+    setRatingView(next);
+    const order = pinnedIds.current ?? data.items.map((item) => item.id);
+    const allowed = new Set(host ? idsForRatingView(data.items, host, next) : order);
+    viewIds.current = order.filter((id) => allowed.has(id));
+    setOrderVersion((version) => version + 1);
   }
 
   async function confirmDelete() {
@@ -387,17 +423,18 @@ function AdminMoviesPage() {
   if (pinnedIds.current === null && data.items.length > 0) {
     pinnedIds.current = orderForRater(data.items, host).map((item) => item.id);
   }
+  if (viewIds.current === null && pinnedIds.current) {
+    const allowed = new Set(host ? idsForRatingView(data.items, host, ratingView) : pinnedIds.current);
+    viewIds.current = pinnedIds.current.filter((id) => allowed.has(id));
+  }
   const viewedItems = data.items.map((item) =>
     host ? { ...item, ratings: { ...item.ratings, [host]: shownRating(item, host) } } : item,
   );
-  const cards = applyStableOrder(
-    pinnedIds.current ?? orderForRater(data.items, host).map((item) => item.id),
-    viewedItems,
-  );
+  const cards = holdVisibleIds(viewIds.current ?? [], viewedItems);
   void orderVersion;
 
   return (
-    <div className={`mx-auto max-w-5xl px-4 py-12 sm:px-6 ${pendingCount > 1 ? "pb-28" : ""}`}>
+    <div className={`mx-auto max-w-5xl px-4 py-12 sm:px-6 ${pendingCount > 0 ? "pb-28" : ""}`}>
       <p className="caption-box">Back end</p>
       <h1 className="mt-4 font-display text-5xl leading-none tracking-wide">Movies & TV</h1>
       <p className="mt-3 max-w-2xl text-sm text-muted">
@@ -431,18 +468,30 @@ function AdminMoviesPage() {
         </Button>
       </p>
       {host ? (
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <p className="font-display text-3xl tracking-wide">
-            {unratedCount(
-              data.items.map((item) => ({
-                ...item,
-                ratings: { ...item.ratings, [host]: shownRating(item, host) },
-              })),
-              host,
-            )}{" "}
-            left to rate
-          </p>
-          <Button type="button" variant="secondary" onClick={() => refreshOrder()}>
+        <div className="mt-4 flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="group" aria-label="Which titles to show">
+            {(
+              [
+                ["unrated", `Not rated yet (${unratedCount(data.items, host)})`],
+                ["rated", `Rated (${data.items.length - unratedCount(data.items, host)})`],
+                ["all", `All (${data.items.length})`],
+              ] as const
+            ).map(([view, label]) => (
+              <button
+                key={view}
+                type="button"
+                data-rating-view={view}
+                aria-pressed={ratingView === view}
+                className={`min-h-11 border-4 border-ink px-3 font-display text-xl tracking-wide ${
+                  ratingView === view ? "bg-crimson text-crimson-fg" : "bg-paper"
+                }`}
+                onClick={() => chooseView(view)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <Button type="button" variant="secondary" className="min-h-11 w-fit" onClick={() => refreshOrder()}>
             Refresh order
           </Button>
         </div>
@@ -747,24 +796,14 @@ function AdminMoviesPage() {
                           : ""}
                 </p>
                 {unsaved ? (
-                  <div className="flex flex-col gap-2">
-                    <button
-                      type="button"
-                      data-save-rating
-                      className="min-h-11 w-full border-4 border-ink bg-crimson px-3 text-base text-crimson-fg"
-                      onClick={() => void saveRating(source)}
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      data-cancel-rating
-                      className="min-h-11 w-full border-4 border-ink bg-paper px-3 text-base"
-                      onClick={() => cancelRating(source)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    data-cancel-rating
+                    className="min-h-11 w-full border-4 border-ink bg-paper px-3 text-base"
+                    onClick={() => cancelRating(source)}
+                  >
+                    Cancel
+                  </button>
                 ) : null}
                 <button
                   type="button"
@@ -780,10 +819,18 @@ function AdminMoviesPage() {
         })}
       </ul>
 
-      {pendingCount > 1 ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t-4 border-ink bg-caption p-3">
-          <Button type="button" className="min-h-11 w-full text-lg" onClick={() => void saveAllRatings()}>
-            Save all ({pendingCount})
+      {pendingCount > 0 ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t-4 border-ink bg-caption p-3">
+          <Button
+            type="button"
+            data-save-all
+            className="min-h-14 flex-1 text-xl"
+            onClick={() => void saveAllRatings()}
+          >
+            Save ({pendingCount})
+          </Button>
+          <Button type="button" variant="secondary" className="min-h-14" onClick={() => discardChanges()}>
+            Discard changes
           </Button>
         </div>
       ) : null}
