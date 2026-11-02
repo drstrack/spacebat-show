@@ -76,6 +76,12 @@ function AdminPage() {
           SpaceBat Chat
         </Link>
         <Link
+          to="/admin/movies"
+          className="font-display text-2xl tracking-wide text-crimson hover:underline"
+        >
+          Movies & TV
+        </Link>
+        <Link
           to="/comic/collection"
           className="font-display text-2xl tracking-wide text-crimson hover:underline"
         >

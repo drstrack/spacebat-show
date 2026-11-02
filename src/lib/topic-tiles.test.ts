@@ -13,14 +13,15 @@ describe("topic tiles", () => {
       topicTiles.map((tile) => [tile.label, tile.href, tile.accessibleName]),
       [
         ["Comics", "/comic/collection", "Comics: see John's collection"],
-        ["Movies", "/podcast#episodes", "Movies: see episodes"],
+        ["Movies", "/movies", "Movies: see movies & TV we've discussed"],
         ["Tech", "/podcast#episodes", "Tech: see episodes"],
         ["Politics", "/podcast#episodes", "Politics: see episodes"],
         ["Markets", "/podcast#episodes", "Markets: see episodes"],
       ],
     );
     assert.deepEqual(topicTileTarget(topicTiles[0]), { to: "/comic/collection" });
-    for (const tile of topicTiles.slice(1)) {
+    assert.deepEqual(topicTileTarget(topicTiles[1]), { to: "/movies" });
+    for (const tile of topicTiles.slice(2)) {
       assert.deepEqual(topicTileTarget(tile), { to: "/podcast", hash: "episodes" });
     }
   });

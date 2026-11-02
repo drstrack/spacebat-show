@@ -234,6 +234,8 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
+          const { grantPreviewHostAdmin } = await import("../preview-host-admin.server");
+          await grantPreviewHostAdmin(user.id, user.email);
           const { notifyNewAccount } = await import("./notify-signup");
           await notifyNewAccount({ email: user.email, name: user.name });
         },
