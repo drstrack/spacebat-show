@@ -1,7 +1,7 @@
 import { dbSource, getSql } from "@/lib/db";
 import { previewHostShouldBeAdmin } from "@/lib/preview-host-admin";
 
-/** Called once when a user row is created. No-op outside preview / in-memory. */
+/** Sign-up and every session load. No-op in production. */
 export async function grantPreviewHostAdmin(userId: string, email: string | null | undefined): Promise<void> {
   if (!userId) return;
   if (!previewHostShouldBeAdmin({ vercelEnv: process.env.VERCEL_ENV, dbSource, email })) return;

@@ -25,27 +25,37 @@ test("preview and the in-memory database make John and Dan admins", () => {
   );
 });
 
-test("production and Turso never grant the preview host admin", () => {
-  for (const email of [MEDIA_HOST_EMAILS.dan, MEDIA_HOST_EMAILS.john]) {
+test("preview with Turso promotes, production with Turso does not", () => {
+  for (const email of [MEDIA_HOST_EMAILS.dan, MEDIA_HOST_EMAILS.john, "DStrack@hotmail.com"]) {
     assert.equal(
-      previewHostShouldBeAdmin({ vercelEnv: "production", dbSource: "pglite", email }),
-      false,
+      previewHostShouldBeAdmin({ vercelEnv: "preview", dbSource: "turso", email }),
+      true,
+      email,
     );
     assert.equal(
       previewHostShouldBeAdmin({ vercelEnv: "production", dbSource: "turso", email }),
       false,
-    );
-    assert.equal(
-      previewHostShouldBeAdmin({ vercelEnv: "preview", dbSource: "turso", email }),
-      false,
-    );
-    assert.equal(
-      previewHostShouldBeAdmin({ vercelEnv: undefined, dbSource: "turso", email }),
-      false,
-    );
-    assert.equal(
-      previewHostShouldBeAdmin({ vercelEnv: undefined, dbSource: "neon", email }),
-      false,
+      email,
     );
   }
+  assert.equal(
+    previewHostShouldBeAdmin({
+      vercelEnv: "preview",
+      dbSource: "turso",
+      email: "spacebatshow@gmail.com",
+    }),
+    false,
+  );
+  assert.equal(
+    previewHostShouldBeAdmin({ vercelEnv: "production", dbSource: "pglite", email: MEDIA_HOST_EMAILS.dan }),
+    false,
+  );
+  assert.equal(
+    previewHostShouldBeAdmin({ vercelEnv: undefined, dbSource: "turso", email: MEDIA_HOST_EMAILS.dan }),
+    false,
+  );
+  assert.equal(
+    previewHostShouldBeAdmin({ vercelEnv: undefined, dbSource: "neon", email: MEDIA_HOST_EMAILS.dan }),
+    false,
+  );
 });
