@@ -123,6 +123,10 @@ function MoviesPage() {
           </a>
           .
         </p>
+        <p className="mt-4 flex flex-wrap items-center gap-3 text-sm leading-relaxed text-muted">
+          <img src="/tmdb-logo.svg" alt="TMDB" width={154} height={20} />
+          <span>This product uses the TMDB API but is not endorsed or certified by TMDB.</span>
+        </p>
       </footer>
     </article>
   );

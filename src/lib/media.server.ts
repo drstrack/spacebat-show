@@ -5,6 +5,8 @@ import { blobUploadsEnabled } from "@/lib/chat/uploads.server";
 import { assertSameSiteRequest, CrossSiteRequestError } from "@/lib/auth/isolation.server";
 import { getSessionUser, requireUserId, UnauthorizedError } from "@/lib/auth/verify.server";
 import { getSql, type Sql } from "@/lib/db";
+import { lookupTmdb, proposeTmdbMatches, searchTmdb } from "@/lib/tmdb.server";
+import { cleanImdbId, cleanPosterPath, TMDB_KEY_MISSING, type TmdbHit } from "@/lib/tmdb";
 import {
   hostForEmail,
   isRating,
@@ -25,7 +27,12 @@ type ItemRow = {
   kind: string;
   title: string;
   year: string;
-  wikipedia_url: string;
+  wikipedia_url: string | null;
+  tmdb_id: number | string | bigint | null;
+  tmdb_type: string | null;
+  imdb_id: string | null;
+  overview: string | null;
+  poster_path: string | null;
   image: string | null;
   image_credit: string | null;
   image_kind: string | null;
@@ -87,7 +94,7 @@ function toEntry(row: ItemRow, ratings: MediaRatings): MediaEntry | null {
     title: row.title,
     year: row.year ?? "",
     episodes: parseEpisodes(row.episodes),
-    wikipedia_url: row.wikipedia_url,
+    wikipedia_url: row.wikipedia_url ?? "",
     image: row.image,
     image_credit: row.image_credit,
     image_kind: row.image ? imageKind : null,
@@ -96,14 +103,22 @@ function toEntry(row: ItemRow, ratings: MediaRatings): MediaEntry | null {
     width: num(row.width),
     height: num(row.height),
     ratings,
+    tmdbId: (() => {
+      const id = num(row.tmdb_id);
+      return id != null && id > 0 ? id : null;
+    })(),
+    tmdbType: row.tmdb_type === "movie" || row.tmdb_type === "tv" ? row.tmdb_type : null,
+    imdbId: cleanImdbId(row.imdb_id),
+    overview: row.overview,
+    posterPath: cleanPosterPath(row.poster_path),
   };
 }
 
 async function readItems(sql: Sql): Promise<MediaEntry[]> {
   const [items, ratings] = await Promise.all([
     sql<ItemRow>`
-      select id, kind, title, year, wikipedia_url, image, image_credit, image_kind,
-             width, height, best_guess, best_guess_reason, episodes
+      select id, kind, title, year, wikipedia_url, tmdb_id, tmdb_type, imdb_id, overview, poster_path,
+             image, image_credit, image_kind, width, height, best_guess, best_guess_reason, episodes
       from media_item
     `,
     sql<RatingRow>`select media_item_id, host, rating from media_rating`,
@@ -190,7 +205,12 @@ export async function saveMediaItem(
         kind = ${draft.kind},
         title = ${draft.title},
         year = ${draft.year},
-        wikipedia_url = ${draft.wikipediaUrl},
+        wikipedia_url = ${draft.wikipediaUrl || null},
+        tmdb_id = ${draft.tmdbId},
+        tmdb_type = ${draft.tmdbType},
+        imdb_id = ${draft.imdbId},
+        overview = ${draft.overview},
+        poster_path = ${draft.posterPath},
         image = ${draft.image},
         image_credit = ${draft.imageCredit},
         image_kind = ${draft.imageKind},
@@ -209,16 +229,104 @@ export async function saveMediaItem(
   const id = nextId(draft.title, new Set(ids.map((row) => row.id)));
   await sql`
     insert into media_item (
-      id, kind, title, year, wikipedia_url, image, image_credit, image_kind,
-      best_guess, best_guess_reason, episodes, sort_rank, created_at, updated_at
+      id, kind, title, year, wikipedia_url, tmdb_id, tmdb_type, imdb_id, overview, poster_path,
+      image, image_credit, image_kind, best_guess, best_guess_reason, episodes, sort_rank, created_at, updated_at
     ) values (
-      ${id}, ${draft.kind}, ${draft.title}, ${draft.year}, ${draft.wikipediaUrl},
+      ${id}, ${draft.kind}, ${draft.title}, ${draft.year}, ${draft.wikipediaUrl || null},
+      ${draft.tmdbId}, ${draft.tmdbType}, ${draft.imdbId}, ${draft.overview}, ${draft.posterPath},
       ${draft.image}, ${draft.imageCredit}, ${draft.imageKind},
       ${draft.bestGuess ? 1 : 0}, ${draft.bestGuessReason},
       ${JSON.stringify(draft.episodes)}, ${newestMentionRank(draft)}, ${now}, ${now}
     )
   `;
   const saved = (await readItems(sql)).find((item) => item.id === id);
+  if (!saved) throw new Error("That title isn't on the page.");
+  return saved;
+}
+
+async function writeTmdbHit(sql: Sql, id: string, hit: TmdbHit): Promise<void> {
+  const current = await sql<{ id: string }>`select id from media_item where id = ${id}`;
+  if (!current[0]) throw new Error("That title isn't on the page.");
+  await sql`
+    update media_item set
+      title = ${hit.title},
+      year = ${hit.year},
+      tmdb_id = ${hit.tmdbId},
+      tmdb_type = ${hit.tmdbType},
+      imdb_id = ${hit.imdbId},
+      overview = ${hit.overview || null},
+      poster_path = ${hit.posterPath},
+      updated_at = ${Date.now()}
+    where id = ${id}
+  `;
+}
+
+export async function searchMediaOnTmdb(
+  userId: string,
+  input: { title: string; year: string; kind: "movie" | "tv" },
+) {
+  const sql = await getSql();
+  await assertAdmin(sql, userId);
+  return searchTmdb(input);
+}
+
+export async function lookupMediaOnTmdb(
+  userId: string,
+  input: { tmdbId: number; tmdbType: "movie" | "tv" },
+) {
+  const sql = await getSql();
+  await assertAdmin(sql, userId);
+  return lookupTmdb(input);
+}
+
+/** Pull the stored TMDB id again. Leaves the custom image and the best-guess flag alone. */
+export async function refreshMediaFromTmdb(userId: string, id: string): Promise<MediaEntry> {
+  const sql = await getSql();
+  await assertAdmin(sql, userId);
+  const rows = await sql<{ tmdb_id: number | string | bigint | null; tmdb_type: string | null }>`
+    select tmdb_id, tmdb_type from media_item where id = ${id}
+  `;
+  const tmdbId = num(rows[0]?.tmdb_id);
+  const tmdbType = rows[0]?.tmdb_type;
+  if (!rows[0] || tmdbId == null || tmdbId <= 0 || (tmdbType !== "movie" && tmdbType !== "tv")) {
+    throw new Error("Search TMDB and pick a match first.");
+  }
+  const found = await lookupTmdb({ tmdbId, tmdbType });
+  if (!found.configured) throw new Error(TMDB_KEY_MISSING);
+  if (!found.results) throw new Error("TMDB has no record for that id.");
+  await writeTmdbHit(sql, id, found.results);
+  const saved = (await readItems(sql)).find((item) => item.id === id);
+  if (!saved) throw new Error("That title isn't on the page.");
+  return saved;
+}
+
+export async function proposeMediaTmdbMatches(userId: string) {
+  const sql = await getSql();
+  await assertAdmin(sql, userId);
+  const items = await readItems(sql);
+  return proposeTmdbMatches(
+    items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      year: item.year,
+      kind: item.kind,
+      bestGuess: item.best_guess,
+    })),
+  );
+}
+
+/** Save one reviewed match. Does not clear best_guess or replace a custom image. */
+export async function applyMediaTmdbMatch(
+  userId: string,
+  input: { id: string; tmdbId: number; tmdbType: "movie" | "tv" },
+): Promise<MediaEntry> {
+  const sql = await getSql();
+  await assertAdmin(sql, userId);
+  const found = await lookupTmdb(input);
+  if (!found.configured) throw new Error(TMDB_KEY_MISSING);
+  if (!found.results) throw new Error("TMDB has no record for that id.");
+  await writeTmdbHit(sql, input.id, found.results);
+  const saved = (await readItems(sql)).find((item) => item.id === input.id);
   if (!saved) throw new Error("That title isn't on the page.");
   return saved;
 }

@@ -15,7 +15,18 @@ import {
   type MediaHost,
   type MediaRating,
 } from "@/lib/media";
-import { deleteMovie, loadMovies, rateMovie, saveMovie } from "@/lib/media.functions";
+import type { TmdbHit } from "@/lib/tmdb";
+import {
+  applyTmdbMatch,
+  deleteMovie,
+  loadMovies,
+  lookupTmdbTitle,
+  matchAllTmdb,
+  rateMovie,
+  refreshTmdbTitle,
+  saveMovie,
+  searchTmdbTitles,
+} from "@/lib/media.functions";
 
 export const Route = createFileRoute("/admin/movies")({
   loader: () => loadMovies(),
@@ -35,6 +46,11 @@ const EMPTY = {
   bestGuess: false,
   bestGuessReason: "",
   episodesText: "",
+  overview: "",
+  tmdbId: "",
+  tmdbType: "" as "" | "movie" | "tv",
+  imdbId: "",
+  posterPath: "",
 };
 
 function AdminMoviesPage() {
@@ -44,6 +60,11 @@ function AdminMoviesPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [pending, setPending] = useState<MediaEntry | null>(null);
+  const [hits, setHits] = useState<TmdbHit[]>([]);
+  const [tmdbNote, setTmdbNote] = useState("");
+  const [proposals, setProposals] = useState<
+    { id: string; title: string; bestGuess: boolean; proposal: TmdbHit | null }[] | null
+  >(null);
 
   if (!data.canManage) {
     return (
@@ -74,7 +95,14 @@ function AdminMoviesPage() {
       bestGuess: item.best_guess,
       bestGuessReason: item.best_guess_reason ?? "",
       episodesText: episodeLines(item.episodes),
+      overview: item.overview ?? "",
+      tmdbId: item.tmdbId ? String(item.tmdbId) : "",
+      tmdbType: item.tmdbType ?? "",
+      imdbId: item.imdbId ?? "",
+      posterPath: item.posterPath ?? "",
     });
+    setHits([]);
+    setTmdbNote("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -97,10 +125,16 @@ function AdminMoviesPage() {
             bestGuess: form.bestGuess,
             bestGuessReason: form.bestGuessReason,
             episodesText: form.episodesText,
+            overview: form.overview,
+            tmdbId: form.tmdbId ? Number(form.tmdbId) : null,
+            tmdbType: form.tmdbType || null,
+            imdbId: form.imdbId,
+            posterPath: form.posterPath,
           },
         },
       });
       setForm(EMPTY);
+      setHits([]);
       await router.invalidate();
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn’t save.");
@@ -130,6 +164,104 @@ function AdminMoviesPage() {
       setForm((current) => ({ ...current, image: blob.url }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't upload that picture. Paste an image URL instead.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function fillFromHit(hit: TmdbHit) {
+    setForm((current) => ({
+      ...current,
+      title: hit.title,
+      year: hit.year || current.year,
+      kind: hit.tmdbType,
+      overview: hit.overview,
+      tmdbId: String(hit.tmdbId),
+      tmdbType: hit.tmdbType,
+      imdbId: hit.imdbId ?? "",
+      posterPath: hit.posterPath ?? "",
+    }));
+  }
+
+  async function onFind() {
+    setError("");
+    setTmdbNote("");
+    setBusy("tmdb");
+    try {
+      const found = await searchTmdbTitles({
+        data: { title: form.title, year: form.year, kind: form.kind },
+      });
+      if (!found.configured) {
+        setHits([]);
+        setTmdbNote(found.error);
+        return;
+      }
+      setHits(found.results);
+      setTmdbNote(found.results.length ? "" : "No TMDB matches.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "TMDB search failed.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function onPick(hit: TmdbHit) {
+    setBusy("tmdb");
+    setError("");
+    try {
+      const detail = await lookupTmdbTitle({ data: { tmdbId: hit.tmdbId, tmdbType: hit.tmdbType } });
+      fillFromHit(detail.configured && detail.results ? detail.results : hit);
+      setHits([]);
+      setTmdbNote(detail.configured ? "" : detail.error);
+    } catch (err) {
+      fillFromHit(hit);
+      setError(err instanceof Error ? err.message : "TMDB didn't return that title.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function onRefresh(id: string) {
+    setError("");
+    setBusy(id);
+    try {
+      await refreshTmdbTitle({ data: { id } });
+      await router.invalidate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "TMDB refresh failed.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function onMatchAll() {
+    setError("");
+    setBusy("match");
+    try {
+      const found = await matchAllTmdb();
+      if (!found.configured) {
+        setProposals(null);
+        setTmdbNote(found.error);
+        return;
+      }
+      setProposals(found.results);
+      setTmdbNote("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "TMDB match failed.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function onApply(id: string, hit: TmdbHit) {
+    setBusy(id);
+    setError("");
+    try {
+      await applyTmdbMatch({ data: { id, tmdbId: hit.tmdbId, tmdbType: hit.tmdbType } });
+      setProposals((current) => current?.filter((row) => row.id !== id) ?? null);
+      await router.invalidate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That match didn’t save.");
     } finally {
       setBusy("");
     }
@@ -183,7 +315,42 @@ function AdminMoviesPage() {
         <Link to="/movies" className="font-display text-2xl tracking-wide text-crimson hover:underline">
           The public page
         </Link>
+        <Button type="button" variant="secondary" disabled={busy === "match"} onClick={() => void onMatchAll()}>
+          {busy === "match" ? "Matching" : "Match all from TMDB"}
+        </Button>
       </p>
+      {tmdbNote ? <p className="mt-3 text-sm text-crimson">{tmdbNote}</p> : null}
+      {proposals ? (
+        <ul className="mt-4 space-y-2">
+          {proposals.map((row) => (
+            <li key={row.id} className="border-4 border-ink bg-paper px-3 py-3 text-sm">
+              <p className="font-display text-xl tracking-wide">
+                {row.title}
+                {row.bestGuess ? " · Best guess" : ""}
+              </p>
+              {row.proposal ? (
+                <p className="mt-1">
+                  Proposed: {row.proposal.title}
+                  {row.proposal.year ? ` (${row.proposal.year})` : ""} · TMDB {row.proposal.tmdbId}
+                </p>
+              ) : (
+                <p className="mt-1 text-muted">No TMDB match.</p>
+              )}
+              {row.proposal ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-2"
+                  disabled={busy === row.id}
+                  onClick={() => void onApply(row.id, row.proposal as TmdbHit)}
+                >
+                  Use this match
+                </Button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       <form onSubmit={(event) => void onSave(event)} className="panel mt-8 space-y-4 bg-paper p-4 sm:p-6">
         <h2 className="font-display text-3xl tracking-wide">{form.id ? "Edit title" : "Add a title"}</h2>
@@ -208,13 +375,60 @@ function AdminMoviesPage() {
           Title
           <Input className="mt-1" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required />
         </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="button" variant="secondary" disabled={busy === "tmdb"} onClick={() => void onFind()}>
+            {busy === "tmdb" ? "Searching" : "Find on TMDB"}
+          </Button>
+          <p className="text-sm text-muted">A custom upload still wins over the TMDB poster.</p>
+        </div>
+        {hits.length > 0 ? (
+          <ul className="space-y-2">
+            {hits.map((hit) => (
+              <li key={hit.tmdbId}>
+                <button
+                  type="button"
+                  className="w-full border-4 border-ink bg-ivory px-3 py-2 text-left text-sm"
+                  onClick={() => void onPick(hit)}
+                >
+                  {hit.title}
+                  {hit.year ? ` (${hit.year})` : ""} · {hit.tmdbType} {hit.tmdbId}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <label className="block text-sm">
+          Overview
+          <textarea
+            className="mt-1 min-h-20 w-full border-4 border-ink bg-ivory px-3 py-2"
+            value={form.overview}
+            onChange={(event) => setForm({ ...form, overview: event.target.value })}
+          />
+        </label>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <label className="block text-sm">
+            TMDB id
+            <Input className="mt-1" value={form.tmdbId} onChange={(event) => setForm({ ...form, tmdbId: event.target.value })} />
+          </label>
+          <label className="block text-sm">
+            IMDb id
+            <Input className="mt-1" value={form.imdbId} onChange={(event) => setForm({ ...form, imdbId: event.target.value })} />
+          </label>
+          <label className="block text-sm">
+            TMDB poster path
+            <Input
+              className="mt-1"
+              value={form.posterPath}
+              onChange={(event) => setForm({ ...form, posterPath: event.target.value })}
+            />
+          </label>
+        </div>
         <label className="block text-sm">
           Wikipedia URL
           <Input
             className="mt-1"
             value={form.wikipediaUrl}
             onChange={(event) => setForm({ ...form, wikipediaUrl: event.target.value })}
-            required
           />
         </label>
         <label className="block text-sm">
@@ -324,6 +538,9 @@ function AdminMoviesPage() {
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" size="sm" variant="secondary" onClick={() => edit(item)}>
                     Edit
+                  </Button>
+                  <Button type="button" size="sm" variant="secondary" disabled={busy === item.id} onClick={() => void onRefresh(item.id)}>
+                    Refresh from TMDB
                   </Button>
                   <Button type="button" size="sm" variant="ghost" onClick={() => setPending(item)}>
                     Delete

@@ -113,6 +113,25 @@ describe("movies and tv", () => {
     assert.deepEqual(mediaAdminDecision({ signedIn: true, role: "admin" }), { ok: true });
   });
 
+  it("links the frame to TMDB and keeps Wikipedia and IMDb beside it", () => {
+    const entry = {
+      ...mediaCatalog[0]!,
+      tmdbId: 11,
+      tmdbType: "movie" as const,
+      imdbId: "tt0076759",
+      posterPath: "/star.jpg",
+      overview: "A long time ago.",
+    };
+    const html = renderMediaGrid([entry]);
+    assert.match(html, /href="https:\/\/www\.themoviedb\.org\/movie\/11"/);
+    assert.match(html, /href="https:\/\/en\.wikipedia\.org\/wiki\/Avengers%3A_Doomsday"/);
+    assert.match(html, />Wikipedia</);
+    assert.match(html, /href="https:\/\/www\.imdb\.com\/title\/tt0076759\/"/);
+    assert.match(html, /src="https:\/\/image\.tmdb\.org\/t\/p\/w342\/star\.jpg"/);
+    assert.match(html, /srcset="https:\/\/image\.tmdb\.org\/t\/p\/w185\/star\.jpg 185w/);
+    assert.match(html, /A long time ago\./);
+  });
+
   it("puts the newest episode mention first", () => {
     const movies = mediaByKind("movie");
     const first = movies[0];

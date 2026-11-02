@@ -207,6 +207,28 @@
     font-size: 0.85em;
     letter-spacing: 0.02em;
   }
+  .media-overview {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin: 0.35rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: var(--color-muted, #5c5346);
+  }
+  .media-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    margin: 0.35rem 0 0;
+    font-size: 0.75rem;
+  }
+  .media-extra {
+    color: var(--color-crimson);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
   .media-ratings {
     display: flex;
     flex-wrap: wrap;

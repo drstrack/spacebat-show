@@ -1,4 +1,5 @@
 import catalog from "../data/media.json" with { type: "json" };
+import { cleanImdbId, cleanPosterPath, imdbPageUrl, tmdbPageUrl, tmdbPoster } from "./tmdb.ts";
 
 export type MediaKind = "movie" | "tv";
 
@@ -56,6 +57,11 @@ export type MediaEntry = {
   width?: number;
   height?: number;
   ratings: MediaRatings;
+  tmdbId: number | null;
+  tmdbType: MediaKind | null;
+  imdbId: string | null;
+  overview: string | null;
+  posterPath: string | null;
 };
 
 export type MediaSort = "newest" | MediaHost;
@@ -121,6 +127,11 @@ function asCatalog(value: unknown): MediaEntry[] {
         width: typeof row.width === "number" ? row.width : undefined,
         height: typeof row.height === "number" ? row.height : undefined,
         ratings: readRatings(row.ratings),
+        tmdbId: typeof row.tmdb_id === "number" && row.tmdb_id > 0 ? row.tmdb_id : null,
+        tmdbType: row.tmdb_type === "movie" || row.tmdb_type === "tv" ? row.tmdb_type : null,
+        imdbId: cleanImdbId(row.imdb_id),
+        overview: typeof row.overview === "string" ? row.overview : null,
+        posterPath: cleanPosterPath(row.poster_path),
       },
     ];
   });
@@ -280,14 +291,86 @@ function ratingHtml(host: MediaHost, rating: MediaRating): string {
   return `<span class="media-rating">${name}: <span aria-label="${escapeHtml(label)}">${MEDIA_RATING_MARK[rating]}</span></span>`;
 }
 
+/** Custom upload beats a TMDB poster, which beats the local /media file. */
+export function mediaPicture(entry: Pick<MediaEntry, "image" | "image_kind" | "posterPath" | "width" | "height" | "title">): {
+  src: string;
+  srcset: string;
+  width?: number;
+  height?: number;
+  logo: boolean;
+  fallback: string;
+} | null {
+  const local = entry.image && !entry.image.startsWith("https://") ? mediaImageSrc(entry.image) : null;
+  const custom = entry.image?.startsWith("https://") ? entry.image : null;
+  if (custom) {
+    return {
+      src: custom,
+      srcset: "",
+      width: entry.width,
+      height: entry.height,
+      logo: entry.image_kind === "logo",
+      fallback: "",
+    };
+  }
+  const poster = tmdbPoster(entry.posterPath);
+  if (poster) {
+    return {
+      src: poster.src,
+      srcset: poster.srcset,
+      width: poster.width,
+      height: poster.height,
+      logo: false,
+      fallback: local ?? "",
+    };
+  }
+  if (!local) return null;
+  return {
+    src: local,
+    srcset: "",
+    width: entry.width,
+    height: entry.height,
+    logo: entry.image_kind === "logo",
+    fallback: "",
+  };
+}
+
+export function mediaPrimaryUrl(entry: Pick<MediaEntry, "tmdbId" | "tmdbType" | "wikipedia_url" | "imdbId">): string | null {
+  if (entry.tmdbId && entry.tmdbType) return tmdbPageUrl({ tmdbId: entry.tmdbId, tmdbType: entry.tmdbType });
+  if (entry.wikipedia_url) return entry.wikipedia_url;
+  return imdbPageUrl(entry.imdbId);
+}
+
+export function mediaSecondaryLinks(
+  entry: Pick<MediaEntry, "tmdbId" | "tmdbType" | "wikipedia_url" | "imdbId">,
+): { label: string; href: string }[] {
+  const primary = mediaPrimaryUrl(entry);
+  const links: { label: string; href: string }[] = [];
+  if (entry.tmdbId && entry.tmdbType) {
+    const href = tmdbPageUrl({ tmdbId: entry.tmdbId, tmdbType: entry.tmdbType });
+    if (href !== primary) links.push({ label: "TMDB", href });
+  }
+  if (entry.wikipedia_url && entry.wikipedia_url !== primary) {
+    links.push({ label: "Wikipedia", href: entry.wikipedia_url });
+  }
+  const imdb = imdbPageUrl(entry.imdbId);
+  if (imdb && imdb !== primary) links.push({ label: "IMDb", href: imdb });
+  return links;
+}
+
 export function renderMediaGrid(entries: readonly MediaEntry[]): string {
   return entries
     .map((entry) => {
-      const src = mediaImageSrc(entry.image);
-      const shot = src
-        ? `<div class="media-shot${entry.image_kind === "logo" ? " media-shot-logo" : ""}"><img class="media-shot-img" src="${escapeHtml(src)}" alt="${escapeHtml(altFor(entry))}"${
-            entry.width && entry.height ? ` width="${entry.width}" height="${entry.height}"` : ""
-          } loading="lazy" decoding="async" /></div>`
+      const picture = mediaPicture(entry);
+      const shot = picture
+        ? `<div class="media-shot${picture.logo ? " media-shot-logo" : ""}"><img class="media-shot-img" src="${escapeHtml(picture.src)}"${
+            picture.srcset ? ` srcset="${escapeHtml(picture.srcset)}" sizes="(min-width: 1024px) 220px, 45vw"` : ""
+          } alt="${escapeHtml(altFor(entry))}"${
+            picture.width && picture.height ? ` width="${picture.width}" height="${picture.height}"` : ""
+          }${picture.fallback ? ` data-fallback="${escapeHtml(picture.fallback)}"` : ""} loading="lazy" decoding="async"${
+            picture.fallback
+              ? ` onerror="if(this.dataset.fallback){this.onerror=null;this.removeAttribute('srcset');this.src=this.dataset.fallback}"`
+              : ""
+          } /></div>`
         : `<div class="media-shot media-shot-title"><p class="media-title-card">${escapeHtml(entry.title)}</p></div>`;
       const year = entry.year ? ` <span class="media-year">(${escapeHtml(entry.year)})</span>` : "";
       const credit = entry.image_credit
@@ -305,7 +388,22 @@ export function renderMediaGrid(entries: readonly MediaEntry[]): string {
         ? `<p class="media-guess">Best guess.${entry.best_guess_reason ? ` ${escapeHtml(entry.best_guess_reason)}` : ""}</p>`
         : "";
       const ratings = `<p class="media-ratings">${ratingHtml("john", entry.ratings.john)} ${ratingHtml("dan", entry.ratings.dan)}</p>`;
-      return `<article class="media-card" data-media-id="${escapeHtml(entry.id)}"><a class="comic-frame-link" href="${escapeHtml(entry.wikipedia_url)}" target="_blank" rel="noopener noreferrer"><figure class="comic-panel">${shot}<figcaption class="comic-caption">${escapeHtml(entry.title)}${year}</figcaption></figure></a>${ratings}${credit}<p class="media-episodes">${episodes}</p>${guess}</article>`;
+      const overview = entry.overview
+        ? `<p class="media-overview">${escapeHtml(entry.overview)}</p>`
+        : "";
+      const secondary = mediaSecondaryLinks(entry)
+        .map(
+          (link) =>
+            `<a class="media-extra" href="${escapeHtml(link.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link.label)}</a>`,
+        )
+        .join("");
+      const extras = secondary ? `<p class="media-links">${secondary}</p>` : "";
+      const primary = mediaPrimaryUrl(entry);
+      const frame = `<figure class="comic-panel">${shot}<figcaption class="comic-caption">${escapeHtml(entry.title)}${year}</figcaption></figure>`;
+      const linked = primary
+        ? `<a class="comic-frame-link" href="${escapeHtml(primary)}" target="_blank" rel="noopener noreferrer">${frame}</a>`
+        : frame;
+      return `<article class="media-card" data-media-id="${escapeHtml(entry.id)}">${linked}${ratings}${credit}${overview}${extras}<p class="media-episodes">${episodes}</p>${guess}</article>`;
     })
     .join("");
 }
@@ -326,6 +424,11 @@ export type MediaDraft = {
   bestGuess: boolean;
   bestGuessReason: string | null;
   episodes: MediaEpisode[];
+  tmdbId: number | null;
+  tmdbType: MediaKind | null;
+  imdbId: string | null;
+  overview: string | null;
+  posterPath: string | null;
 };
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -401,15 +504,26 @@ export function parseMediaDraft(input: unknown): MediaDraft | { error: string } 
   if (typeof year !== "string") return year;
   const wikipedia = cleanText(row.wikipediaUrl, 500);
   if (typeof wikipedia !== "string") return wikipedia;
-  let wiki: URL;
-  try {
-    wiki = new URL(wikipedia);
-  } catch {
-    return { error: "The Wikipedia link needs to be a Wikipedia URL." };
+  let wikipediaUrl = "";
+  if (wikipedia) {
+    let wiki: URL;
+    try {
+      wiki = new URL(wikipedia);
+    } catch {
+      return { error: "The Wikipedia link needs to be a Wikipedia URL." };
+    }
+    if (wiki.protocol !== "https:" || !/(^|\.)wikipedia\.org$/i.test(wiki.hostname)) {
+      return { error: "The Wikipedia link needs to be a Wikipedia URL." };
+    }
+    wikipediaUrl = wiki.toString();
   }
-  if (wiki.protocol !== "https:" || !/(^|\.)wikipedia\.org$/i.test(wiki.hostname)) {
-    return { error: "The Wikipedia link needs to be a Wikipedia URL." };
-  }
+  const overview = cleanText(row.overview, 2000);
+  if (typeof overview !== "string") return overview;
+  const tmdbId =
+    typeof row.tmdbId === "number" && Number.isInteger(row.tmdbId) && row.tmdbId > 0 ? row.tmdbId : null;
+  const tmdbType = row.tmdbType === "movie" || row.tmdbType === "tv" ? row.tmdbType : null;
+  const posterPath = cleanPosterPath(row.posterPath);
+  const imdbId = cleanImdbId(row.imdbId);
   const imageText = cleanText(row.image, 500);
   if (typeof imageText !== "string") return imageText;
   let image: string | null = imageText || null;
@@ -445,13 +559,18 @@ export function parseMediaDraft(input: unknown): MediaDraft | { error: string } 
     kind: row.kind,
     title,
     year,
-    wikipediaUrl: wiki.toString(),
+    wikipediaUrl,
     image,
     imageCredit: credit || null,
     imageKind: image ? imageKind ?? "poster" : null,
     bestGuess: row.bestGuess === true,
     bestGuessReason: row.bestGuess === true && reason ? reason : null,
     episodes,
+    tmdbId: tmdbId && tmdbType ? tmdbId : null,
+    tmdbType: tmdbId && tmdbType ? tmdbType : null,
+    imdbId,
+    overview: overview || null,
+    posterPath,
   };
 }
 
