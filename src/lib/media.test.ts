@@ -17,6 +17,7 @@ import {
   idsForRatingView,
   nextHostRating,
   orderForRater,
+  ratingViewCount,
   ratingWrite,
   renderMediaGrid,
   renderMediaTabs,
@@ -284,6 +285,47 @@ describe("movies and tv", () => {
     assert.deepEqual(idsForRatingView(saved, "dan", "unrated"), ["c"]);
     assert.deepEqual(idsForRatingView(saved, "dan", "rated"), ["a", "b"]);
     assert.equal(idsForRatingView(saved, "dan", "all").length, 3);
+  });
+
+  it("keeps haven't seen it out of the rated bucket", () => {
+    const sample = (id: string, dan: MediaRatingChoice): MediaEntry => ({
+      ...mediaCatalog[0]!,
+      id,
+      title: id,
+      kind: id === "show" ? "tv" : "movie",
+      ratings: { john: "unrated", dan },
+    });
+    const entries = [
+      sample("fresh", "unrated"),
+      sample("loved", "two_up"),
+      sample("fine", "ok"),
+      sample("skip", "not_seen"),
+      sample("show", "not_seen"),
+    ];
+    assert.deepEqual(idsForRatingView(entries, "dan", "unrated"), ["fresh"]);
+    assert.deepEqual(idsForRatingView(entries, "dan", "rated"), ["loved", "fine"]);
+    assert.deepEqual(idsForRatingView(entries, "dan", "not_seen"), ["skip", "show"]);
+    assert.equal(idsForRatingView(entries, "dan", "all").length, 5);
+    assert.equal(ratingViewCount(entries, "dan", "unrated"), 1);
+    assert.equal(ratingViewCount(entries, "dan", "rated"), 2);
+    assert.equal(ratingViewCount(entries, "dan", "not_seen"), 2);
+    assert.equal(ratingViewCount(entries, "dan", "all"), 5);
+    assert.equal(
+      ratingViewCount(entries, "dan", "unrated") +
+        ratingViewCount(entries, "dan", "rated") +
+        ratingViewCount(entries, "dan", "not_seen"),
+      entries.length,
+    );
+    const visible = idsForRatingView(entries, "dan", "unrated");
+    const saved = entries.map((entry) =>
+      entry.id === "fresh" ? { ...entry, ratings: { ...entry.ratings, dan: "not_seen" as const } } : entry,
+    );
+    assert.deepEqual(
+      holdVisibleIds(visible, saved).map((entry) => entry.id),
+      ["fresh"],
+    );
+    assert.deepEqual(idsForRatingView(saved, "dan", "not_seen"), ["fresh", "skip", "show"]);
+    assert.deepEqual(idsForRatingView(saved, "dan", "rated"), ["loved", "fine"]);
   });
 
   it("keeps a cycled rating pending until it is written", () => {

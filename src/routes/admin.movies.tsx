@@ -16,7 +16,7 @@ import {
   mediaPicture,
   nextHostRating,
   orderForRater,
-  unratedCount,
+  ratingViewCount,
   type RatingView,
   type MediaEntry,
   type MediaHost,
@@ -469,12 +469,13 @@ function AdminMoviesPage() {
       </p>
       {host ? (
         <div className="mt-4 flex flex-col gap-3">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="group" aria-label="Which titles to show">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4" role="group" aria-label="Which titles to show">
             {(
               [
-                ["unrated", `Not rated yet (${unratedCount(data.items, host)})`],
-                ["rated", `Rated (${data.items.length - unratedCount(data.items, host)})`],
-                ["all", `All (${data.items.length})`],
+                ["unrated", `Not rated yet (${ratingViewCount(data.items, host, "unrated")})`],
+                ["rated", `Rated (${ratingViewCount(data.items, host, "rated")})`],
+                ["not_seen", `Haven't seen it (${ratingViewCount(data.items, host, "not_seen")})`],
+                ["all", `All (${ratingViewCount(data.items, host, "all")})`],
               ] as const
             ).map(([view, label]) => (
               <button
@@ -482,7 +483,7 @@ function AdminMoviesPage() {
                 type="button"
                 data-rating-view={view}
                 aria-pressed={ratingView === view}
-                className={`min-h-11 border-4 border-ink px-3 font-display text-xl tracking-wide ${
+                className={`min-h-11 border-4 border-ink px-2 text-center font-display text-lg leading-tight tracking-wide sm:text-xl ${
                   ratingView === view ? "bg-crimson text-crimson-fg" : "bg-paper"
                 }`}
                 onClick={() => chooseView(view)}

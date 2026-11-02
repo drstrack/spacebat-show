@@ -240,20 +240,34 @@ export function ratingWrite(
   return { action: "upsert", rating: choice };
 }
 
-export function unratedCount(entries: readonly MediaEntry[], host: MediaHost): number {
-  return entries.filter((entry) => entry.ratings[host] === "unrated").length;
+export type RatingView = "unrated" | "rated" | "not_seen" | "all";
+
+/** Saved thumbs and OK are rated. Haven't seen it is its own bucket. */
+export function ratingBucket(choice: MediaRatingChoice): Exclude<RatingView, "all"> {
+  if (choice === "unrated" || choice === "not_seen") return choice;
+  return "rated";
 }
 
-export type RatingView = "unrated" | "rated" | "all";
+export function ratingViewCount(
+  entries: readonly MediaEntry[],
+  host: MediaHost,
+  view: RatingView,
+): number {
+  if (view === "all") return entries.length;
+  return entries.filter((entry) => ratingBucket(entry.ratings[host]) === view).length;
+}
+
+export function unratedCount(entries: readonly MediaEntry[], host: MediaHost): number {
+  return ratingViewCount(entries, host, "unrated");
+}
 
 export function idsForRatingView(
   entries: readonly MediaEntry[],
   host: MediaHost,
   view: RatingView,
 ): string[] {
-  return entries
-    .filter((entry) => view === "all" || (entry.ratings[host] === "unrated") === (view === "unrated"))
-    .map((entry) => entry.id);
+  if (view === "all") return entries.map((entry) => entry.id);
+  return entries.filter((entry) => ratingBucket(entry.ratings[host]) === view).map((entry) => entry.id);
 }
 
 /** Keep a captured view even after a title in it is saved. */
