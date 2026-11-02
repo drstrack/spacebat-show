@@ -8,7 +8,9 @@ import {
   mediaByKind,
   mediaCatalog,
   mediaCounts,
+  mediaPrimaryUrl,
   mediaRatingDecision,
+  mediaSecondaryLinks,
   mediaTabLabel,
   applyStableOrder,
   holdVisibleIds,
@@ -26,15 +28,15 @@ import {
 describe("movies and tv", () => {
   it("counts the tabs from the catalog", () => {
     const counts = mediaCounts();
-    assert.equal(counts.movies, 26);
+    assert.equal(counts.movies, 27);
     assert.equal(counts.tv, 17);
-    assert.equal(mediaCatalog.length, 43);
-    assert.equal(mediaTabLabel("movies"), "Movies (26)");
+    assert.equal(mediaCatalog.length, 44);
+    assert.equal(mediaTabLabel("movies"), "Movies (27)");
     assert.equal(mediaTabLabel("tv"), "TV (17)");
     const tabs = renderMediaTabs();
     assert.match(tabs, /role="tablist"/);
     assert.match(tabs, /role="tab"/);
-    assert.match(tabs, /Movies \(26\)/);
+    assert.match(tabs, /Movies \(27\)/);
     assert.match(tabs, /TV \(17\)/);
     assert.match(tabs, /aria-selected="true"/);
   });
@@ -49,7 +51,30 @@ describe("movies and tv", () => {
     }
     assert.match(html, /media-shot-logo/);
     assert.match(html, /media-title-card/);
-    assert.equal(html.split('target="_blank"').length - 1, mediaCatalog.length);
+    const externalLinks = mediaCatalog.reduce(
+      (sum, entry) => sum + (mediaPrimaryUrl(entry) ? 1 : 0) + mediaSecondaryLinks(entry).length,
+      0,
+    );
+    assert.equal(html.split('target="_blank"').length - 1, externalLinks);
+  });
+
+  it("includes 2001: A Space Odyssey with the TMDB poster", () => {
+    const entry = mediaCatalog.find((item) => item.id === "2001-a-space-odyssey");
+    assert.ok(entry);
+    assert.equal(entry.kind, "movie");
+    assert.equal(entry.title, "2001: A Space Odyssey");
+    assert.equal(entry.year, "1968");
+    assert.equal(entry.tmdbId, 62);
+    assert.equal(entry.tmdbType, "movie");
+    assert.equal(entry.imdbId, "tt0062622");
+    assert.equal(entry.posterPath, "/ve72VxNqjGM69Uky4WTo2bK6rfq.jpg");
+    assert.match(entry.overview ?? "", /HAL 9000/);
+    assert.equal(entry.ratings.dan, "unrated");
+    assert.equal(entry.ratings.john, "unrated");
+    const html = renderMediaGrid([entry]);
+    assert.match(html, /src="https:\/\/image\.tmdb\.org\/t\/p\/w342\/ve72VxNqjGM69Uky4WTo2bK6rfq\.jpg"/);
+    assert.match(html, /href="https:\/\/www\.themoviedb\.org\/movie\/62"/);
+    assert.match(html, /aria-label="Not rated yet"/);
   });
 
   it("shows both host ratings with accessible labels", () => {
