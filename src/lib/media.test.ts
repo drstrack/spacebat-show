@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  MEDIA_HOST_EMAILS,
+  MEDIA_RATING_LABEL,
+  mediaAdminDecision,
   mediaByKind,
   mediaCatalog,
   mediaCounts,
+  mediaRatingDecision,
   mediaTabLabel,
   renderMediaGrid,
   renderMediaTabs,
@@ -36,6 +40,77 @@ describe("movies and tv", () => {
     assert.match(html, /media-shot-logo/);
     assert.match(html, /media-title-card/);
     assert.equal(html.split('target="_blank"').length - 1, mediaCatalog.length);
+  });
+
+  it("shows both host ratings with accessible labels", () => {
+    const entry = {
+      ...mediaCatalog[0]!,
+      ratings: { john: "two_up" as const, dan: "one_down" as const },
+    };
+    const html = renderMediaGrid([entry]);
+    assert.match(html, /aria-label="Two thumbs up"/);
+    assert.match(html, /aria-label="One thumb down"/);
+    assert.match(html, /John:/);
+    assert.match(html, /Dan:/);
+    assert.equal(MEDIA_RATING_LABEL.not_seen, "Haven't seen it");
+    const unseen = renderMediaGrid([mediaCatalog[1]!]);
+    assert.match(unseen, /aria-label="Haven&#39;t seen it"/);
+  });
+
+  it("lets only John set John's rating and only Dan set Dan's", () => {
+    const john = { signedIn: true, role: "admin", email: MEDIA_HOST_EMAILS.john };
+    const dan = { signedIn: true, role: "admin", email: MEDIA_HOST_EMAILS.dan };
+    const other = { signedIn: true, role: "admin", email: "spacebatshow@gmail.com" };
+    const listener = { signedIn: true, role: "listener", email: MEDIA_HOST_EMAILS.john };
+    const signedOut = { signedIn: false, role: "admin", email: MEDIA_HOST_EMAILS.john };
+
+    assert.deepEqual(mediaRatingDecision({ ...john, host: "john" }), { ok: true });
+    assert.deepEqual(mediaRatingDecision({ ...dan, host: "dan" }), { ok: true });
+    assert.deepEqual(mediaRatingDecision({ ...john, host: "dan" }), {
+      ok: false,
+      status: 403,
+      error: "You can only set your own rating.",
+    });
+    assert.deepEqual(mediaRatingDecision({ ...dan, host: "john" }), {
+      ok: false,
+      status: 403,
+      error: "You can only set your own rating.",
+    });
+    assert.equal(mediaRatingDecision({ ...john, email: "Jack2Ryan@aim.com", host: "john" }).ok, true);
+    assert.deepEqual(mediaRatingDecision({ ...other, host: "john" }), {
+      ok: false,
+      status: 403,
+      error: "You can only set your own rating.",
+    });
+    assert.deepEqual(mediaRatingDecision({ ...other, host: "dan" }), {
+      ok: false,
+      status: 403,
+      error: "You can only set your own rating.",
+    });
+    assert.deepEqual(mediaRatingDecision({ ...listener, host: "john" }), {
+      ok: false,
+      status: 403,
+      error: "Crew only.",
+    });
+    assert.deepEqual(mediaRatingDecision({ ...signedOut, host: "john" }), {
+      ok: false,
+      status: 401,
+      error: "Unauthorized",
+    });
+  });
+
+  it("allows create, edit, and delete only for an admin", () => {
+    const refused = [
+      mediaAdminDecision({ signedIn: false, role: "admin" }),
+      mediaAdminDecision({ signedIn: true, role: "listener" }),
+      mediaAdminDecision({ signedIn: true, role: null }),
+    ];
+    assert.deepEqual(refused, [
+      { ok: false, status: 401, error: "Unauthorized" },
+      { ok: false, status: 403, error: "Crew only." },
+      { ok: false, status: 403, error: "Crew only." },
+    ]);
+    assert.deepEqual(mediaAdminDecision({ signedIn: true, role: "admin" }), { ok: true });
   });
 
   it("puts the newest episode mention first", () => {

@@ -193,4 +193,78 @@ describe("sqlite migrations", () => {
       client.close();
     }
   });
+
+  it("seeds 43 movies and shows once and does not recreate a deleted title", async () => {
+    const client = memory();
+    try {
+      const files = migrationFiles();
+      const media = files.find((file) => file.name === "0012_media.sql");
+      assert.ok(media);
+      assert.doesNotMatch(media.sql, /\b(user|session|account)\b/i);
+      assert.doesNotMatch(media.sql, /drop\s+table/i);
+      await bootstrapSqliteSchema(client, files);
+      const count = await client.execute("select count(*) as n from media_item");
+      assert.equal(Number(count.rows[0]?.n), 43);
+      const kinds = await client.execute(
+        "select kind, count(*) as n from media_item group by kind order by kind",
+      );
+      assert.equal(Number(kinds.rows.find((row) => row.kind === "movie")?.n), 26);
+      assert.equal(Number(kinds.rows.find((row) => row.kind === "tv")?.n), 17);
+      const marker = await client.execute("select id, note from media_seed");
+      assert.equal(marker.rows.length, 1);
+      assert.equal(marker.rows[0]?.note, "catalog-43");
+      for (const table of ["user", "session", "account"]) {
+        const info = await client.execute(`PRAGMA table_info(${table})`);
+        assert.ok(info.rows.length > 0, table);
+      }
+
+      await client.execute("delete from media_item where id = 'alien'");
+      await client.execute({
+        sql: "delete from _migrations where name = ?",
+        args: ["0012_media.sql"],
+      });
+      await bootstrapSqliteSchema(client, files);
+      const again = await client.execute("select count(*) as n from media_item");
+      assert.equal(Number(again.rows[0]?.n), 42);
+      const alien = await client.execute("select count(*) as n from media_item where id = 'alien'");
+      assert.equal(Number(alien.rows[0]?.n), 0);
+      const markerAgain = await client.execute("select count(*) as n from media_seed");
+      assert.equal(Number(markerAgain.rows[0]?.n), 1);
+
+      await bootstrapSqliteSchema(client, files);
+      const third = await client.execute("select count(*) as n from media_item");
+      assert.equal(Number(third.rows[0]?.n), 42);
+    } finally {
+      client.close();
+    }
+  });
+
+  it("seeds 43 titles on the preview database and does not insert them twice", async () => {
+    const { PGlite } = await import("@electric-sql/pglite");
+    const pg = new PGlite();
+    try {
+      await pg.waitReady;
+      const media = migrationFiles().find((file) => file.name === "0012_media.sql");
+      assert.ok(media);
+      await pg.exec(media.sql);
+      const count = await pg.query<{ n: number }>("select count(*)::int as n from media_item");
+      assert.equal(count.rows[0]?.n, 43);
+      await pg.exec(media.sql);
+      const again = await pg.query<{ n: number }>("select count(*)::int as n from media_item");
+      assert.equal(again.rows[0]?.n, 43);
+      await pg.query(
+        "insert into media_rating (media_item_id, host, rating, updated_at) values ('alien', 'john', 'two_up', 1)",
+      );
+      await pg.exec("delete from media_item where id = 'alien'");
+      const rating = await pg.query<{ n: number }>(
+        "select count(*)::int as n from media_rating where media_item_id = 'alien'",
+      );
+      assert.equal(rating.rows[0]?.n, 0);
+      await pg.exec(media.sql);
+      const after = await pg.query<{ n: number }>("select count(*)::int as n from media_item");
+      assert.equal(after.rows[0]?.n, 42);
+    } finally {
+      await pg.close();
+    }
+  });
 });
