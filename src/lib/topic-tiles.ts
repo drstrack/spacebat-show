@@ -9,8 +9,8 @@ export const topicTiles = [
   {
     label: "Movies",
     image: "/images/ep-movies.webp",
-    href: "/podcast#episodes",
-    accessibleName: "Movies: see episodes",
+    href: "/movies",
+    accessibleName: "Movies: see movies & TV we've discussed",
   },
   {
     label: "Tech",
@@ -38,9 +38,10 @@ export type TopicTile = (typeof topicTiles)[number];
 export const PODCAST_LISTEN = "/listen" as const;
 
 export function topicTileTarget(tile: TopicTile): {
-  to: "/comic/collection" | "/podcast";
+  to: "/comic/collection" | "/podcast" | "/movies";
   hash?: "episodes";
 } {
   if (tile.href === "/podcast#episodes") return { to: "/podcast", hash: "episodes" };
+  if (tile.href === "/movies") return { to: "/movies" };
   return { to: "/comic/collection" };
 }

@@ -67,7 +67,10 @@ export async function getSessionUser(
   }
   const session = await auth.api.getSession({ headers });
   if (!session?.user) return null;
-  return { id: session.user.id, email: session.user.email ?? null };
+  const email = session.user.email ?? null;
+  const { grantPreviewHostAdmin } = await import("../preview-host-admin.server");
+  await grantPreviewHostAdmin(session.user.id, email);
+  return { id: session.user.id, email };
 }
 
 /**
