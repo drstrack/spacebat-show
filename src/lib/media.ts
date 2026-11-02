@@ -216,6 +216,13 @@ export function ratingRank(rating: MediaRatingChoice): number {
   return index === -1 ? MEDIA_RATING_CYCLE.length : index;
 }
 
+export function formatRating(choice: MediaRatingChoice): string {
+  if (choice === "unrated") return "Not rated yet";
+  const mark = MEDIA_RATING_MARK[choice];
+  const label = MEDIA_RATING_LABEL[choice];
+  return mark === label ? label : `${mark} ${label}`;
+}
+
 export function nextHostRating(current: MediaRatingChoice): MediaRatingChoice {
   const index = MEDIA_RATING_CYCLE.indexOf(current);
   const next = MEDIA_RATING_CYCLE[(index + 1) % MEDIA_RATING_CYCLE.length];
@@ -242,6 +249,19 @@ export function orderForRater(entries: readonly MediaEntry[], host: MediaHost | 
   const unrated = entries.filter((entry) => entry.ratings[host] === "unrated");
   const rated = entries.filter((entry) => entry.ratings[host] !== "unrated");
   return [...byTitle(unrated), ...byTitle(rated)];
+}
+
+/** Keep the ids from the last sort. A rating change does not move a card. */
+export function applyStableOrder(ids: readonly string[], entries: readonly MediaEntry[]): MediaEntry[] {
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const ordered = ids.flatMap((id) => {
+    const entry = byId.get(id);
+    return entry ? [entry] : [];
+  });
+  for (const entry of entries) {
+    if (!ids.includes(entry.id)) ordered.push(entry);
+  }
+  return ordered;
 }
 
 /** Newest episode mention first, unless a host rating is requested. Ties are A to Z. */

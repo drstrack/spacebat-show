@@ -9,8 +9,9 @@ import { classifyUpload } from "@/lib/chat/uploads";
 import {
   episodeLines,
   MEDIA_RATING_LABEL,
-  MEDIA_RATING_MARK,
+  formatRating,
   mediaBlobPathname,
+  applyStableOrder,
   mediaPicture,
   nextHostRating,
   orderForRater,
@@ -73,6 +74,8 @@ function AdminMoviesPage() {
   const [ratingOverride, setRatingOverride] = useState<Record<string, MediaRatingChoice>>({});
   const [ratingStatus, setRatingStatus] = useState<Record<string, "saving" | "saved" | "error">>({});
   const ratingTimers = useRef<Map<string, number>>(new Map());
+  const pinnedIds = useRef<string[] | null>(null);
+  const [orderVersion, setOrderVersion] = useState(0);
 
   if (!data.canManage) {
     return (
@@ -280,6 +283,14 @@ function AdminMoviesPage() {
     return ratingOverride[`${who}:${item.id}`] ?? item.ratings[who];
   }
 
+  function refreshOrder() {
+    const viewed = data.items.map((item) =>
+      host ? { ...item, ratings: { ...item.ratings, [host]: shownRating(item, host) } } : item,
+    );
+    pinnedIds.current = orderForRater(viewed, host).map((item) => item.id);
+    setOrderVersion((version) => version + 1);
+  }
+
   function cycleRating(item: MediaEntry) {
     if (!host) return;
     const current = shownRating(item, host);
@@ -329,6 +340,18 @@ function AdminMoviesPage() {
     }
   }
 
+  if (pinnedIds.current === null && data.items.length > 0) {
+    pinnedIds.current = orderForRater(data.items, host).map((item) => item.id);
+  }
+  const viewedItems = data.items.map((item) =>
+    host ? { ...item, ratings: { ...item.ratings, [host]: shownRating(item, host) } } : item,
+  );
+  const cards = applyStableOrder(
+    pinnedIds.current ?? orderForRater(data.items, host).map((item) => item.id),
+    viewedItems,
+  );
+  void orderVersion;
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
       <p className="caption-box">Back end</p>
@@ -364,16 +387,21 @@ function AdminMoviesPage() {
         </Button>
       </p>
       {host ? (
-        <p className="mt-4 font-display text-3xl tracking-wide">
-          {unratedCount(
-            data.items.map((item) => ({
-              ...item,
-              ratings: { ...item.ratings, [host]: shownRating(item, host) },
-            })),
-            host,
-          )}{" "}
-          left to rate
-        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <p className="font-display text-3xl tracking-wide">
+            {unratedCount(
+              data.items.map((item) => ({
+                ...item,
+                ratings: { ...item.ratings, [host]: shownRating(item, host) },
+              })),
+              host,
+            )}{" "}
+            left to rate
+          </p>
+          <Button type="button" variant="secondary" onClick={() => refreshOrder()}>
+            Refresh order
+          </Button>
+        </div>
       ) : null}
       {tmdbNote ? <p className="mt-3 text-sm text-crimson">{tmdbNote}</p> : null}
       {proposals ? (
@@ -571,6 +599,18 @@ function AdminMoviesPage() {
               Refresh from TMDB
             </Button>
           ) : null}
+          {form.id ? (
+            <Button
+              type="button"
+              className="bg-crimson text-crimson-fg"
+              onClick={() => {
+                const item = data.items.find((row) => row.id === form.id);
+                if (item) setPending(item);
+              }}
+            >
+              Delete title
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="ghost"
@@ -586,27 +626,23 @@ function AdminMoviesPage() {
       </div>
       ) : null}
 
-      <ul className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {orderForRater(
-          data.items.map((item) =>
-            host
-              ? { ...item, ratings: { ...item.ratings, [host]: shownRating(item, host) } }
-              : item,
-          ),
-          host,
-        ).map((item) => {
+      <ul className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" data-card-order={cards.map((item) => item.id).join(" ")}>
+        {cards.map((item) => {
           const picture = mediaPicture(item);
           const mine = host ? item.ratings[host] : null;
-          const label = mine ? MEDIA_RATING_LABEL[mine] : "";
-          const body = (
-            <>
+          const you = host === "dan" ? "Dan" : "John";
+          const otherHost = host === "dan" ? "john" : "dan";
+          const otherName = host === "dan" ? "John" : "Dan";
+          const overlay = mine === "unrated" || mine == null ? "Not rated yet, tap to rate" : formatRating(mine);
+          const poster = (
+            <div className="relative">
               {picture ? (
                 <img
                   src={picture.src}
                   alt=""
                   width={picture.width}
                   height={picture.height}
-                  className={`aspect-[2/3] w-full bg-paper object-contain ${picture.logo ? "bg-crimson" : ""}`}
+                  className={`aspect-[2/3] w-full object-contain ${picture.logo ? "bg-crimson" : "bg-paper"}`}
                   loading="lazy"
                 />
               ) : (
@@ -614,56 +650,53 @@ function AdminMoviesPage() {
                   {item.title}
                 </div>
               )}
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-ink/75 px-3 text-center font-display text-2xl leading-tight tracking-wide text-paper sm:text-3xl">
+                {overlay}
+              </span>
+            </div>
+          );
+          return (
+            <li key={item.id} data-media-id={item.id} className="border-4 border-ink bg-paper shadow-[4px_4px_0_0_var(--color-ink)]">
+              {host && mine ? (
+                <button
+                  type="button"
+                  data-rating={mine}
+                  className="block min-h-11 w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson"
+                  aria-label={`${item.title}. Your rating: ${MEDIA_RATING_LABEL[mine]}. Activate to change it.`}
+                  onClick={() => cycleRating(data.items.find((row) => row.id === item.id) ?? item)}
+                >
+                  {poster}
+                </button>
+              ) : (
+                poster
+              )}
               <div className="space-y-1 p-2">
                 <p className="font-display text-xl leading-none tracking-wide">{item.title}</p>
                 <p className="text-xs uppercase tracking-[0.12em] text-muted">
                   {item.kind === "tv" ? "TV" : "Movie"}
                   {item.year ? ` · ${item.year}` : ""}
                 </p>
+                {host && mine ? <p className="text-sm">You ({you}): {formatRating(mine)}</p> : null}
                 <p className="text-sm">
-                  John {MEDIA_RATING_MARK[item.ratings.john]} · Dan {MEDIA_RATING_MARK[item.ratings.dan]}
+                  {host ? otherName : "John"}: {formatRating(host ? item.ratings[otherHost] : item.ratings.john)}
                 </p>
-                {mine ? (
-                  <p className="inline-flex min-h-11 items-center border-4 border-ink bg-caption px-2 font-display text-lg tracking-wide">
-                    {MEDIA_RATING_MARK[mine]}
-                  </p>
-                ) : null}
-                {ratingStatus[item.id] === "saving" ? <p className="text-xs text-muted">Saving</p> : null}
-                {ratingStatus[item.id] === "saved" ? <p className="text-xs text-muted">Saved</p> : null}
-                {ratingStatus[item.id] === "error" ? <p className="text-xs text-crimson">Couldn't save</p> : null}
-              </div>
-            </>
-          );
-          return (
-            <li key={item.id} className="relative border-4 border-ink bg-paper shadow-[4px_4px_0_0_var(--color-ink)]">
-              {host ? (
+                {!host ? <p className="text-sm">Dan: {formatRating(item.ratings.dan)}</p> : null}
+                <p className="min-h-5 text-xs" data-save-state={ratingStatus[item.id] ?? "idle"}>
+                  {ratingStatus[item.id] === "saving"
+                    ? "Saving…"
+                    : ratingStatus[item.id] === "saved"
+                      ? "Saved ✓"
+                      : ratingStatus[item.id] === "error"
+                        ? "Couldn't save"
+                        : ""}
+                </p>
                 <button
                   type="button"
-                  className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson"
-                  aria-label={`${item.title}. Your rating: ${label}. Activate to change it.`}
-                  onClick={() => cycleRating(data.items.find((row) => row.id === item.id) ?? item)}
-                >
-                  {body}
-                </button>
-              ) : (
-                <div>{body}</div>
-              )}
-              <div className="absolute right-1 top-1 flex gap-1">
-                <button
-                  type="button"
-                  className="min-h-11 min-w-11 border-4 border-ink bg-paper px-2 text-sm"
+                  className="min-h-11 border-4 border-ink bg-paper px-3 text-sm"
                   aria-label={`Edit ${item.title}`}
                   onClick={() => edit(data.items.find((row) => row.id === item.id) ?? item)}
                 >
                   Edit
-                </button>
-                <button
-                  type="button"
-                  className="min-h-11 min-w-11 border-4 border-ink bg-paper px-2 text-sm"
-                  aria-label={`Delete ${item.title}`}
-                  onClick={() => setPending(data.items.find((row) => row.id === item.id) ?? item)}
-                >
-                  Delete
                 </button>
               </div>
             </li>

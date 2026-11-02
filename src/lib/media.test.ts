@@ -10,6 +10,7 @@ import {
   mediaCounts,
   mediaRatingDecision,
   mediaTabLabel,
+  applyStableOrder,
   nextHostRating,
   orderForRater,
   ratingWrite,
@@ -178,6 +179,33 @@ describe("movies and tv", () => {
     assert.deepEqual(
       orderForRater(entries, null).map((entry) => entry.title),
       ["Alpha", "Middle", "Zed"],
+    );
+  });
+
+  it("does not move a card when its rating changes until the order is refreshed", () => {
+    const sample = (id: string, title: string, dan: MediaRatingChoice): MediaEntry => ({
+      ...mediaCatalog[0]!,
+      id,
+      title,
+      ratings: { john: "unrated", dan },
+    });
+    const start = [
+      sample("z", "Zed", "unrated"),
+      sample("a", "Alpha", "unrated"),
+      sample("m", "Middle", "two_up"),
+    ];
+    const pinned = orderForRater(start, "dan").map((entry) => entry.id);
+    assert.deepEqual(pinned, ["a", "z", "m"]);
+    const tapped = start.map((entry) =>
+      entry.id === "a" ? { ...entry, ratings: { ...entry.ratings, dan: "two_up" as const } } : entry,
+    );
+    assert.deepEqual(
+      applyStableOrder(pinned, tapped).map((entry) => entry.id),
+      ["a", "z", "m"],
+    );
+    assert.deepEqual(
+      orderForRater(tapped, "dan").map((entry) => entry.id),
+      ["z", "a", "m"],
     );
   });
 
