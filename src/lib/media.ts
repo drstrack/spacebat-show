@@ -104,7 +104,10 @@ function asCatalog(value: unknown): MediaEntry[] {
     const row = item as Record<string, unknown>;
     if (row.kind !== "movie" && row.kind !== "tv") return [];
     if (typeof row.id !== "string" || typeof row.title !== "string") return [];
-    if (typeof row.wikipedia_url !== "string" || !row.wikipedia_url.startsWith("https://")) return [];
+    const tmdbId = typeof row.tmdb_id === "number" && row.tmdb_id > 0 ? row.tmdb_id : null;
+    const wikipedia =
+      typeof row.wikipedia_url === "string" && row.wikipedia_url.startsWith("https://") ? row.wikipedia_url : "";
+    if (!wikipedia && tmdbId == null) return [];
     const episodes = Array.isArray(row.episodes)
       ? row.episodes.flatMap((episode) => {
           if (!episode || typeof episode !== "object") return [];
@@ -125,7 +128,7 @@ function asCatalog(value: unknown): MediaEntry[] {
         title: row.title,
         year: typeof row.year === "string" ? row.year : "",
         episodes,
-        wikipedia_url: row.wikipedia_url,
+        wikipedia_url: wikipedia,
         image,
         image_credit: typeof row.image_credit === "string" ? row.image_credit : null,
         image_kind: image ? kind : null,
@@ -134,7 +137,7 @@ function asCatalog(value: unknown): MediaEntry[] {
         width: typeof row.width === "number" ? row.width : undefined,
         height: typeof row.height === "number" ? row.height : undefined,
         ratings: readRatings(row.ratings),
-        tmdbId: typeof row.tmdb_id === "number" && row.tmdb_id > 0 ? row.tmdb_id : null,
+        tmdbId,
         tmdbType: row.tmdb_type === "movie" || row.tmdb_type === "tv" ? row.tmdb_type : null,
         imdbId: cleanImdbId(row.imdb_id),
         overview: typeof row.overview === "string" ? row.overview : null,

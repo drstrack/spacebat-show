@@ -876,5 +876,800 @@
     "image_credit": null,
     "image_kind": null,
     "best_guess": false
-  }
+  },
+  {
+      "id": "blade-runner",
+      "kind": "movie",
+      "title": "Blade Runner",
+      "year": "1982",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "01:53:27"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Blade_Runner",
+      "tmdb_id": 78,
+      "tmdb_type": "movie",
+      "overview": "In the smog-choked Los Angeles of 2019, blade runner Rick Deckard is called out of retirement to terminate four escaped replicants.",
+      "poster_path": "/63N9uy8nd9j7Eog2axPQ8lbr3Wj.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "blade-runner-2049",
+      "kind": "movie",
+      "title": "Blade Runner 2049",
+      "year": "2017",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "01:45:07"
+        },
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "01:53:27"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Blade_Runner_2049",
+      "tmdb_id": 335984,
+      "tmdb_type": "movie",
+      "overview": "Thirty years after the first film, a new blade runner unearths a buried secret and goes looking for former blade runner Rick Deckard.",
+      "poster_path": "/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "the-batman-part-ii",
+      "kind": "movie",
+      "title": "The Batman: Part II",
+      "year": "2028 (upcoming)",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "01:29:46"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/The_Batman:_Part_II",
+      "tmdb_id": 806704,
+      "tmdb_type": "movie",
+      "overview": "Sequel to the 2022 film The Batman.",
+      "poster_path": "/r5fl4aMsmTjgc8DdDqQaM84roWp.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "ghost-rider",
+      "kind": "movie",
+      "title": "Ghost Rider",
+      "year": "2007",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "02:08:43"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Ghost_Rider_(2007_film)",
+      "tmdb_id": 1250,
+      "tmdb_type": "movie",
+      "overview": "Stunt cyclist Johnny Blaze sells his soul to save his father and is bound to the Spirit of Vengeance.",
+      "poster_path": "/4quwR1VwZouD0YF9AaD72kQAjxH.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "superman",
+      "kind": "movie",
+      "title": "Superman",
+      "year": "2025",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "02:13:20"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Superman_(2025_film)",
+      "tmdb_id": 1061474,
+      "tmdb_type": "movie",
+      "overview": "Clark Kent, a journalist in Metropolis, tries to reconcile his Kryptonian heritage with his human upbringing.",
+      "poster_path": "/ldyfo0BKmz5rWtJJKCvwaNS4cJT.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "man-of-steel",
+      "kind": "movie",
+      "title": "Man of Steel",
+      "year": "2013",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "02:13:35"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Man_of_Steel_(film)",
+      "tmdb_id": 49521,
+      "tmdb_type": "movie",
+      "overview": "Clark Kent learns he is not of this Earth and has to become a symbol of hope to stop General Zod.",
+      "poster_path": "/8GFtkImmK0K1VaUChR0n9O61CFU.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "the-deer-hunter",
+      "kind": "movie",
+      "title": "The Deer Hunter",
+      "year": "1978",
+      "episodes": [
+        {
+          "slug": "highway-to-the-dangerzone",
+          "title": "Highway to the Dangerzone",
+          "timestamp": "00:35:26"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/The_Deer_Hunter",
+      "tmdb_id": 11778,
+      "tmdb_type": "movie",
+      "overview": "Three steelworkers from a Pennsylvania town enlist and are sent to Vietnam.",
+      "poster_path": "/bbGtogDZOg09bm42KIpCXUXICkh.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "the-terminator",
+      "kind": "movie",
+      "title": "The Terminator",
+      "year": "1984",
+      "episodes": [
+        {
+          "slug": "highway-to-the-dangerzone",
+          "title": "Highway to the Dangerzone",
+          "timestamp": "00:26:35"
+        },
+        {
+          "slug": "highway-to-the-dangerzone",
+          "title": "Highway to the Dangerzone",
+          "timestamp": "01:39:29"
+        },
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "01:50:25"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/The_Terminator",
+      "tmdb_id": 218,
+      "tmdb_type": "movie",
+      "overview": "A cyborg assassin is sent from a machine-ruled future to kill Sarah Connor before her son can lead the human resistance.",
+      "poster_path": "/qvktm0BHcnmDpul4Hz01GIazWPr.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "top-gun",
+      "kind": "movie",
+      "title": "Top Gun",
+      "year": "1986",
+      "episodes": [
+        {
+          "slug": "highway-to-the-dangerzone",
+          "title": "Highway to the Dangerzone",
+          "timestamp": "01:55:09"
+        },
+        {
+          "slug": "highway-to-the-dangerzone",
+          "title": "Highway to the Dangerzone",
+          "timestamp": "02:01:44"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Top_Gun",
+      "tmdb_id": 744,
+      "tmdb_type": "movie",
+      "overview": "Navy pilot Pete Mitchell trains at an elite fighter-weapons school.",
+      "poster_path": "/xUuHj3CgmZQ9P2cMaqQs4J0d4Zc.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "team-america-world-police",
+      "kind": "movie",
+      "title": "Team America: World Police",
+      "year": "2004",
+      "episodes": [
+        {
+          "slug": "spacebat-gets-its-groove",
+          "title": "SpaceBat gets its Groove",
+          "timestamp": "01:16:10"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Team_America:_World_Police",
+      "tmdb_id": 3989,
+      "tmdb_type": "movie",
+      "overview": "A puppet special-forces team is sent to stop a global terrorist plot.",
+      "poster_path": "/m1Q2VFe1DVVbjfu1LDZe7tlp9yb.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "the-acolyte",
+      "kind": "tv",
+      "title": "The Acolyte",
+      "year": "2024",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "02:17:14"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/The_Acolyte_(TV_series)",
+      "tmdb_id": 114479,
+      "tmdb_type": "tv",
+      "overview": "A century before the Empire, a Jedi investigation into a crime spree meets a warrior from a master's past.",
+      "poster_path": "/mztdt3y6GBsJR69zHtszFezTCLT.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "battlestar-galactica-1978",
+      "kind": "tv",
+      "title": "Battlestar Galactica",
+      "year": "1978–1979",
+      "episodes": [
+        {
+          "slug": "nasdaq-war-stories-moon-landing-fraud-ai-compute-crunch",
+          "title": "Nasdaq War Stories, Moon-Landing?, Fraud, AI Compute Crunch",
+          "timestamp": "00:51:58"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Battlestar_Galactica_(1978_TV_series)",
+      "tmdb_id": 501,
+      "tmdb_type": "tv",
+      "overview": "After the Cylons destroy the Twelve Colonies, the battlestar Galactica leads the surviving fleet in search of Earth.",
+      "poster_path": "/27jl4H9PauenZlmVBbOO1pr1lGf.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "battlestar-galactica-2004",
+      "kind": "tv",
+      "title": "Battlestar Galactica",
+      "year": "2004–2009",
+      "episodes": [
+        {
+          "slug": "nasdaq-war-stories-moon-landing-fraud-ai-compute-crunch",
+          "title": "Nasdaq War Stories, Moon-Landing?, Fraud, AI Compute Crunch",
+          "timestamp": "00:51:46"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Battlestar_Galactica_(2004_TV_series)",
+      "tmdb_id": 1972,
+      "tmdb_type": "tv",
+      "overview": "After the Cylons wipe out the Twelve Colonies, the aging Galactica protects the last of humanity on the journey to Earth.",
+      "poster_path": "/99PJSbcO2LeM10uOGWeFihNp77j.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "the-birds",
+      "kind": "tv",
+      "title": "The Birds",
+      "year": "upcoming",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "01:59:24"
+        }
+      ],
+      "wikipedia_url": null,
+      "tmdb_id": 340379,
+      "tmdb_type": "tv",
+      "overview": "Upcoming HBO series with Sarah Snook, a remake of Alfred Hitchcock's 1963 film about birds taking over a Northern California town.",
+      "poster_path": null,
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "below",
+      "kind": "tv",
+      "title": "Below",
+      "year": "2026",
+      "episodes": [
+        {
+          "slug": "highway-to-the-dangerzone",
+          "title": "Highway to the Dangerzone",
+          "timestamp": "00:20:38"
+        }
+      ],
+      "wikipedia_url": null,
+      "tmdb_id": 285322,
+      "tmdb_type": "tv",
+      "overview": "A mysterious sea creature terrorizes a small Newfoundland town, and a fishing family tries to protect the community.",
+      "poster_path": "/vgLqqhMUbljp585qPp1EFCyJtcz.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": true,
+      "best_guess_reason": "The transcript calls it a Netflix show named Below about a giant creature. This is the Netflix series about a sea creature in a Newfoundland town."
+    },
+    {
+      "id": "2010-the-year-we-make-contact",
+      "kind": "movie",
+      "title": "2010: The Year We Make Contact",
+      "year": "1984",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "01:50:25"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/2010:_The_Year_We_Make_Contact",
+      "tmdb_id": 4437,
+      "tmdb_type": "movie",
+      "overview": "A joint Soviet-American mission returns to the spacecraft Discovery and its computer HAL.",
+      "poster_path": "/mEWKXuCMv7mFMxXVSTI3v8UOQuq.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "once-upon-a-time-in-the-west",
+      "kind": "movie",
+      "title": "Once Upon a Time in the West",
+      "year": "1968",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "01:48:36"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Once_Upon_a_Time_in_the_West",
+      "tmdb_id": 335,
+      "tmdb_type": "movie",
+      "overview": "A railroad crew pushes across the Arizona desert as a stranger arrives in the town of Flagstone.",
+      "poster_path": "/qbYgqOczabWNn2XKwgMtVrntD6P.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "kraven-the-hunter",
+      "kind": "movie",
+      "title": "Kraven the Hunter",
+      "year": "2024",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "01:56:56"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Kraven_the_Hunter_(film)",
+      "tmdb_id": 539972,
+      "tmdb_type": "movie",
+      "overview": "Kraven Kravinoff turns on his gangster father and becomes one of the world's most feared hunters.",
+      "poster_path": "/1GvBhRxY6MELDfxFrete6BNhBB5.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "dr-no",
+      "kind": "movie",
+      "title": "Dr. No",
+      "year": "1962",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "01:56:14"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Dr._No_(film)",
+      "tmdb_id": 646,
+      "tmdb_type": "movie",
+      "overview": "James Bond is sent to Jamaica to stop Dr. No from wrecking the U.S. space program.",
+      "poster_path": "/9zCOLJmLNst0sCPZlkW1IRoH65E.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "the-hunt-for-red-october",
+      "kind": "movie",
+      "title": "The Hunt for Red October",
+      "year": "1990",
+      "episodes": [
+        {
+          "slug": "nasdaq-war-stories-moon-landing-fraud-ai-compute-crunch",
+          "title": "Nasdaq War Stories, Moon-Landing?, Fraud, AI Compute Crunch",
+          "timestamp": "00:23:15"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/The_Hunt_for_Red_October_(film)",
+      "tmdb_id": 1669,
+      "tmdb_type": "movie",
+      "overview": "CIA analyst Jack Ryan believes a Soviet submarine captain is defecting rather than attacking.",
+      "poster_path": "/yVl7zidse4KiWtGMqHFtZCx4X3N.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "mission-impossible",
+      "kind": "movie",
+      "title": "Mission: Impossible",
+      "year": "1996",
+      "episodes": [
+        {
+          "slug": "nasdaq-war-stories-moon-landing-fraud-ai-compute-crunch",
+          "title": "Nasdaq War Stories, Moon-Landing?, Fraud, AI Compute Crunch",
+          "timestamp": "00:16:01"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Mission:_Impossible_(film)",
+      "tmdb_id": 954,
+      "tmdb_type": "movie",
+      "overview": "IMF agent Ethan Hunt is framed as a mole and has to expose the real traitor.",
+      "poster_path": "/l5uxY5m5OInWpcExIpKG6AR3rgL.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "alien-vs-predator",
+      "kind": "movie",
+      "title": "Alien vs. Predator",
+      "year": "2004",
+      "episodes": [
+        {
+          "slug": "nasdaq-war-stories-moon-landing-fraud-ai-compute-crunch",
+          "title": "Nasdaq War Stories, Moon-Landing?, Fraud, AI Compute Crunch",
+          "timestamp": "00:54:07"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Alien_vs._Predator_(film)",
+      "tmdb_id": 395,
+      "tmdb_type": "movie",
+      "overview": "A research team in Antarctica walks into a hunt where Aliens are bred as prey for Predators.",
+      "poster_path": "/2DKoPom57PVtJWcJlq7bS7JpahU.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "predator",
+      "kind": "movie",
+      "title": "Predator",
+      "year": "1987",
+      "episodes": [
+        {
+          "slug": "nasdaq-war-stories-moon-landing-fraud-ai-compute-crunch",
+          "title": "Nasdaq War Stories, Moon-Landing?, Fraud, AI Compute Crunch",
+          "timestamp": "00:58:55"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Predator_(film)",
+      "tmdb_id": 106,
+      "tmdb_type": "movie",
+      "overview": "Commandos on a jungle mission are hunted by an extraterrestrial warrior.",
+      "poster_path": "/k3mW4qfJo6SKqe6laRyNGnbB9n5.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "avengers-secret-wars",
+      "kind": "movie",
+      "title": "Avengers: Secret Wars",
+      "year": "2027 (upcoming)",
+      "episodes": [
+        {
+          "slug": "nasdaq-war-stories-moon-landing-fraud-ai-compute-crunch",
+          "title": "Nasdaq War Stories, Moon-Landing?, Fraud, AI Compute Crunch",
+          "timestamp": "00:49:54"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Avengers:_Secret_Wars",
+      "tmdb_id": 1003598,
+      "tmdb_type": "movie",
+      "overview": "The finale of the Marvel Cinematic Universe Multiverse Saga.",
+      "poster_path": "/f0YBuh4hyiAheXhh4JnJWoKi9g5.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "batman-begins",
+      "kind": "movie",
+      "title": "Batman Begins",
+      "year": "2005",
+      "episodes": [
+        {
+          "slug": "nasdaq-war-stories-moon-landing-fraud-ai-compute-crunch",
+          "title": "Nasdaq War Stories, Moon-Landing?, Fraud, AI Compute Crunch",
+          "timestamp": "00:50:07"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Batman_Begins",
+      "tmdb_id": 272,
+      "tmdb_type": "movie",
+      "overview": "Bruce Wayne builds the Batman identity to fight the corruption of Gotham.",
+      "poster_path": "/sPX89Td70IDDjVr85jdSBb4rWGr.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "minority-report",
+      "kind": "movie",
+      "title": "Minority Report",
+      "year": "2002",
+      "episodes": [
+        {
+          "slug": "highway-to-the-dangerzone",
+          "title": "Highway to the Dangerzone",
+          "timestamp": "01:20:14"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Minority_Report_(film)",
+      "tmdb_id": 180,
+      "tmdb_type": "movie",
+      "overview": "A Precrime cop who arrests people for murders they have not committed yet is accused of a future murder.",
+      "poster_path": "/qtgFcnwh9dAFLocsDk2ySDVS8UF.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "back-to-the-future",
+      "kind": "movie",
+      "title": "Back to the Future",
+      "year": "1985",
+      "episodes": [
+        {
+          "slug": "highway-to-the-dangerzone",
+          "title": "Highway to the Dangerzone",
+          "timestamp": "01:40:36"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Back_to_the_Future",
+      "tmdb_id": 105,
+      "tmdb_type": "movie",
+      "overview": "Marty McFly is sent from 1985 back to 1955 and has to put his parents' first meeting back on track.",
+      "poster_path": "/vN5B5WgYscRGcQpVhHl6p9DDTP0.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "the-day-the-earth-stood-still",
+      "kind": "movie",
+      "title": "The Day the Earth Stood Still",
+      "year": "1951",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "02:00:34"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/The_Day_the_Earth_Stood_Still",
+      "tmdb_id": 828,
+      "tmdb_type": "movie",
+      "overview": "An alien and a robot land after World War II and warn humanity to choose peace.",
+      "poster_path": "/eslDNzf0LF1m9GsgUXlmyfTcC6Y.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "the-six-million-dollar-man",
+      "kind": "tv",
+      "title": "The Six Million Dollar Man",
+      "year": "1974–1978",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "02:15:23"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/The_Six_Million_Dollar_Man",
+      "tmdb_id": 1663,
+      "tmdb_type": "tv",
+      "overview": "Astronaut Steve Austin is rebuilt with bionic limbs and works as a secret agent.",
+      "poster_path": "/5pd6DayQgZxK9lQHdZZYZuXyaZ2.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "the-witcher",
+      "kind": "tv",
+      "title": "The Witcher",
+      "year": "2019–",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "02:09:35"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/The_Witcher_(TV_series)",
+      "tmdb_id": 71912,
+      "tmdb_type": "tv",
+      "overview": "Monster hunter Geralt of Rivia travels a world where people are often worse than the beasts.",
+      "poster_path": "/AoGsDM02UVt0npBA8OvpDcZbaMi.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "seinfeld",
+      "kind": "tv",
+      "title": "Seinfeld",
+      "year": "1989–1998",
+      "episodes": [
+        {
+          "slug": "nasdaq-war-stories-moon-landing-fraud-ai-compute-crunch",
+          "title": "Nasdaq War Stories, Moon-Landing?, Fraud, AI Compute Crunch",
+          "timestamp": "00:15:25"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Seinfeld",
+      "tmdb_id": 1400,
+      "tmdb_type": "tv",
+      "overview": "A comedian and his three friends deal with the small disasters of life in New York.",
+      "poster_path": "/aCw8ONfyz3AhngVQa1E2Ss4KSUQ.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "knight-rider",
+      "kind": "tv",
+      "title": "Knight Rider",
+      "year": "1982–1986",
+      "episodes": [
+        {
+          "slug": "heartburn-hardware-and-the-nuclear-triad",
+          "title": "Heartburn, Hardware, and the Nuclear Triad",
+          "timestamp": "00:17:31"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Knight_Rider_(1982_TV_series)",
+      "tmdb_id": 2384,
+      "tmdb_type": "tv",
+      "overview": "Michael Knight and the computerized car KITT take on criminals.",
+      "poster_path": "/t57NXzTrwp5rnPXiaX4BThrDxt1.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "baywatch",
+      "kind": "tv",
+      "title": "Baywatch",
+      "year": "1989–2001",
+      "episodes": [
+        {
+          "slug": "heartburn-hardware-and-the-nuclear-triad",
+          "title": "Heartburn, Hardware, and the Nuclear Triad",
+          "timestamp": "00:17:31"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Baywatch",
+      "tmdb_id": 4386,
+      "tmdb_type": "tv",
+      "overview": "Los Angeles County lifeguards patrol the beaches of Los Angeles.",
+      "poster_path": "/34t8WxHn1OcIVpcTxmjYmjX9tE4.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "law-and-order",
+      "kind": "tv",
+      "title": "Law & Order",
+      "year": "1990–",
+      "episodes": [
+        {
+          "slug": "spacebat-gets-its-groove",
+          "title": "SpaceBat gets its Groove",
+          "timestamp": "00:33:42"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Law_%26_Order",
+      "tmdb_id": 549,
+      "tmdb_type": "tv",
+      "overview": "Police investigate a crime, then the district attorney's office takes the case to court.",
+      "poster_path": "/hmd2tEtjolLWpNLCTvXS2PO5VCi.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    },
+    {
+      "id": "star-trek-the-next-generation",
+      "kind": "tv",
+      "title": "Star Trek: The Next Generation",
+      "year": "1987–1994",
+      "episodes": [
+        {
+          "slug": "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
+          "title": "Einstein vs AI, Road Rage, Amazon: Where Superheroes Go To Die",
+          "timestamp": "00:02:05"
+        },
+        {
+          "slug": "nasdaq-war-stories-moon-landing-fraud-ai-compute-crunch",
+          "title": "Nasdaq War Stories, Moon-Landing?, Fraud, AI Compute Crunch"
+        }
+      ],
+      "wikipedia_url": "https://en.wikipedia.org/wiki/Star_Trek:_The_Next_Generation",
+      "tmdb_id": 655,
+      "tmdb_type": "tv",
+      "overview": "Captain Jean-Luc Picard and the crew of the Enterprise-D explore the galaxy.",
+      "poster_path": "/vkLzXddgUKH5VcpnYiRzpJFrZhz.jpg",
+      "image": null,
+      "image_credit": null,
+      "image_kind": null,
+      "best_guess": false
+    }
 ]

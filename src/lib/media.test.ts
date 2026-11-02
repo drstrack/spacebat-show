@@ -28,23 +28,25 @@ import {
 describe("movies and tv", () => {
   it("counts the tabs from the catalog", () => {
     const counts = mediaCounts();
-    assert.equal(counts.movies, 27);
-    assert.equal(counts.tv, 17);
-    assert.equal(mediaCatalog.length, 44);
-    assert.equal(mediaTabLabel("movies"), "Movies (27)");
-    assert.equal(mediaTabLabel("tv"), "TV (17)");
+    assert.equal(counts.movies, 50);
+    assert.equal(counts.tv, 29);
+    assert.equal(mediaCatalog.length, 79);
+    assert.equal(mediaTabLabel("movies"), "Movies (50)");
+    assert.equal(mediaTabLabel("tv"), "TV (29)");
     const tabs = renderMediaTabs();
     assert.match(tabs, /role="tablist"/);
     assert.match(tabs, /role="tab"/);
-    assert.match(tabs, /Movies \(27\)/);
-    assert.match(tabs, /TV \(17\)/);
+    assert.match(tabs, /Movies \(50\)/);
+    assert.match(tabs, /TV \(29\)/);
     assert.match(tabs, /aria-selected="true"/);
   });
 
   it("gives every title a Wikipedia link and keeps logos uncropped", () => {
     const html = renderMediaGrid(mediaByKind("movie")) + renderMediaGrid(mediaByKind("tv"));
     for (const entry of mediaCatalog) {
-      assert.match(html, new RegExp(`href="${entry.wikipedia_url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+      if (entry.wikipedia_url) {
+        assert.match(html, new RegExp(`href="${entry.wikipedia_url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+      }
       assert.match(html, /target="_blank"/);
       assert.match(html, /rel="noopener noreferrer"/);
       assert.match(html, new RegExp(`data-media-id="${entry.id}"`));
@@ -75,6 +77,32 @@ describe("movies and tv", () => {
     assert.match(html, /src="https:\/\/image\.tmdb\.org\/t\/p\/w342\/ve72VxNqjGM69Uky4WTo2bK6rfq\.jpg"/);
     assert.match(html, /href="https:\/\/www\.themoviedb\.org\/movie\/62"/);
     assert.match(html, /aria-label="Not rated yet"/);
+  });
+
+  it("keeps the rescan titles, their posters, and the episode they were mentioned on", () => {
+    const blade = mediaCatalog.find((item) => item.id === "blade-runner");
+    const later = mediaCatalog.find((item) => item.id === "blade-runner-2049");
+    const original = mediaCatalog.find((item) => item.id === "battlestar-galactica-1978");
+    const reboot = mediaCatalog.find((item) => item.id === "battlestar-galactica-2004");
+    const birds = mediaCatalog.find((item) => item.id === "the-birds");
+    const below = mediaCatalog.find((item) => item.id === "below");
+    assert.ok(blade && later && original && reboot && birds && below);
+    assert.equal(blade.tmdbId, 78);
+    assert.equal(blade.posterPath, "/63N9uy8nd9j7Eog2axPQ8lbr3Wj.jpg");
+    assert.equal(blade.episodes[0]?.slug, "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die");
+    assert.equal(blade.episodes[0]?.timestamp, "01:53:27");
+    assert.equal(later.tmdbId, 335984);
+    assert.notEqual(original.tmdbId, reboot.tmdbId);
+    assert.equal(original.tmdbType, "tv");
+    assert.equal(birds.tmdbId, 340379);
+    assert.equal(birds.posterPath, null);
+    assert.equal(birds.wikipedia_url, "");
+    assert.equal(below.best_guess, true);
+    assert.match(below.best_guess_reason ?? "", /Newfoundland/);
+    const html = renderMediaGrid([blade, below]);
+    assert.match(html, /image\.tmdb\.org\/t\/p\/w342\/63N9uy8nd9j7Eog2axPQ8lbr3Wj\.jpg/);
+    assert.match(html, /image\.tmdb\.org\/t\/p\/w342\/vgLqqhMUbljp585qPp1EFCyJtcz\.jpg/);
+    assert.match(html, /href="\/podcast\/einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die"/);
   });
 
   it("shows both host ratings with accessible labels", () => {
