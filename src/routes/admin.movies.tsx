@@ -1,6 +1,6 @@
 import { upload } from "@vercel/blob/client";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,9 +73,24 @@ function AdminMoviesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [ratingOverride, setRatingOverride] = useState<Record<string, MediaRatingChoice>>({});
   const [ratingStatus, setRatingStatus] = useState<Record<string, "saving" | "saved" | "error">>({});
-  const ratingTimers = useRef<Map<string, number>>(new Map());
   const pinnedIds = useRef<string[] | null>(null);
   const [orderVersion, setOrderVersion] = useState(0);
+  const pendingCount = Object.keys(ratingOverride).filter((key) => {
+    const [who, id] = key.split(":");
+    const item = data.items.find((row) => row.id === id);
+    if (!item || (who !== "john" && who !== "dan")) return false;
+    return ratingOverride[key] !== item.ratings[who];
+  }).length;
+
+  useEffect(() => {
+    if (pendingCount === 0) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [pendingCount]);
 
   if (!data.canManage) {
     return (
@@ -291,37 +306,66 @@ function AdminMoviesPage() {
     setOrderVersion((version) => version + 1);
   }
 
+  function isPending(item: MediaEntry): boolean {
+    if (!host) return false;
+    const choice = ratingOverride[`${host}:${item.id}`];
+    return choice != null && choice !== item.ratings[host];
+  }
+
   function cycleRating(item: MediaEntry) {
     if (!host) return;
     const current = shownRating(item, host);
     const next = nextHostRating(current);
     const key = `${host}:${item.id}`;
     setRatingOverride((prev) => ({ ...prev, [key]: next }));
+    setRatingStatus((prev) => {
+      const copy = { ...prev };
+      delete copy[item.id];
+      return copy;
+    });
+  }
+
+  function cancelRating(item: MediaEntry) {
+    if (!host) return;
+    const key = `${host}:${item.id}`;
+    setRatingOverride((prev) => {
+      const copy = { ...prev };
+      delete copy[key];
+      return copy;
+    });
+    setRatingStatus((prev) => {
+      const copy = { ...prev };
+      delete copy[item.id];
+      return copy;
+    });
+  }
+
+  async function saveRating(item: MediaEntry) {
+    if (!host || !isPending(item)) return;
+    const next = shownRating(item, host);
+    const key = `${host}:${item.id}`;
     setRatingStatus((prev) => ({ ...prev, [item.id]: "saving" }));
-    const pendingTimer = ratingTimers.current.get(item.id);
-    if (pendingTimer) window.clearTimeout(pendingTimer);
-    const timer = window.setTimeout(() => {
-      void rateMovie({ data: { id: item.id, rating: next } })
-        .then(async () => {
-          setRatingStatus((prev) => ({ ...prev, [item.id]: "saved" }));
-          await router.invalidate();
-          setRatingOverride((prev) => {
-            if (prev[key] !== next) return prev;
-            const copy = { ...prev };
-            delete copy[key];
-            return copy;
-          });
-        })
-        .catch(() => {
-          setRatingStatus((prev) => ({ ...prev, [item.id]: "error" }));
-          setRatingOverride((prev) => {
-            const copy = { ...prev };
-            delete copy[key];
-            return copy;
-          });
-        });
-    }, 400);
-    ratingTimers.current.set(item.id, timer);
+    try {
+      await rateMovie({ data: { id: item.id, rating: next } });
+      await router.invalidate();
+      setRatingOverride((prev) => {
+        if (prev[key] !== next) return prev;
+        const copy = { ...prev };
+        delete copy[key];
+        return copy;
+      });
+      setRatingStatus((prev) => ({ ...prev, [item.id]: "saved" }));
+    } catch (err) {
+      setRatingStatus((prev) => ({ ...prev, [item.id]: "error" }));
+      setError(err instanceof Error ? err.message : "Couldn't save");
+    }
+  }
+
+  async function saveAllRatings() {
+    const waiting = data.items.filter((item) => isPending(item));
+    for (const item of waiting) {
+      await saveRating(item);
+    }
   }
 
   async function confirmDelete() {
@@ -353,7 +397,7 @@ function AdminMoviesPage() {
   void orderVersion;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
+    <div className={`mx-auto max-w-5xl px-4 py-12 sm:px-6 ${pendingCount > 1 ? "pb-28" : ""}`}>
       <p className="caption-box">Back end</p>
       <h1 className="mt-4 font-display text-5xl leading-none tracking-wide">Movies & TV</h1>
       <p className="mt-3 max-w-2xl text-sm text-muted">
@@ -628,8 +672,10 @@ function AdminMoviesPage() {
 
       <ul className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" data-card-order={cards.map((item) => item.id).join(" ")}>
         {cards.map((item) => {
+          const source = data.items.find((row) => row.id === item.id) ?? item;
           const picture = mediaPicture(item);
           const mine = host ? item.ratings[host] : null;
+          const unsaved = host ? isPending(source) : false;
           const you = host === "dan" ? "Dan" : "John";
           const otherHost = host === "dan" ? "john" : "dan";
           const otherName = host === "dan" ? "John" : "Dan";
@@ -650,13 +696,21 @@ function AdminMoviesPage() {
                   {item.title}
                 </div>
               )}
-              <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-ink/75 px-3 text-center font-display text-2xl leading-tight tracking-wide text-paper sm:text-3xl">
-                {overlay}
+              <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink/75 px-3 text-center font-display text-2xl leading-tight tracking-wide text-paper sm:text-3xl">
+                <span>{overlay}</span>
+                {unsaved ? (
+                  <span className="border-4 border-caption bg-crimson px-2 py-1 text-lg text-crimson-fg">Unsaved</span>
+                ) : null}
               </span>
             </div>
           );
           return (
-            <li key={item.id} data-media-id={item.id} className="border-4 border-ink bg-paper shadow-[4px_4px_0_0_var(--color-ink)]">
+            <li
+              key={item.id}
+              data-media-id={item.id}
+              data-pending={unsaved ? "true" : "false"}
+              className={`border-4 bg-paper shadow-[4px_4px_0_0_var(--color-ink)] ${unsaved ? "border-crimson" : "border-ink"}`}
+            >
               {host && mine ? (
                 <button
                   type="button"
@@ -681,15 +735,37 @@ function AdminMoviesPage() {
                   {host ? otherName : "John"}: {formatRating(host ? item.ratings[otherHost] : item.ratings.john)}
                 </p>
                 {!host ? <p className="text-sm">Dan: {formatRating(item.ratings.dan)}</p> : null}
-                <p className="min-h-5 text-xs" data-save-state={ratingStatus[item.id] ?? "idle"}>
+                <p className="min-h-5 text-sm font-display tracking-wide" data-save-state={ratingStatus[item.id] ?? "idle"}>
                   {ratingStatus[item.id] === "saving"
                     ? "Saving…"
                     : ratingStatus[item.id] === "saved"
                       ? "Saved ✓"
                       : ratingStatus[item.id] === "error"
                         ? "Couldn't save"
-                        : ""}
+                        : unsaved
+                          ? "Not saved yet"
+                          : ""}
                 </p>
+                {unsaved ? (
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      data-save-rating
+                      className="min-h-11 w-full border-4 border-ink bg-crimson px-3 text-base text-crimson-fg"
+                      onClick={() => void saveRating(source)}
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      data-cancel-rating
+                      className="min-h-11 w-full border-4 border-ink bg-paper px-3 text-base"
+                      onClick={() => cancelRating(source)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   className="min-h-11 border-4 border-ink bg-paper px-3 text-sm"
@@ -703,6 +779,14 @@ function AdminMoviesPage() {
           );
         })}
       </ul>
+
+      {pendingCount > 1 ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t-4 border-ink bg-caption p-3">
+          <Button type="button" className="min-h-11 w-full text-lg" onClick={() => void saveAllRatings()}>
+            Save all ({pendingCount})
+          </Button>
+        </div>
+      ) : null}
 
       <ConfirmDialog
         open={pending != null}

@@ -209,6 +209,17 @@ describe("movies and tv", () => {
     );
   });
 
+  it("keeps a cycled rating pending until it is written", () => {
+    let shown: MediaRatingChoice = "unrated";
+    shown = nextHostRating(shown);
+    shown = nextHostRating(shown);
+    shown = nextHostRating(shown);
+    assert.equal(shown, "ok");
+    assert.notEqual(shown, "unrated");
+    assert.deepEqual(ratingWrite(shown), { action: "upsert", rating: "ok" });
+    assert.deepEqual(ratingWrite("unrated"), { action: "delete" });
+  });
+
   it("puts the newest episode mention first", () => {
     const movies = mediaByKind("movie");
     const first = movies[0];
