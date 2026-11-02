@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { changeMemberRole, deleteOwnAccount, removeMemberAccount } from "@/lib/account-delete";
+import { previewHostShouldBeAdmin } from "@/lib/preview-host-admin";
 
 export type MemberLists = {
   podcastAlerts: boolean;
@@ -49,7 +50,9 @@ function adminEmails(): Set<string> {
 }
 
 function roleFor(email: string | null): "admin" | "listener" {
-  return email && adminEmails().has(email.toLowerCase()) ? "admin" : "listener";
+  if (email && adminEmails().has(email.toLowerCase())) return "admin";
+  if (previewHostShouldBeAdmin({ vercelEnv: process.env.VERCEL_ENV, dbSource, email })) return "admin";
+  return "listener";
 }
 
 function listsFrom(row: ProfileRow): MemberLists {
