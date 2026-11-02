@@ -11,9 +11,8 @@ import {
   tmdbPoster,
 } from "./tmdb.ts";
 
-const SECRET = "secret-v3-key-not-for-clients";
-const TOKEN =
-  "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature";
+const SECRET = "0123456789abcdef0123456789abcdef";
+const TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature";
 
 const movie = {
   id: 11,
@@ -92,7 +91,10 @@ test("a missing key does not call fetch", async () => {
 test("a v3 key is a query param and a v4 token is a bearer, and neither comes back", async () => {
   assert.equal(classifyTmdbKey(undefined), null);
   assert.equal(classifyTmdbKey(SECRET)?.mode, "v3");
+  assert.equal(classifyTmdbKey("0123456789ABCDEF0123456789ABCDEF")?.mode, "v3");
   assert.equal(classifyTmdbKey(TOKEN)?.mode, "v4");
+  assert.equal(classifyTmdbKey("not-a-short-hex-key")?.mode, "v4");
+  assert.equal(classifyTmdbKey("0123456789abcdef")?.mode, "v4");
 
   const seen: { url: string; authorization: string }[] = [];
   const fetchImpl: TmdbFetch = async (url, init) => {
@@ -113,7 +115,7 @@ test("a v3 key is a query param and a v4 token is a bearer, and neither comes ba
   );
   assert.equal(v3.configured, true);
   assert.equal(v3.results[0]?.title, "Star Wars");
-  assert.match(seen[0]?.url ?? "", /api_key=secret-v3-key-not-for-clients/);
+  assert.match(seen[0]?.url ?? "", /api_key=0123456789abcdef0123456789abcdef/);
   assert.equal(seen[0]?.authorization, "");
   assert.equal(JSON.stringify(v3).includes(SECRET), false);
 

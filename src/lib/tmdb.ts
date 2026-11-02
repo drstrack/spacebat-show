@@ -17,14 +17,15 @@ export type TmdbHit = {
 
 export type TmdbKey = { mode: "v3"; key: string } | { mode: "v4"; token: string };
 
-/** A v4 read-access token is a JWT. Anything else is a v3 api_key. */
+/**
+ * The credential is a v4 read-access token and is sent as a bearer.
+ * A 32-character hex string is the only v3 api_key fallback.
+ */
 export function classifyTmdbKey(raw: string | null | undefined): TmdbKey | null {
   const value = raw?.trim() ?? "";
   if (!value) return null;
-  if (/^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)) {
-    return { mode: "v4", token: value };
-  }
-  return { mode: "v3", key: value };
+  if (/^[a-f0-9]{32}$/i.test(value)) return { mode: "v3", key: value };
+  return { mode: "v4", token: value };
 }
 
 const POSTER_PATH = /^\/[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp)$/;
