@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { isRating, type MediaRating } from "@/lib/media";
+import { isRatingChoice, type MediaRatingChoice } from "@/lib/media";
 import {
   applyMediaTmdbMatch,
   deleteMediaItem,
@@ -101,8 +101,8 @@ export const rateMovie = createServerFn({ method: "POST" })
     if (!input || typeof input.id !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.id)) {
       throw new Error("That title isn't on the page.");
     }
-    if (!isRating(input.rating)) throw new Error("Pick a rating.");
-    return { id: input.id, rating: input.rating as MediaRating };
+    if (!isRatingChoice(input.rating)) throw new Error("Pick a rating.");
+    return { id: input.id, rating: input.rating as MediaRatingChoice };
   })
   .handler(async ({ data, context }) => {
     await setMediaRating(context.userId, data);

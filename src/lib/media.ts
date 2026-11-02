@@ -9,27 +9,34 @@ export type MediaEpisode = {
   timestamp?: string;
 };
 
-/** High to low. A missing database row is the same as not_seen. */
+/** Stored ratings, high to low. A missing row is unrated, not "haven't seen it". */
 export const MEDIA_RATINGS = ["two_up", "one_up", "ok", "one_down", "two_down", "not_seen"] as const;
 
 export type MediaRating = (typeof MEDIA_RATINGS)[number];
 
-export const MEDIA_RATING_LABEL: Record<MediaRating, string> = {
+/** Click order on the rating page. Unrated deletes the row. */
+export const MEDIA_RATING_CYCLE = [...MEDIA_RATINGS, "unrated"] as const;
+
+export type MediaRatingChoice = (typeof MEDIA_RATING_CYCLE)[number];
+
+export const MEDIA_RATING_LABEL: Record<MediaRatingChoice, string> = {
   two_up: "Two thumbs up",
   one_up: "One thumb up",
   ok: "OK",
   one_down: "One thumb down",
   two_down: "Two thumbs down",
   not_seen: "Haven't seen it",
+  unrated: "Not rated yet",
 };
 
-export const MEDIA_RATING_MARK: Record<MediaRating, string> = {
+export const MEDIA_RATING_MARK: Record<MediaRatingChoice, string> = {
   two_up: "👍👍",
   one_up: "👍",
   ok: "OK",
   one_down: "👎",
   two_down: "👎👎",
-  not_seen: "—",
+  not_seen: "Haven't seen it",
+  unrated: "—",
 };
 
 /** The only accounts that can set a host rating. One place, not scattered. */
@@ -40,7 +47,7 @@ export const MEDIA_HOST_EMAILS = {
 
 export type MediaHost = keyof typeof MEDIA_HOST_EMAILS;
 
-export type MediaRatings = Record<MediaHost, MediaRating>;
+export type MediaRatings = Record<MediaHost, MediaRatingChoice>;
 
 export type MediaEntry = {
   id: string;
@@ -66,7 +73,7 @@ export type MediaEntry = {
 
 export type MediaSort = "newest" | MediaHost;
 
-const UNSEEN: MediaRatings = { john: "not_seen", dan: "not_seen" };
+const UNRATED: MediaRatings = { john: "unrated", dan: "unrated" };
 
 /**
  * Published order, newest first, from the SpaceBat RSS on 1 Nov 2026.
@@ -138,16 +145,20 @@ function asCatalog(value: unknown): MediaEntry[] {
 }
 
 function readRatings(value: unknown): MediaRatings {
-  if (!value || typeof value !== "object") return { ...UNSEEN };
+  if (!value || typeof value !== "object") return { ...UNRATED };
   const row = value as Record<string, unknown>;
   return {
-    john: isRating(row.john) ? row.john : "not_seen",
-    dan: isRating(row.dan) ? row.dan : "not_seen",
+    john: isRating(row.john) ? row.john : "unrated",
+    dan: isRating(row.dan) ? row.dan : "unrated",
   };
 }
 
 export function isRating(value: unknown): value is MediaRating {
   return typeof value === "string" && (MEDIA_RATINGS as readonly string[]).includes(value);
+}
+
+export function isRatingChoice(value: unknown): value is MediaRatingChoice {
+  return typeof value === "string" && (MEDIA_RATING_CYCLE as readonly string[]).includes(value);
 }
 
 export function hostForEmail(email: string | null | undefined): MediaHost | null {
@@ -200,9 +211,37 @@ function newestMention(entry: { episodes: readonly MediaEpisode[] }): number {
   return Math.min(...entry.episodes.map((episode) => episodeRecency(episode.slug)));
 }
 
-export function ratingRank(rating: MediaRating): number {
-  const index = MEDIA_RATINGS.indexOf(rating);
-  return index === -1 ? MEDIA_RATINGS.length : index;
+export function ratingRank(rating: MediaRatingChoice): number {
+  const index = MEDIA_RATING_CYCLE.indexOf(rating);
+  return index === -1 ? MEDIA_RATING_CYCLE.length : index;
+}
+
+export function nextHostRating(current: MediaRatingChoice): MediaRatingChoice {
+  const index = MEDIA_RATING_CYCLE.indexOf(current);
+  const next = MEDIA_RATING_CYCLE[(index + 1) % MEDIA_RATING_CYCLE.length];
+  return next ?? "two_up";
+}
+
+/** Unrated deletes the row. Every other step is stored, including haven't seen it. */
+export function ratingWrite(
+  choice: MediaRatingChoice,
+): { action: "delete" } | { action: "upsert"; rating: MediaRating } {
+  if (choice === "unrated") return { action: "delete" };
+  return { action: "upsert", rating: choice };
+}
+
+export function unratedCount(entries: readonly MediaEntry[], host: MediaHost): number {
+  return entries.filter((entry) => entry.ratings[host] === "unrated").length;
+}
+
+/** Unrated titles first for that host. Everyone else keeps title order. */
+export function orderForRater(entries: readonly MediaEntry[], host: MediaHost | null): MediaEntry[] {
+  const byTitle = (list: readonly MediaEntry[]) =>
+    list.slice().sort((a, b) => a.title.localeCompare(b.title, "en", { sensitivity: "base" }));
+  if (!host) return byTitle(entries);
+  const unrated = entries.filter((entry) => entry.ratings[host] === "unrated");
+  const rated = entries.filter((entry) => entry.ratings[host] !== "unrated");
+  return [...byTitle(unrated), ...byTitle(rated)];
 }
 
 /** Newest episode mention first, unless a host rating is requested. Ties are A to Z. */
@@ -285,7 +324,7 @@ export function mediaImageSrc(image: string | null): string | null {
   return `/media/${image}`;
 }
 
-function ratingHtml(host: MediaHost, rating: MediaRating): string {
+function ratingHtml(host: MediaHost, rating: MediaRatingChoice): string {
   const name = host === "john" ? "John" : "Dan";
   const label = MEDIA_RATING_LABEL[rating];
   return `<span class="media-rating">${name}: <span aria-label="${escapeHtml(label)}">${MEDIA_RATING_MARK[rating]}</span></span>`;

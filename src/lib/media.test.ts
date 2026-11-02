@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   MEDIA_HOST_EMAILS,
+  MEDIA_RATING_CYCLE,
   MEDIA_RATING_LABEL,
   mediaAdminDecision,
   mediaByKind,
@@ -9,8 +10,14 @@ import {
   mediaCounts,
   mediaRatingDecision,
   mediaTabLabel,
+  nextHostRating,
+  orderForRater,
+  ratingWrite,
   renderMediaGrid,
   renderMediaTabs,
+  unratedCount,
+  type MediaEntry,
+  type MediaRatingChoice,
 } from "./media.ts";
 
 describe("movies and tv", () => {
@@ -53,8 +60,10 @@ describe("movies and tv", () => {
     assert.match(html, /John:/);
     assert.match(html, /Dan:/);
     assert.equal(MEDIA_RATING_LABEL.not_seen, "Haven't seen it");
+    assert.equal(MEDIA_RATING_LABEL.unrated, "Not rated yet");
     const unseen = renderMediaGrid([mediaCatalog[1]!]);
-    assert.match(unseen, /aria-label="Haven&#39;t seen it"/);
+    assert.match(unseen, /aria-label="Not rated yet"/);
+    assert.equal(unseen.includes("Haven't seen it"), false);
   });
 
   it("lets only John set John's rating and only Dan set Dan's", () => {
@@ -130,6 +139,46 @@ describe("movies and tv", () => {
     assert.match(html, /src="https:\/\/image\.tmdb\.org\/t\/p\/w342\/star\.jpg"/);
     assert.match(html, /srcset="https:\/\/image\.tmdb\.org\/t\/p\/w185\/star\.jpg 185w/);
     assert.match(html, /A long time ago\./);
+  });
+
+  it("cycles ratings and wraps from haven't seen it back through unrated", () => {
+    const steps: MediaRatingChoice[] = ["unrated"];
+    for (let i = 0; i < MEDIA_RATING_CYCLE.length; i += 1) {
+      steps.push(nextHostRating(steps[steps.length - 1]!));
+    }
+    assert.deepEqual(steps, ["unrated", ...MEDIA_RATING_CYCLE.slice(0, -1), "unrated"]);
+    assert.equal(nextHostRating("not_seen"), "unrated");
+    assert.equal(nextHostRating("unrated"), "two_up");
+    assert.deepEqual(ratingWrite("unrated"), { action: "delete" });
+    assert.deepEqual(ratingWrite("not_seen"), { action: "upsert", rating: "not_seen" });
+    assert.deepEqual(ratingWrite("two_up"), { action: "upsert", rating: "two_up" });
+  });
+
+  it("puts unrated titles first for that host only", () => {
+    const sample = (id: string, title: string, john: MediaRatingChoice, dan: MediaRatingChoice): MediaEntry => ({
+      ...mediaCatalog[0]!,
+      id,
+      title,
+      ratings: { john, dan },
+    });
+    const entries = [
+      sample("a", "Alpha", "two_up", "unrated"),
+      sample("z", "Zed", "unrated", "ok"),
+      sample("m", "Middle", "unrated", "unrated"),
+    ];
+    assert.deepEqual(
+      orderForRater(entries, "john").map((entry) => entry.title),
+      ["Middle", "Zed", "Alpha"],
+    );
+    assert.equal(unratedCount(entries, "john"), 2);
+    assert.deepEqual(
+      orderForRater(entries, "dan").map((entry) => entry.title),
+      ["Alpha", "Middle", "Zed"],
+    );
+    assert.deepEqual(
+      orderForRater(entries, null).map((entry) => entry.title),
+      ["Alpha", "Middle", "Zed"],
+    );
   });
 
   it("puts the newest episode mention first", () => {

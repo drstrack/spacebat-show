@@ -1,6 +1,6 @@
 import { upload } from "@vercel/blob/client";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,15 @@ import { classifyUpload } from "@/lib/chat/uploads";
 import {
   episodeLines,
   MEDIA_RATING_LABEL,
-  MEDIA_RATINGS,
+  MEDIA_RATING_MARK,
   mediaBlobPathname,
+  mediaPicture,
+  nextHostRating,
+  orderForRater,
+  unratedCount,
   type MediaEntry,
   type MediaHost,
-  type MediaRating,
+  type MediaRatingChoice,
 } from "@/lib/media";
 import type { TmdbHit } from "@/lib/tmdb";
 import {
@@ -65,6 +69,10 @@ function AdminMoviesPage() {
   const [proposals, setProposals] = useState<
     { id: string; title: string; bestGuess: boolean; proposal: TmdbHit | null }[] | null
   >(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [ratingOverride, setRatingOverride] = useState<Record<string, MediaRatingChoice>>({});
+  const [ratingStatus, setRatingStatus] = useState<Record<string, "saving" | "saved" | "error">>({});
+  const ratingTimers = useRef<Map<string, number>>(new Map());
 
   if (!data.canManage) {
     return (
@@ -103,7 +111,7 @@ function AdminMoviesPage() {
     });
     setHits([]);
     setTmdbNote("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setFormOpen(true);
   }
 
   async function onSave(event: FormEvent) {
@@ -135,6 +143,7 @@ function AdminMoviesPage() {
       });
       setForm(EMPTY);
       setHits([]);
+      setFormOpen(false);
       await router.invalidate();
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn’t save.");
@@ -267,17 +276,41 @@ function AdminMoviesPage() {
     }
   }
 
-  async function onRate(id: string, rating: MediaRating) {
-    setError("");
-    setBusy(id);
-    try {
-      await rateMovie({ data: { id, rating } });
-      await router.invalidate();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "That rating didn’t save.");
-    } finally {
-      setBusy("");
-    }
+  function shownRating(item: MediaEntry, who: MediaHost): MediaRatingChoice {
+    return ratingOverride[`${who}:${item.id}`] ?? item.ratings[who];
+  }
+
+  function cycleRating(item: MediaEntry) {
+    if (!host) return;
+    const current = shownRating(item, host);
+    const next = nextHostRating(current);
+    const key = `${host}:${item.id}`;
+    setRatingOverride((prev) => ({ ...prev, [key]: next }));
+    setRatingStatus((prev) => ({ ...prev, [item.id]: "saving" }));
+    const pendingTimer = ratingTimers.current.get(item.id);
+    if (pendingTimer) window.clearTimeout(pendingTimer);
+    const timer = window.setTimeout(() => {
+      void rateMovie({ data: { id: item.id, rating: next } })
+        .then(async () => {
+          setRatingStatus((prev) => ({ ...prev, [item.id]: "saved" }));
+          await router.invalidate();
+          setRatingOverride((prev) => {
+            if (prev[key] !== next) return prev;
+            const copy = { ...prev };
+            delete copy[key];
+            return copy;
+          });
+        })
+        .catch(() => {
+          setRatingStatus((prev) => ({ ...prev, [item.id]: "error" }));
+          setRatingOverride((prev) => {
+            const copy = { ...prev };
+            delete copy[key];
+            return copy;
+          });
+        });
+    }, 400);
+    ratingTimers.current.set(item.id, timer);
   }
 
   async function confirmDelete() {
@@ -318,7 +351,30 @@ function AdminMoviesPage() {
         <Button type="button" variant="secondary" disabled={busy === "match"} onClick={() => void onMatchAll()}>
           {busy === "match" ? "Matching" : "Match all from TMDB"}
         </Button>
+        <Button
+          type="button"
+          onClick={() => {
+            setForm(EMPTY);
+            setHits([]);
+            setError("");
+            setFormOpen(true);
+          }}
+        >
+          Add movie or TV show
+        </Button>
       </p>
+      {host ? (
+        <p className="mt-4 font-display text-3xl tracking-wide">
+          {unratedCount(
+            data.items.map((item) => ({
+              ...item,
+              ratings: { ...item.ratings, [host]: shownRating(item, host) },
+            })),
+            host,
+          )}{" "}
+          left to rate
+        </p>
+      ) : null}
       {tmdbNote ? <p className="mt-3 text-sm text-crimson">{tmdbNote}</p> : null}
       {proposals ? (
         <ul className="mt-4 space-y-2">
@@ -352,7 +408,9 @@ function AdminMoviesPage() {
         </ul>
       ) : null}
 
-      <form onSubmit={(event) => void onSave(event)} className="panel mt-8 space-y-4 bg-paper p-4 sm:p-6">
+      {formOpen ? (
+      <div className="fixed inset-0 z-40 overflow-y-auto bg-ink/40 px-3 py-8">
+      <form onSubmit={(event) => void onSave(event)} className="panel mx-auto max-w-3xl space-y-4 bg-paper p-4 sm:p-6">
         <h2 className="font-display text-3xl tracking-wide">{form.id ? "Edit title" : "Add a title"}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
@@ -509,69 +567,108 @@ function AdminMoviesPage() {
             {busy === "upload" ? "Uploading" : busy === "save" ? "Saving" : form.id ? "Save changes" : "Add title"}
           </Button>
           {form.id ? (
-            <Button type="button" variant="ghost" onClick={() => setForm(EMPTY)}>
-              Cancel
+            <Button type="button" variant="secondary" disabled={busy === form.id} onClick={() => void onRefresh(form.id)}>
+              Refresh from TMDB
             </Button>
           ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setForm(EMPTY);
+              setFormOpen(false);
+            }}
+          >
+            Cancel
+          </Button>
         </div>
       </form>
+      </div>
+      ) : null}
 
-      <ul className="mt-10 space-y-3">
-        {data.items
-          .slice()
-          .sort((a, b) => a.title.localeCompare(b.title, "en", { sensitivity: "base" }))
-          .map((item) => (
-            <li key={item.id} className="border-4 border-ink bg-paper px-3 py-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-display text-2xl leading-none tracking-wide">
-                    {item.title}
-                    {item.year ? ` (${item.year})` : ""}
-                  </p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.12em] text-muted">
-                    {item.kind === "tv" ? "TV" : "Movie"}
-                  </p>
-                  <p className="mt-2 text-sm">
-                    John: {MEDIA_RATING_LABEL[item.ratings.john]} · Dan: {MEDIA_RATING_LABEL[item.ratings.dan]}
-                  </p>
+      <ul className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {orderForRater(
+          data.items.map((item) =>
+            host
+              ? { ...item, ratings: { ...item.ratings, [host]: shownRating(item, host) } }
+              : item,
+          ),
+          host,
+        ).map((item) => {
+          const picture = mediaPicture(item);
+          const mine = host ? item.ratings[host] : null;
+          const label = mine ? MEDIA_RATING_LABEL[mine] : "";
+          const body = (
+            <>
+              {picture ? (
+                <img
+                  src={picture.src}
+                  alt=""
+                  width={picture.width}
+                  height={picture.height}
+                  className={`aspect-[2/3] w-full bg-paper object-contain ${picture.logo ? "bg-crimson" : ""}`}
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex aspect-[2/3] items-center justify-center bg-caption px-3 text-center font-display text-2xl leading-none">
+                  {item.title}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" size="sm" variant="secondary" onClick={() => edit(item)}>
-                    Edit
-                  </Button>
-                  <Button type="button" size="sm" variant="secondary" disabled={busy === item.id} onClick={() => void onRefresh(item.id)}>
-                    Refresh from TMDB
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setPending(item)}>
-                    Delete
-                  </Button>
-                </div>
+              )}
+              <div className="space-y-1 p-2">
+                <p className="font-display text-xl leading-none tracking-wide">{item.title}</p>
+                <p className="text-xs uppercase tracking-[0.12em] text-muted">
+                  {item.kind === "tv" ? "TV" : "Movie"}
+                  {item.year ? ` · ${item.year}` : ""}
+                </p>
+                <p className="text-sm">
+                  John {MEDIA_RATING_MARK[item.ratings.john]} · Dan {MEDIA_RATING_MARK[item.ratings.dan]}
+                </p>
+                {mine ? (
+                  <p className="inline-flex min-h-11 items-center border-4 border-ink bg-caption px-2 font-display text-lg tracking-wide">
+                    {MEDIA_RATING_MARK[mine]}
+                  </p>
+                ) : null}
+                {ratingStatus[item.id] === "saving" ? <p className="text-xs text-muted">Saving</p> : null}
+                {ratingStatus[item.id] === "saved" ? <p className="text-xs text-muted">Saved</p> : null}
+                {ratingStatus[item.id] === "error" ? <p className="text-xs text-crimson">Couldn't save</p> : null}
               </div>
+            </>
+          );
+          return (
+            <li key={item.id} className="relative border-4 border-ink bg-paper shadow-[4px_4px_0_0_var(--color-ink)]">
               {host ? (
-                <label className="mt-3 block text-sm">
-                  Your rating
-                  <select
-                    className="mt-1 h-11 w-full max-w-xs border-4 border-ink bg-ivory px-2"
-                    value={item.ratings[host]}
-                    disabled={busy === item.id}
-                    aria-label={`${host === "john" ? "John" : "Dan"} rating for ${item.title}`}
-                    onChange={(event) => {
-                      const rating = event.target.value;
-                      if (MEDIA_RATINGS.includes(rating as MediaRating)) {
-                        void onRate(item.id, rating as MediaRating);
-                      }
-                    }}
-                  >
-                    {MEDIA_RATINGS.map((rating) => (
-                      <option key={rating} value={rating}>
-                        {MEDIA_RATING_LABEL[rating]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
+                <button
+                  type="button"
+                  className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson"
+                  aria-label={`${item.title}. Your rating: ${label}. Activate to change it.`}
+                  onClick={() => cycleRating(data.items.find((row) => row.id === item.id) ?? item)}
+                >
+                  {body}
+                </button>
+              ) : (
+                <div>{body}</div>
+              )}
+              <div className="absolute right-1 top-1 flex gap-1">
+                <button
+                  type="button"
+                  className="min-h-11 min-w-11 border-4 border-ink bg-paper px-2 text-sm"
+                  aria-label={`Edit ${item.title}`}
+                  onClick={() => edit(data.items.find((row) => row.id === item.id) ?? item)}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="min-h-11 min-w-11 border-4 border-ink bg-paper px-2 text-sm"
+                  aria-label={`Delete ${item.title}`}
+                  onClick={() => setPending(data.items.find((row) => row.id === item.id) ?? item)}
+                >
+                  Delete
+                </button>
+              </div>
             </li>
-          ))}
+          );
+        })}
       </ul>
 
       <ConfirmDialog

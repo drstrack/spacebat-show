@@ -15,6 +15,7 @@ import {
   mediaRatingDecision,
   newestMentionRank,
   parseMediaDraft,
+  ratingWrite,
   type MediaEntry,
   type MediaHost,
   type MediaEpisode,
@@ -127,13 +128,13 @@ async function readItems(sql: Sql): Promise<MediaEntry[]> {
   for (const row of ratings) {
     if (row.host !== "john" && row.host !== "dan") continue;
     if (!isRating(row.rating)) continue;
-    const current = byId.get(row.media_item_id) ?? { john: "not_seen", dan: "not_seen" };
+    const current = byId.get(row.media_item_id) ?? { john: "unrated", dan: "unrated" };
     current[row.host] = row.rating;
     byId.set(row.media_item_id, current);
   }
   const entries: MediaEntry[] = [];
   for (const row of items) {
-    const entry = toEntry(row, byId.get(row.id) ?? { john: "not_seen", dan: "not_seen" });
+    const entry = toEntry(row, byId.get(row.id) ?? { john: "unrated", dan: "unrated" });
     if (entry) entries.push(entry);
   }
   return entries;
@@ -342,7 +343,10 @@ export async function deleteMediaItem(userId: string, id: string): Promise<void>
   ]);
 }
 
-export async function setMediaRating(userId: string, input: { id: string; rating: MediaRating }): Promise<void> {
+export async function setMediaRating(
+  userId: string,
+  input: { id: string; rating: MediaRating | "unrated" },
+): Promise<void> {
   const sql = await getSql();
   const session = await getSessionUser();
   const who = await caller(sql, userId);
@@ -361,16 +365,17 @@ export async function setMediaRating(userId: string, input: { id: string; rating
   if (!decision.ok) throw new Error(decision.error);
   const rows = await sql<{ id: string }>`select id from media_item where id = ${input.id}`;
   if (!rows[0]) throw new Error("That title isn't on the page.");
-  const now = Date.now();
-  if (input.rating === "not_seen") {
+  const write = ratingWrite(input.rating);
+  if (write.action === "delete") {
     await sql`delete from media_rating where media_item_id = ${input.id} and host = ${host}`;
     return;
   }
+  const now = Date.now();
   await sql`
     insert into media_rating (media_item_id, host, rating, updated_at)
-    values (${input.id}, ${host}, ${input.rating}, ${now})
+    values (${input.id}, ${host}, ${write.rating}, ${now})
     on conflict (media_item_id, host) do update
-    set rating = ${input.rating}, updated_at = ${now}
+    set rating = ${write.rating}, updated_at = ${now}
   `;
 }
 
