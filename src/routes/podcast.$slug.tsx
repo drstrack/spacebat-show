@@ -66,7 +66,9 @@ function EpisodePage() {
         <img
           src={episode.cover}
           alt=""
-          className="aspect-square w-full object-cover sm:aspect-video"
+          className={`aspect-square w-full object-cover${
+            episode.code === "06" ? " [filter:brightness(1.5)]" : ""
+          }`}
         />
       </div>
       <div className="mt-8 flex flex-wrap items-center gap-2">
