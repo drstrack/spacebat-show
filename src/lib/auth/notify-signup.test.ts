@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { ScheduleException } from "../schedule-exceptions.ts";
 import { welcomeText } from "./notify-signup.ts";
 
 const HOME = "https://www.spacebatshow.net";
@@ -13,9 +14,16 @@ const STANDING =
   `${HOME}/account\n`;
 
 const THIS_WEEK = "This week only: SpaceBat is live Thursday, Nov 5 at 8:30 PM ET.";
+const WEEK: ScheduleException[] = [
+  {
+    skipDate: "2026-11-04",
+    showStart: "2026-11-05T20:30-05:00",
+    note: THIS_WEEK,
+  },
+];
 
 test("welcome mail keeps Wednesdays and adds this Thursday before the cutoff", () => {
-  const during = welcomeText("Ada", HOME, new Date("2026-11-02T17:00:00.000Z"));
+  const during = welcomeText("Ada", HOME, new Date("2026-11-02T17:00:00.000Z"), WEEK);
   assert.match(during, /The show is live Wednesdays at 8:30pm EST:/);
   assert.match(during, new RegExp(THIS_WEEK.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.equal(
@@ -25,7 +33,7 @@ test("welcome mail keeps Wednesdays and adds this Thursday before the cutoff", (
 });
 
 test("welcome mail drops the Thursday sentence after the cutoff", () => {
-  const after = welcomeText("Ada", HOME, new Date("2026-11-06T05:00:00.000Z"));
+  const after = welcomeText("Ada", HOME, new Date("2026-11-06T05:00:00.000Z"), WEEK);
   assert.equal(after, STANDING);
   assert.equal(after.includes("Thursday"), false);
   assert.equal(after.includes("Nov 5"), false);

@@ -13,6 +13,8 @@ import {
 } from "@/lib/chat/live";
 import { readFeed } from "@/lib/podcast-feed.functions";
 import { applyLiveBannerOverride } from "@/lib/schedule-change";
+import type { ScheduleException } from "@/lib/schedule-exceptions";
+import { listScheduleExceptions } from "@/lib/schedule-overrides.server";
 import type { ChatLive } from "@/lib/chat/types";
 
 const ROOM = "main";
@@ -72,7 +74,19 @@ function toState(row: LiveRow | undefined): LiveState {
   };
 }
 
-function toPublic(state: LiveState, now = Date.now()): ChatLive {
+async function openOverrides(): Promise<ScheduleException[]> {
+  try {
+    return await listScheduleExceptions();
+  } catch {
+    return [];
+  }
+}
+
+function toPublic(
+  state: LiveState,
+  exceptions: readonly ScheduleException[],
+  now = Date.now(),
+): ChatLive {
   const source =
     state.source === "stream" || state.source === "feed" || state.source === "manual"
       ? state.source
@@ -81,6 +95,7 @@ function toPublic(state: LiveState, now = Date.now()): ChatLive {
     { isLive: state.isLive, sinceMs: state.sinceMs, source },
     { mode: state.manual, untilMs: state.manualUntilMs },
     now,
+    exceptions,
   );
 }
 
@@ -179,6 +194,7 @@ async function requireCrew(sql: Sql, userId: string): Promise<void> {
  * chat. A lost claim returns the stored state and does not probe.
  */
 export async function refreshLive(room = ROOM): Promise<ChatLive> {
+  const exceptions = await openOverrides();
   try {
     const sql = await getSql();
     const now = Date.now();
@@ -189,7 +205,7 @@ export async function refreshLive(room = ROOM): Promise<ChatLive> {
       where room = ${room} and checked_ms < ${now - CHECK_GAP_MS}
       returning is_live, since_ms, source, manual, manual_until_ms, off_checks, last_alert_ms
     `;
-    if (!claimed[0]) return toPublic(toState(await loadRow(sql, room)), now);
+    if (!claimed[0]) return toPublic(toState(await loadRow(sql, room)), exceptions, now);
 
     const previous = toState(claimed[0]);
     const [icecast, feed] = await Promise.all([probeIcecast(streamUrl()), probeFeed()]);
@@ -204,13 +220,13 @@ export async function refreshLive(room = ROOM): Promise<ChatLive> {
       now,
     );
     await saveState(sql, room, next, now);
-    return toPublic(next, now);
+    return toPublic(next, exceptions, now);
   } catch {
     try {
       const sql = await getSql();
-      return toPublic(toState(await loadRow(sql, room)));
+      return toPublic(toState(await loadRow(sql, room)), exceptions);
     } catch {
-      return applyLiveBannerOverride(QUIET, { mode: null, untilMs: null }, Date.now());
+      return applyLiveBannerOverride(QUIET, { mode: null, untilMs: null }, Date.now(), exceptions);
     }
   }
 }
@@ -261,5 +277,5 @@ export async function adminSetLive(
     insert into chat_audit (actor_id, action, target_user_id, message_id, detail, created_ms)
     values (${userId}, 'live', null, null, ${mode}, ${now})
   `;
-  return toPublic(next, now);
+  return toPublic(next, await openOverrides(), now);
 }

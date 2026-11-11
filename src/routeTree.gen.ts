@@ -23,6 +23,7 @@ import { Route as SubscribeRouteImport } from './routes/subscribe'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminChatRouteImport } from './routes/admin.chat'
 import { Route as AdminMoviesRouteImport } from './routes/admin.movies'
+import { Route as AdminScheduleRouteImport } from './routes/admin.schedule'
 import { Route as ChatIndexRouteImport } from './routes/chat.index'
 import { Route as ChatPopoutRouteImport } from './routes/chat.popout'
 import { Route as ComicCollectionRouteImport } from './routes/comic.collection'
@@ -31,6 +32,7 @@ import { Route as EpisodesSlugRouteImport } from './routes/episodes.$slug'
 import { Route as PodcastIndexRouteImport } from './routes/podcast.index'
 import { Route as PodcastSlugRouteImport } from './routes/podcast.$slug'
 import { Route as ApiAlertsRunRouteImport } from './routes/api/alerts/run'
+import { Route as ApiAlertsStatusRouteImport } from './routes/api/alerts/status'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatPresenceRouteImport } from './routes/api/chat/presence'
 import { Route as ApiChatUploadRouteImport } from './routes/api/chat/upload'
@@ -108,6 +110,11 @@ const AdminMoviesRoute = AdminMoviesRouteImport.update({
   path: '/movies',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminScheduleRoute = AdminScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ChatIndexRoute = ChatIndexRouteImport.update({
   id: '/chat/',
   path: '/chat/',
@@ -146,6 +153,11 @@ const PodcastSlugRoute = PodcastSlugRouteImport.update({
 const ApiAlertsRunRoute = ApiAlertsRunRouteImport.update({
   id: '/api/alerts/run',
   path: '/api/alerts/run',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAlertsStatusRoute = ApiAlertsStatusRouteImport.update({
+  id: '/api/alerts/status',
+  path: '/api/alerts/status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -193,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/subscribe': typeof SubscribeRoute
   '/admin/chat': typeof AdminChatRoute
   '/admin/movies': typeof AdminMoviesRoute
+  '/admin/schedule': typeof AdminScheduleRoute
   '/chat/popout': typeof ChatPopoutRoute
   '/comic/collection': typeof ComicCollectionRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -202,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/episodes/': typeof EpisodesIndexRoute
   '/podcast/': typeof PodcastIndexRoute
   '/api/alerts/run': typeof ApiAlertsRunRoute
+  '/api/alerts/status': typeof ApiAlertsStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/presence': typeof ApiChatPresenceRoute
   '/api/chat/upload': typeof ApiChatUploadRoute
@@ -222,6 +236,7 @@ export interface FileRoutesByTo {
   '/subscribe': typeof SubscribeRoute
   '/admin/chat': typeof AdminChatRoute
   '/admin/movies': typeof AdminMoviesRoute
+  '/admin/schedule': typeof AdminScheduleRoute
   '/chat/popout': typeof ChatPopoutRoute
   '/comic/collection': typeof ComicCollectionRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -231,6 +246,7 @@ export interface FileRoutesByTo {
   '/episodes': typeof EpisodesIndexRoute
   '/podcast': typeof PodcastIndexRoute
   '/api/alerts/run': typeof ApiAlertsRunRoute
+  '/api/alerts/status': typeof ApiAlertsStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/presence': typeof ApiChatPresenceRoute
   '/api/chat/upload': typeof ApiChatUploadRoute
@@ -253,6 +269,7 @@ export interface FileRoutesById {
   '/subscribe': typeof SubscribeRoute
   '/admin/chat': typeof AdminChatRoute
   '/admin/movies': typeof AdminMoviesRoute
+  '/admin/schedule': typeof AdminScheduleRoute
   '/chat/popout': typeof ChatPopoutRoute
   '/comic/collection': typeof ComicCollectionRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -262,6 +279,7 @@ export interface FileRoutesById {
   '/episodes/': typeof EpisodesIndexRoute
   '/podcast/': typeof PodcastIndexRoute
   '/api/alerts/run': typeof ApiAlertsRunRoute
+  '/api/alerts/status': typeof ApiAlertsStatusRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/presence': typeof ApiChatPresenceRoute
   '/api/chat/upload': typeof ApiChatUploadRoute
@@ -285,6 +303,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/admin/chat'
     | '/admin/movies'
+    | '/admin/schedule'
     | '/chat/popout'
     | '/comic/collection'
     | '/episodes/$slug'
@@ -294,6 +313,7 @@ export interface FileRouteTypes {
     | '/episodes/'
     | '/podcast/'
     | '/api/alerts/run'
+    | '/api/alerts/status'
     | '/api/auth/$'
     | '/api/chat/presence'
     | '/api/chat/upload'
@@ -314,6 +334,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/admin/chat'
     | '/admin/movies'
+    | '/admin/schedule'
     | '/chat/popout'
     | '/comic/collection'
     | '/episodes/$slug'
@@ -323,6 +344,7 @@ export interface FileRouteTypes {
     | '/episodes'
     | '/podcast'
     | '/api/alerts/run'
+    | '/api/alerts/status'
     | '/api/auth/$'
     | '/api/chat/presence'
     | '/api/chat/upload'
@@ -344,6 +366,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/admin/chat'
     | '/admin/movies'
+    | '/admin/schedule'
     | '/chat/popout'
     | '/comic/collection'
     | '/episodes/$slug'
@@ -353,6 +376,7 @@ export interface FileRouteTypes {
     | '/episodes/'
     | '/podcast/'
     | '/api/alerts/run'
+    | '/api/alerts/status'
     | '/api/auth/$'
     | '/api/chat/presence'
     | '/api/chat/upload'
@@ -381,6 +405,7 @@ export interface RootRouteChildren {
   EpisodesIndexRoute: typeof EpisodesIndexRoute
   PodcastIndexRoute: typeof PodcastIndexRoute
   ApiAlertsRunRoute: typeof ApiAlertsRunRoute
+  ApiAlertsStatusRoute: typeof ApiAlertsStatusRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatPresenceRoute: typeof ApiChatPresenceRoute
   ApiChatUploadRoute: typeof ApiChatUploadRoute
@@ -489,6 +514,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMoviesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/schedule': {
+      id: '/admin/schedule'
+      path: '/schedule'
+      fullPath: '/admin/schedule'
+      preLoaderRoute: typeof AdminScheduleRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/chat/': {
       id: '/chat/'
       path: '/chat'
@@ -545,6 +577,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAlertsRunRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/alerts/status': {
+      id: '/api/alerts/status'
+      path: '/api/alerts/status'
+      fullPath: '/api/alerts/status'
+      preLoaderRoute: typeof ApiAlertsStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -593,12 +632,14 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminChatRoute: typeof AdminChatRoute
   AdminMoviesRoute: typeof AdminMoviesRoute
+  AdminScheduleRoute: typeof AdminScheduleRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminChatRoute: AdminChatRoute,
   AdminMoviesRoute: AdminMoviesRoute,
+  AdminScheduleRoute: AdminScheduleRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
@@ -624,6 +665,7 @@ const rootRouteChildren: RootRouteChildren = {
   EpisodesIndexRoute: EpisodesIndexRoute,
   PodcastIndexRoute: PodcastIndexRoute,
   ApiAlertsRunRoute: ApiAlertsRunRoute,
+  ApiAlertsStatusRoute: ApiAlertsStatusRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatPresenceRoute: ApiChatPresenceRoute,
   ApiChatUploadRoute: ApiChatUploadRoute,

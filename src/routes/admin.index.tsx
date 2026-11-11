@@ -82,6 +82,12 @@ function AdminPage() {
           Movies & TV
         </Link>
         <Link
+          to="/admin/schedule"
+          className="font-display text-2xl tracking-wide text-crimson hover:underline"
+        >
+          Show schedule
+        </Link>
+        <Link
           to="/comic/collection"
           className="font-display text-2xl tracking-wide text-crimson hover:underline"
         >

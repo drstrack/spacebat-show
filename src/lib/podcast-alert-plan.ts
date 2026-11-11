@@ -1,13 +1,22 @@
-/** Pure Podhome schedule rules for podcast-alert mail. No database. */
+/** Pure schedule rules for podcast-alert mail. No database. */
 
 import {
+  alertDayPlan,
   scheduleChangeMorningAlert,
   showsForAlertSchedule,
   type ScheduleChangeAlert,
 } from "./schedule-change.ts";
+import {
+  inAlertMorning,
+  nyDateKey,
+  standingShowStart,
+  type ScheduleException,
+  scheduleExceptions,
+} from "./schedule-exceptions.ts";
 
 const NY = "America/New_York";
 const STREAM_HOST = "stream.podhome.fm";
+const DEFAULT_TITLE = "The SpaceBat Show";
 
 export type ScheduledShow = {
   id: string;
@@ -62,10 +71,9 @@ export function parsePostedShows(xml: string): PostedShow[] {
   return shows;
 }
 
-/** Morning in New York, and the Podhome live item starts that same calendar day. */
+/** Morning in New York, and the show starts that same calendar day. */
 export function showsDueThisMorning(now: Date, shows: ScheduledShow[]): ScheduledShow[] {
-  const hour = nyHour(now);
-  if (hour < 7 || hour > 10) return [];
+  if (!inAlertMorning(now)) return [];
   const today = nyDateKey(now);
   return shows.filter((show) => nyDateKey(new Date(show.start)) === today);
 }
@@ -81,32 +89,66 @@ export type AlertMail =
 
 /**
  * Morning podcast alerts for one cron run.
- * An open schedule exception can add one skipped-morning note and, the next
- * morning, one show-day reminder. Show-day mail uses alert_log kind
- * "show-day". The skipped morning uses a different kind and ref, so the two
- * cannot dedupe into each other. Each night contributes at most one reminder.
+ *
+ * With no exception, every Wednesday mails one "We're on today" for 8:30 PM
+ * America/New_York. A Podhome pending item on that night replaces the title
+ * and the start time, and cannot add a second mail. A null feed is an outage:
+ * the default (or the override) still plans. The show-day ref is the
+ * America/New_York date of the night, so a later Podhome guid or title cannot
+ * double-send. The skipped morning uses kind "schedule-change".
  */
 export function planAlertMorning(
-  xml: string,
+  xml: string | null,
   now: Date,
   site: string,
+  exceptions: readonly ScheduleException[] = scheduleExceptions,
 ): {
   shows: ScheduledShow[];
   mails: AlertMail[];
 } {
-  const shows = showsForAlertSchedule(parseScheduledShows(xml), now);
+  const parsed = xml ? parseScheduledShows(xml) : [];
+  const shows = showsForAlertSchedule(parsed, now, exceptions);
   const mails: AlertMail[] = [];
-  const change = scheduleChangeMorningAlert(now, site);
+  const change = scheduleChangeMorningAlert(now, site, exceptions);
   if (change) mails.push(change);
-  for (const show of showsDueThisMorning(now, shows)) mails.push(showDayMail(show, site));
+  const night = showNightForMorning(now, parsed, exceptions);
+  if (night) mails.push(showDayMail(night, site, night.id));
   return { shows, mails };
 }
 
-export function showDayMail(show: ScheduledShow, site: string): AlertMail {
+/**
+ * The one show-night this morning should remind people about. Podhome items
+ * only fill in title and start. Null when this morning is a skip, a
+ * cancellation, or not a show morning.
+ */
+export function showNightForMorning(
+  now: Date,
+  podhome: readonly ScheduledShow[],
+  exceptions: readonly ScheduleException[] = scheduleExceptions,
+): ScheduledShow | null {
+  if (!inAlertMorning(now)) return null;
+  const plan = alertDayPlan(now, exceptions);
+  if (!plan || plan.kind !== "show-day") return null;
+  const today = plan.date;
+  const baseStart =
+    plan.exception?.showStartMs != null
+      ? new Date(plan.exception.showStartMs).toISOString()
+      : standingShowStart(today);
+  const onNight = podhome.find((show) => sameNight(show, today));
+  if (onNight) {
+    return { id: today, title: onNight.title || DEFAULT_TITLE, start: onNight.start };
+  }
+  const skipDate = plan.exception?.skipDate;
+  const onSkip = skipDate ? podhome.find((show) => sameNight(show, skipDate)) : undefined;
+  return { id: today, title: onSkip?.title || DEFAULT_TITLE, start: baseStart };
+}
+
+export function showDayMail(show: ScheduledShow, site: string, ref?: string): AlertMail {
   const home = site.replace(/\/$/, "");
+  const night = ref ?? nyDateKey(new Date(show.start));
   return {
     kind: "show-day",
-    ref: `${show.id}:${show.start}`,
+    ref: night,
     subject: "We're on today",
     text:
       `John and Dan are live today. The bat signal is up.\n\n` +
@@ -117,14 +159,7 @@ export function showDayMail(show: ScheduledShow, site: string): AlertMail {
   };
 }
 
-export function nyDateKey(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: NY,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
+export { nyDateKey };
 
 export function formatShowWhen(iso: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -136,13 +171,10 @@ export function formatShowWhen(iso: string): string {
   }).format(new Date(iso));
 }
 
-function nyHour(date: Date): number {
-  const hour = new Intl.DateTimeFormat("en-US", {
-    timeZone: NY,
-    hour: "numeric",
-    hourCycle: "h23",
-  }).format(date);
-  return Number(hour);
+function sameNight(show: ScheduledShow, dateKey: string): boolean {
+  const when = new Date(show.start);
+  if (Number.isNaN(when.getTime())) return false;
+  return nyDateKey(when) === dateKey;
 }
 
 function collect(xml: string, tag: string): string[] {
