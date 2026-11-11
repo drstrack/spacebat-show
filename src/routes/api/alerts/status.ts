@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { alertAuthResponse } from "@/lib/alert-auth";
 import { nyDateKey } from "@/lib/schedule-exceptions";
-
-function authorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET?.trim();
-  const header = request.headers.get("authorization") ?? "";
-  return Boolean(secret) && header === `Bearer ${secret}`;
-}
 
 /**
  * Monitor poll. After 12:15 PM America/New_York, HTTP 503 means the expected
@@ -13,7 +8,8 @@ function authorized(request: Request): boolean {
  * counts and an error class. It has no addresses and no secrets.
  */
 async function handle({ request }: { request: Request }) {
-  if (!authorized(request)) return new Response("No.", { status: 401 });
+  const denied = alertAuthResponse("status", request);
+  if (denied) return denied;
   const { readAlertHealth, logAlertFailure } = await import("@/lib/podcast-alerts.server");
   const { classifyAlertError } = await import("@/lib/podcast-alert-delivery");
   try {
@@ -28,6 +24,7 @@ async function handle({ request }: { request: Request }) {
         sent: health.sent,
         expected: health.expected,
         error: health.error,
+        schedule: health.schedule,
         pastCutoff: health.pastCutoff,
         delivery: health.delivery,
         window: "07:00-11:59",
@@ -43,6 +40,7 @@ async function handle({ request }: { request: Request }) {
         date: nyDateKey(new Date()),
         zone: "America/New_York",
         error: classifyAlertError(error),
+        schedule: null,
         delivery: "error",
       },
       { status: 503 },

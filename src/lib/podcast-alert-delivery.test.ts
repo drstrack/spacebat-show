@@ -146,6 +146,7 @@ describe("alert health", () => {
     assert.equal(pending.delivery, "pending");
     assert.equal(pending.expectedKind, "show-day");
     assert.equal(pending.expectedRef, "2026-11-11");
+    assert.equal(pending.schedule, "default");
     assert.equal(pending.error, "timeout");
 
     const short = assessAlertHealth({
@@ -182,6 +183,7 @@ describe("alert health", () => {
     });
     assert.equal(skipped.expectedKind, "schedule-change");
     assert.equal(skipped.expectedRef, "2026-11-11");
+    assert.equal(skipped.schedule, "override");
     assert.equal(skipped.ok, false);
     const thursday = assessAlertHealth({
       now: at("2026-11-12", 13),
@@ -191,7 +193,27 @@ describe("alert health", () => {
     });
     assert.equal(thursday.ok, true);
     assert.equal(thursday.expectedKind, null);
+    assert.equal(thursday.schedule, null);
     assert.equal(thursday.httpStatus, 200);
+  });
+
+  it("marks a moved show night as an override", () => {
+    const health = assessAlertHealth({
+      now: at("2026-11-19", 8),
+      exceptions: [
+        {
+          skipDate: "2026-11-18",
+          showStart: "2026-11-19T20:30:00-05:00",
+          note: "Thursday this week.",
+        },
+      ],
+      sent: 1,
+      recipients: 1,
+    });
+    assert.equal(health.expectedKind, "show-day");
+    assert.equal(health.expectedRef, "2026-11-19");
+    assert.equal(health.schedule, "override");
+    assert.equal(health.ok, true);
   });
 
   it("reports zero recipients after the cutoff", () => {

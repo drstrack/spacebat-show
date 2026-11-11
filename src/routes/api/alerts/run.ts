@@ -1,13 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-
-function authorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET?.trim();
-  const header = request.headers.get("authorization") ?? "";
-  return Boolean(secret) && header === `Bearer ${secret}`;
-}
+import { alertAuthResponse } from "@/lib/alert-auth";
 
 async function handle({ request }: { request: Request }) {
-  if (!authorized(request)) return new Response("No.", { status: 401 });
+  const denied = alertAuthResponse("run", request);
+  if (denied) return denied;
   const { runPodcastAlerts, logAlertFailure } = await import("@/lib/podcast-alerts.server");
   const { classifyAlertError } = await import("@/lib/podcast-alert-delivery");
   try {

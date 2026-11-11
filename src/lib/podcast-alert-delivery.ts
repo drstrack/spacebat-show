@@ -27,12 +27,16 @@ export type DeliveryTally = {
   error: AlertErrorClass | null;
 };
 
+/** `default` is the standing Wednesday. `override` is an admin move or cancellation. */
+export type AlertScheduleSource = "default" | "override" | null;
+
 export type AlertHealth = {
   ok: boolean;
   httpStatus: 200 | 503;
   date: string;
   expectedKind: "show-day" | "schedule-change" | null;
   expectedRef: string | null;
+  schedule: AlertScheduleSource;
   sent: number;
   expected: number;
   error: AlertErrorClass | null;
@@ -117,10 +121,16 @@ export function assessAlertHealth(input: {
   const expectedKind = plan?.kind ?? null;
   const expectedRef =
     plan?.kind === "schedule-change" ? plan.exception.skipDate : plan?.kind === "show-day" ? plan.date : null;
+  const schedule: AlertScheduleSource = !plan
+    ? null
+    : plan.kind === "show-day" && plan.exception == null
+      ? "default"
+      : "override";
   const base = {
     date,
     expectedKind,
     expectedRef,
+    schedule,
     sent: plan ? input.sent : 0,
     expected: plan ? input.recipients : 0,
     pastCutoff,
