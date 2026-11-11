@@ -2,6 +2,7 @@ import { createRootRoute, HeadContent, Link, Outlet, Scripts } from "@tanstack/r
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { SiteShell } from "@/components/site-shell";
+import { loadPublicSchedule } from "@/lib/schedule-overrides.functions";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "SpaceBat";
@@ -20,7 +21,10 @@ function NotFound() {
 }
 
 export const Route = createRootRoute({
-  loader: () => ({ scheduleNowMs: Date.now() }),
+  loader: async () => ({
+    scheduleNowMs: Date.now(),
+    scheduleExceptions: await loadPublicSchedule(),
+  }),
   head: () => ({
     meta: [
       { charSet: "utf-8" },

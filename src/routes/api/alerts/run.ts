@@ -1,18 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-async function handle({ request }: { request: Request }) {
+function authorized(request: Request): boolean {
   const secret = process.env.CRON_SECRET?.trim();
   const header = request.headers.get("authorization") ?? "";
-  if (!secret || header !== `Bearer ${secret}`) {
-    return new Response("No.", { status: 401 });
-  }
-  const { runPodcastAlerts } = await import("@/lib/podcast-alerts.server");
+  return Boolean(secret) && header === `Bearer ${secret}`;
+}
+
+async function handle({ request }: { request: Request }) {
+  if (!authorized(request)) return new Response("No.", { status: 401 });
+  const { runPodcastAlerts, logAlertFailure } = await import("@/lib/podcast-alerts.server");
+  const { classifyAlertError } = await import("@/lib/podcast-alert-delivery");
   try {
     const result = await runPodcastAlerts();
     return Response.json(result);
   } catch (error) {
-    console.error("podcast alerts", error instanceof Error ? error.message : "failed");
-    return Response.json({ ok: false }, { status: 500 });
+    logAlertFailure(new Date(), error);
+    return Response.json({ ok: false, error: classifyAlertError(error) }, { status: 500 });
   }
 }
 

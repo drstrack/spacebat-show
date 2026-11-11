@@ -1,6 +1,7 @@
 import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { scheduleChangeNote, scheduleChangeVisible } from "@/lib/schedule-change";
+import type { ScheduleException } from "@/lib/schedule-exceptions";
 import { cn } from "@/lib/utils";
 
 const rootRoute = getRouteApi("__root__");
@@ -26,9 +27,14 @@ function useScheduleNow(): number {
   return nowMs;
 }
 
+function useScheduleExceptions(): readonly ScheduleException[] {
+  const { scheduleExceptions } = rootRoute.useLoaderData();
+  return scheduleExceptions;
+}
+
 export function ScheduleChangeNotice({ className }: { className?: string }) {
   const nowMs = useScheduleNow();
-  const note = scheduleChangeNote(nowMs);
+  const note = scheduleChangeNote(nowMs, useScheduleExceptions());
   if (!note) return null;
 
   return (
@@ -47,7 +53,7 @@ export function ScheduleChangeNotice({ className }: { className?: string }) {
 /** Standing weekly line. Hidden while this week's Thursday notice is up. */
 export function StandingShowTime({ className }: { className?: string }) {
   const nowMs = useScheduleNow();
-  if (scheduleChangeVisible(nowMs)) return null;
+  if (scheduleChangeVisible(nowMs, useScheduleExceptions())) return null;
   return (
     <p className={cn("text-base leading-relaxed text-muted", className)}>{STANDING_SHOW_TIME}</p>
   );

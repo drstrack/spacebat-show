@@ -1,4 +1,5 @@
 import { scheduleChangeNote } from "../schedule-change.ts";
+import { scheduleExceptions, type ScheduleException } from "../schedule-exceptions.ts";
 
 const CREW = "spacebatshow@gmail.com";
 
@@ -26,8 +27,13 @@ async function send(key: string, from: string, message: Record<string, string>) 
 }
 
 /** Welcome body. The one-week sentence drops out on its own after the cutoff. */
-export function welcomeText(name: string, home: string, now: number | Date = new Date()): string {
-  const note = scheduleChangeNote(now);
+export function welcomeText(
+  name: string,
+  home: string,
+  now: number | Date = new Date(),
+  exceptions: readonly ScheduleException[] = scheduleExceptions,
+): string {
+  const note = scheduleChangeNote(now, exceptions);
   const week = note ? `\n\n${note}` : "";
   return (
     `${greeting(name)}` +
@@ -49,13 +55,20 @@ export async function notifyNewAccount(user: { email: string; name: string }) {
   const name = user.name?.trim() || "Listener";
   const email = user.email.trim();
   const home = site();
+  let exceptions: readonly ScheduleException[] = [];
+  try {
+    const { listScheduleExceptions } = await import("../schedule-overrides.server.ts");
+    exceptions = await listScheduleExceptions();
+  } catch {
+    exceptions = [];
+  }
   try {
     await Promise.all([
       send(key, from, {
         to: email,
         reply_to: CREW,
         subject: "Welcome to the SpaceBat Show",
-        text: welcomeText(name, home),
+        text: welcomeText(name, home, new Date(), exceptions),
       }),
       send(key, from, {
         to: CREW,
