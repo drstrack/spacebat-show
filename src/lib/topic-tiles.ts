@@ -37,6 +37,12 @@ export type TopicTile = (typeof topicTiles)[number];
 /** Same destination as the podcast page's Play Latest Episode button. */
 export const PODCAST_LISTEN = "/listen" as const;
 
+/** Home hero and header "The Podcast": the live section on the podcast page. */
+export const PODCAST_LIVE = {
+  to: "/podcast",
+  hash: "live",
+} as const;
+
 export function topicTileTarget(tile: TopicTile): {
   to: "/comic/collection" | "/podcast" | "/movies";
   hash?: "episodes";

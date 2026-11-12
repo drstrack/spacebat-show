@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { PODCAST_LISTEN, topicTiles, topicTileTarget } from "./topic-tiles.ts";
+import { PODCAST_LISTEN, PODCAST_LIVE, topicTiles, topicTileTarget } from "./topic-tiles.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -45,5 +45,20 @@ describe("topic tiles", () => {
     assert.match(podcast, /aria-hidden="true"/);
     assert.match(podcast, /id="episodes" className="mt-14 scroll-mt-20"/);
     assert.match(podcast, /id="live" className="[^"]*scroll-mt-20/);
+  });
+
+  it("points the home hero and the header at the live section", () => {
+    assert.deepEqual(PODCAST_LIVE, { to: "/podcast", hash: "live" });
+    const home = readFileSync(join(root, "src/routes/index.tsx"), "utf8");
+    const header = readFileSync(join(root, "src/components/site-header.tsx"), "utf8");
+    assert.match(home, /<Link to=\{PODCAST_LIVE\.to\} hash=\{PODCAST_LIVE\.hash\}>/);
+    assert.match(header, /to: PODCAST_LIVE\.to, hash: PODCAST_LIVE\.hash, label: "The Podcast"/);
+    assert.match(
+      header,
+      /to === PODCAST_LIVE\.to && pathname\.startsWith\(`\$\{PODCAST_LIVE\.to\}\/`\)/,
+    );
+    assert.match(header, /hash=\{"hash" in l \? l\.hash : undefined\}/);
+    assert.match(header, /onClick=\{\(\) => setOpen\(false\)\}/);
+    assert.doesNotMatch(header, /\/listen/);
   });
 });
