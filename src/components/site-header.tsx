@@ -3,10 +3,11 @@ import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { BatMark } from "@/components/bat-mark";
 import { Button } from "@/components/ui/button";
+import { PODCAST_LIVE } from "@/lib/topic-tiles";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { to: "/listen", label: "The Podcast" },
+  { to: PODCAST_LIVE.to, hash: PODCAST_LIVE.hash, label: "The Podcast" },
   { to: "/story", label: "The name" },
   { to: "/hosts", label: "The crew" },
   { to: "/merch", label: "The shop" },
@@ -18,7 +19,7 @@ function linkIsCurrent(pathname: string, to: string) {
   return (
     pathname === to ||
     pathname === `${to}/` ||
-    (to === "/listen" && pathname.startsWith("/podcast/")) ||
+    (to === PODCAST_LIVE.to && pathname.startsWith(`${PODCAST_LIVE.to}/`)) ||
     (to === "/chat" && pathname.startsWith("/chat"))
   );
 }
@@ -44,6 +45,7 @@ export function SiteHeader() {
             <Link
               key={l.to}
               to={l.to}
+              hash={"hash" in l ? l.hash : undefined}
               className={cn(
                 "px-3 py-2 font-display text-base tracking-wide text-ink/70 hover:text-ink",
                 linkIsCurrent(pathname, l.to) && "text-crimson",
@@ -74,6 +76,7 @@ export function SiteHeader() {
               <Link
                 key={l.to}
                 to={l.to}
+                hash={"hash" in l ? l.hash : undefined}
                 onClick={() => setOpen(false)}
                 className={cn(
                   "px-3 py-3 font-display text-xl tracking-wide text-ink/70",

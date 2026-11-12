@@ -5,6 +5,7 @@ import { ScheduleChangeNotice } from "@/components/schedule-change-notice";
 import { TopicTiles } from "@/components/topic-tiles";
 import { Button } from "@/components/ui/button";
 import { hosts, show } from "@/data/show";
+import { PODCAST_LIVE } from "@/lib/topic-tiles";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -31,7 +32,7 @@ function Home() {
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
               <Button size="lg" asChild>
-                <Link to="/podcast" hash="live">
+                <Link to={PODCAST_LIVE.to} hash={PODCAST_LIVE.hash}>
                   The Podcast
                 </Link>
               </Button>
