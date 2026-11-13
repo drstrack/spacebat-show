@@ -1,21 +1,25 @@
 import { useState } from "react";
+import { MessageLinkPreview } from "@/components/chat/link-preview";
 import { isEmojiOnly, tokenize, type ChatToken } from "@/lib/chat/render";
 
 export function MessageBody({ body, showImages }: { body: string; showImages: boolean }) {
   const tokens = tokenize(body);
   const large = isEmojiOnly(body);
   return (
-    <div
-      className={
-        large
-          ? "mt-1 whitespace-pre-wrap break-words text-4xl leading-tight"
-          : "mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed"
-      }
-    >
-      {tokens.map((token, index) => (
-        <TokenView key={index} token={token} showImages={showImages} />
-      ))}
-    </div>
+    <>
+      <div
+        className={
+          large
+            ? "mt-1 whitespace-pre-wrap break-words text-4xl leading-tight"
+            : "mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed"
+        }
+      >
+        {tokens.map((token, index) => (
+          <TokenView key={index} token={token} showImages={showImages} />
+        ))}
+      </div>
+      <MessageLinkPreview body={body} />
+    </>
   );
 }
 
