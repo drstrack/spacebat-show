@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   MEDIA_HOST_EMAILS,
+  MEDIA_RATINGS,
   MEDIA_RATING_CYCLE,
   MEDIA_RATING_LABEL,
+  MEDIA_RATING_MARK,
   mediaAdminDecision,
   mediaByKind,
   mediaCatalog,
@@ -17,9 +19,11 @@ import {
   idsForRatingView,
   nextHostRating,
   orderForRater,
+  ratingBucket,
   ratingViewCount,
   ratingWrite,
   renderMediaGrid,
+  sortMedia,
   renderMediaTabs,
   unratedCount,
   type MediaEntry,
@@ -116,8 +120,31 @@ describe("movies and tv", () => {
     assert.match(html, /aria-label="One thumb down"/);
     assert.match(html, /John:/);
     assert.match(html, /Dan:/);
+    const higher = renderMediaGrid([
+      { ...entry, ratings: { john: "four_up", dan: "three_up" } },
+    ]);
+    assert.match(higher, /aria-label="Four thumbs up"/);
+    assert.match(higher, /👍👍👍👍/);
+    assert.match(higher, /aria-label="Three thumbs up"/);
+    assert.match(higher, /👍👍👍/);
+    assert.equal(MEDIA_RATING_LABEL.four_up, "Four thumbs up");
+    assert.equal(MEDIA_RATING_LABEL.three_up, "Three thumbs up");
+    assert.equal(MEDIA_RATING_LABEL.two_up, "Two thumbs up");
     assert.equal(MEDIA_RATING_LABEL.not_seen, "Haven't seen it");
     assert.equal(MEDIA_RATING_LABEL.unrated, "Not rated yet");
+    assert.equal(MEDIA_RATING_MARK.four_up, "👍👍👍👍");
+    assert.equal(MEDIA_RATING_MARK.three_up, "👍👍👍");
+    assert.equal(MEDIA_RATING_MARK.two_up, "👍👍");
+    assert.deepEqual(MEDIA_RATINGS, [
+      "four_up",
+      "three_up",
+      "two_up",
+      "one_up",
+      "ok",
+      "one_down",
+      "two_down",
+      "not_seen",
+    ]);
     const unseen = renderMediaGrid([mediaCatalog[1]!]);
     assert.match(unseen, /aria-label="Not rated yet"/);
     assert.equal(unseen.includes("Haven't seen it"), false);
@@ -205,7 +232,9 @@ describe("movies and tv", () => {
     }
     assert.deepEqual(steps, ["unrated", ...MEDIA_RATING_CYCLE.slice(0, -1), "unrated"]);
     assert.equal(nextHostRating("not_seen"), "unrated");
-    assert.equal(nextHostRating("unrated"), "two_up");
+    assert.equal(nextHostRating("unrated"), "four_up");
+    assert.equal(nextHostRating("four_up"), "three_up");
+    assert.equal(nextHostRating("three_up"), "two_up");
     assert.deepEqual(ratingWrite("unrated"), { action: "delete" });
     assert.deepEqual(ratingWrite("not_seen"), { action: "upsert", rating: "not_seen" });
     assert.deepEqual(ratingWrite("two_up"), { action: "upsert", rating: "two_up" });
@@ -329,14 +358,47 @@ describe("movies and tv", () => {
   });
 
   it("keeps a cycled rating pending until it is written", () => {
+    const seen: MediaRatingChoice[] = [];
     let shown: MediaRatingChoice = "unrated";
-    shown = nextHostRating(shown);
-    shown = nextHostRating(shown);
-    shown = nextHostRating(shown);
-    assert.equal(shown, "ok");
-    assert.notEqual(shown, "unrated");
+    while (shown !== "ok") {
+      shown = nextHostRating(shown);
+      seen.push(shown);
+      assert.notEqual(shown, "unrated");
+    }
+    assert.deepEqual(seen, ["four_up", "three_up", "two_up", "one_up", "ok"]);
     assert.deepEqual(ratingWrite(shown), { action: "upsert", rating: "ok" });
+    assert.deepEqual(ratingWrite("four_up"), { action: "upsert", rating: "four_up" });
+    assert.deepEqual(ratingWrite("three_up"), { action: "upsert", rating: "three_up" });
     assert.deepEqual(ratingWrite("unrated"), { action: "delete" });
+  });
+
+  it("sorts four thumbs above three thumbs above two thumbs", () => {
+    const sample = (id: string, john: MediaRatingChoice): MediaEntry => ({
+      ...mediaCatalog[0]!,
+      id,
+      title: id,
+      ratings: { john, dan: "unrated" },
+    });
+    const sorted = sortMedia(
+      [
+        sample("two", "two_up"),
+        sample("four", "four_up"),
+        sample("none", "unrated"),
+        sample("three", "three_up"),
+        sample("down", "two_down"),
+      ],
+      "john",
+    );
+    assert.deepEqual(
+      sorted.map((entry) => entry.id),
+      ["four", "three", "two", "down", "none"],
+    );
+    assert.equal(ratingBucket("four_up"), "rated");
+    assert.equal(ratingBucket("three_up"), "rated");
+    assert.equal(ratingBucket("two_up"), "rated");
+    assert.equal(ratingBucket("ok"), "rated");
+    assert.equal(ratingBucket("not_seen"), "not_seen");
+    assert.equal(ratingBucket("unrated"), "unrated");
   });
 
   it("puts the newest episode mention first", () => {

@@ -10,7 +10,16 @@ export type MediaEpisode = {
 };
 
 /** Stored ratings, high to low. A missing row is unrated, not "haven't seen it". */
-export const MEDIA_RATINGS = ["two_up", "one_up", "ok", "one_down", "two_down", "not_seen"] as const;
+export const MEDIA_RATINGS = [
+  "four_up",
+  "three_up",
+  "two_up",
+  "one_up",
+  "ok",
+  "one_down",
+  "two_down",
+  "not_seen",
+] as const;
 
 export type MediaRating = (typeof MEDIA_RATINGS)[number];
 
@@ -20,6 +29,8 @@ export const MEDIA_RATING_CYCLE = [...MEDIA_RATINGS, "unrated"] as const;
 export type MediaRatingChoice = (typeof MEDIA_RATING_CYCLE)[number];
 
 export const MEDIA_RATING_LABEL: Record<MediaRatingChoice, string> = {
+  four_up: "Four thumbs up",
+  three_up: "Three thumbs up",
   two_up: "Two thumbs up",
   one_up: "One thumb up",
   ok: "OK",
@@ -30,6 +41,8 @@ export const MEDIA_RATING_LABEL: Record<MediaRatingChoice, string> = {
 };
 
 export const MEDIA_RATING_MARK: Record<MediaRatingChoice, string> = {
+  four_up: "👍👍👍👍",
+  three_up: "👍👍👍",
   two_up: "👍👍",
   one_up: "👍",
   ok: "OK",
@@ -231,7 +244,7 @@ export function formatRating(choice: MediaRatingChoice): string {
 export function nextHostRating(current: MediaRatingChoice): MediaRatingChoice {
   const index = MEDIA_RATING_CYCLE.indexOf(current);
   const next = MEDIA_RATING_CYCLE[(index + 1) % MEDIA_RATING_CYCLE.length];
-  return next ?? "two_up";
+  return next ?? "four_up";
 }
 
 /** Unrated deletes the row. Every other step is stored, including haven't seen it. */
