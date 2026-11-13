@@ -43,6 +43,10 @@ export const requestPublic: PreviewRequest = (input) => {
     throw new BlockedAddressError();
   }
   if (isBlockedIp(input.address)) throw new BlockedAddressError();
+  const cap =
+    typeof input.maxBytes === "number" && Number.isFinite(input.maxBytes) && input.maxBytes > 0
+      ? Math.floor(input.maxBytes)
+      : PREVIEW_MAX_BYTES;
 
   const isHttps = input.url.protocol === "https:";
   const lib = isHttps ? https : http;
@@ -88,7 +92,7 @@ export const requestPublic: PreviewRequest = (input) => {
         });
       };
       res.on("error", (err) => {
-        if (settled || received >= PREVIEW_MAX_BYTES) finish();
+        if (settled || received >= cap) finish();
         else reject(err);
       });
       const status = res.statusCode ?? 0;
@@ -98,12 +102,12 @@ export const requestPublic: PreviewRequest = (input) => {
         return;
       }
       res.on("data", (chunk: Buffer) => {
-        if (received >= PREVIEW_MAX_BYTES) return;
-        const room = PREVIEW_MAX_BYTES - received;
+        if (received >= cap) return;
+        const room = cap - received;
         const slice = chunk.byteLength > room ? chunk.subarray(0, room) : chunk;
         chunks.push(slice);
         received += slice.byteLength;
-        if (received >= PREVIEW_MAX_BYTES) {
+        if (received >= cap) {
           finish();
           res.destroy();
         }

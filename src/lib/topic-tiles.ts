@@ -15,8 +15,8 @@ export const topicTiles = [
   {
     label: "Tech",
     image: "/images/ep-tech.webp",
-    href: "/podcast#episodes",
-    accessibleName: "Tech: see episodes",
+    href: "/tech",
+    accessibleName: "Tech: see products John and Dan recommend",
   },
   {
     label: "Politics",
@@ -44,10 +44,11 @@ export const PODCAST_LIVE = {
 } as const;
 
 export function topicTileTarget(tile: TopicTile): {
-  to: "/comic/collection" | "/podcast" | "/movies";
+  to: "/comic/collection" | "/podcast" | "/movies" | "/tech";
   hash?: "episodes";
 } {
   if (tile.href === "/podcast#episodes") return { to: "/podcast", hash: "episodes" };
   if (tile.href === "/movies") return { to: "/movies" };
+  if (tile.href === "/tech") return { to: "/tech" };
   return { to: "/comic/collection" };
 }
