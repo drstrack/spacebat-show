@@ -3,11 +3,14 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
+import { rmSync } from "node:fs";
 import { createClient, type Client } from "@libsql/client";
 import {
   addColumnTarget,
   applyPendingSqliteMigrations,
   bootstrapSqliteSchema,
+  sqlStatements,
+  toSqlite,
 } from "./sqlite-migrate.ts";
 
 const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), "../../migrations");
@@ -692,6 +695,292 @@ describe("sqlite migrations", () => {
       await pg.close();
     }
   });
+
+  it("copies every rating when four and three thumbs are added", async () => {
+    const client = memory();
+    try {
+      const files = migrationFiles();
+      const added = files.find((file) => file.name === "0017_media_rating_thumbs.sql");
+      assert.ok(added);
+      const statements = sqlStatements(toSqlite(added.sql));
+      assert.equal(statements.length, 5);
+      assert.match(statements[2] ?? "", /insert into media_rating_new select \* from media_rating/i);
+      assert.doesNotMatch(added.sql, /\bupdate\s+media_rating\b/i);
+      const prior = files.filter((file) => file.name !== added.name);
+      await bootstrapSqliteSchema(client, prior);
+      const expected = await seedRatingDistribution(client);
+      assert.equal(expected.length, 139);
+      const counts = new Map<string, number>();
+      for (const row of expected) counts.set(row[2] ?? "", (counts.get(row[2] ?? "") ?? 0) + 1);
+      assert.equal(counts.get("two_up"), 90);
+      assert.equal(counts.get("one_up"), 12);
+      assert.equal(counts.get("ok"), 14);
+      assert.equal(counts.get("one_down"), 5);
+      assert.equal(counts.get("two_down"), 2);
+      assert.equal(counts.get("not_seen"), 16);
+
+      await bootstrapSqliteSchema(client, files);
+      assert.deepEqual(await readRatingRows(client), expected);
+      const schema = String(
+        (await client.execute("select sql from sqlite_master where type = 'table' and name = 'media_rating'"))
+          .rows[0]?.sql,
+      );
+      assert.match(schema, /'four_up'/);
+      assert.match(schema, /'three_up'/);
+      assert.match(schema, /'two_up'/);
+      assert.match(schema, /on delete cascade/i);
+      assert.match(schema, /primary key/i);
+      const leftover = await client.execute(
+        "select name from sqlite_master where type = 'table' and name = 'media_rating_new'",
+      );
+      assert.equal(leftover.rows.length, 0);
+
+      const before = await client.execute(
+        "select rowid, media_item_id, host, rating, updated_at from media_rating order by rowid",
+      );
+      await client.execute({
+        sql: "delete from _migrations where name = ?",
+        args: [added.name],
+      });
+      await bootstrapSqliteSchema(client, files);
+      const after = await client.execute(
+        "select rowid, media_item_id, host, rating, updated_at from media_rating order by rowid",
+      );
+      assert.deepEqual(after.rows, before.rows);
+      assert.deepEqual(await readRatingRows(client), expected);
+      const applied = await client.execute({
+        sql: "select count(*) as n from _migrations where name = ?",
+        args: [added.name],
+      });
+      assert.equal(Number(applied.rows[0]?.n), 1);
+
+      const items = await client.execute("select id from media_item order by id");
+      const fresh = String(items.rows[70]?.id);
+      const other = String(items.rows[71]?.id);
+      assert.ok(fresh && other);
+      await client.execute({
+        sql: "insert into media_rating (media_item_id, host, rating, updated_at) values (?, 'john', 'four_up', 4)",
+        args: [fresh],
+      });
+      await client.execute({
+        sql: "insert into media_rating (media_item_id, host, rating, updated_at) values (?, 'dan', 'three_up', 3)",
+        args: [fresh],
+      });
+      await client.execute({
+        sql: "insert into media_rating (media_item_id, host, rating, updated_at) values (?, 'john', 'two_up', 2)",
+        args: [other],
+      });
+      const stored = await client.execute({
+        sql: "select host, rating from media_rating where media_item_id = ? order by host",
+        args: [fresh],
+      });
+      assert.deepEqual(
+        stored.rows.map((row) => [row.host, row.rating]),
+        [
+          ["dan", "three_up"],
+          ["john", "four_up"],
+        ],
+      );
+      await assert.rejects(() =>
+        client.execute({
+          sql: "insert into media_rating (media_item_id, host, rating, updated_at) values (?, 'dan', 'nope', 1)",
+          args: [other],
+        }),
+      );
+      await assert.rejects(() =>
+        client.execute({
+          sql: "insert into media_rating (media_item_id, host, rating, updated_at) values (?, 'dan', 'unrated', 1)",
+          args: [other],
+        }),
+      );
+      const still = await client.execute({
+        sql: "select rating from media_rating where media_item_id = ? and host = 'john'",
+        args: [other],
+      });
+      assert.equal(still.rows[0]?.rating, "two_up");
+
+      await client.execute("pragma foreign_keys = on");
+      const cascadeId = String(items.rows[72]?.id);
+      assert.ok(cascadeId);
+      await client.execute({
+        sql: "insert into media_rating (media_item_id, host, rating, updated_at) values (?, 'dan', 'four_up', 8), (?, 'john', 'ok', 9)",
+        args: [cascadeId, cascadeId],
+      });
+      await client.execute({ sql: "delete from media_item where id = ?", args: [cascadeId] });
+      const gone = await client.execute({
+        sql: "select count(*) as n from media_rating where media_item_id = ?",
+        args: [cascadeId],
+      });
+      assert.equal(Number(gone.rows[0]?.n), 0);
+      assert.deepEqual(await readRatingRows(client), [
+        ...expected,
+        [fresh, "dan", "three_up", "3"],
+        [fresh, "john", "four_up", "4"],
+        [other, "john", "two_up", "2"],
+      ].sort((a, b) => a[0]!.localeCompare(b[0]!) || a[1]!.localeCompare(b[1]!)));
+    } finally {
+      client.close();
+    }
+  });
+
+  it("finishes a partial rating rebuild without changing stored ratings", async () => {
+    const client = memory();
+    try {
+      const files = migrationFiles();
+      const added = files.find((file) => file.name === "0017_media_rating_thumbs.sql");
+      assert.ok(added);
+      const prior = files.filter((file) => file.name !== added.name);
+      await bootstrapSqliteSchema(client, prior);
+      await client.execute(
+        "insert into media_rating (media_item_id, host, rating, updated_at) values ('alien', 'john', 'two_up', 5), ('loki', 'dan', 'not_seen', 6)",
+      );
+      const expected = await readRatingRows(client);
+      await client.execute(`
+        create table media_rating_new (
+          media_item_id text not null references media_item (id) on delete cascade,
+          host text not null check (host in ('john', 'dan')),
+          rating text not null check (rating in ('four_up', 'three_up', 'two_up', 'one_up', 'ok', 'one_down', 'two_down', 'not_seen')),
+          updated_at bigint not null,
+          primary key (media_item_id, host)
+        )
+      `);
+      await client.execute(
+        "insert into media_rating_new (media_item_id, host, rating, updated_at) values ('alien', 'john', 'ok', 1)",
+      );
+
+      await bootstrapSqliteSchema(client, files);
+      assert.deepEqual(await readRatingRows(client), expected);
+      const tables = await client.execute(
+        "select name from sqlite_master where type = 'table' and name in ('media_rating', 'media_rating_new')",
+      );
+      assert.deepEqual(
+        tables.rows.map((row) => row.name),
+        ["media_rating"],
+      );
+
+      await client.execute("delete from media_rating");
+      await client.execute(
+        "insert into media_rating (media_item_id, host, rating, updated_at) values ('alien', 'dan', 'one_down', 11)",
+      );
+      await client.execute({
+        sql: "delete from _migrations where name = ?",
+        args: [added.name],
+      });
+      const kept = await readRatingRows(client);
+      await client.execute(`
+        create table media_rating_new (
+          media_item_id text not null references media_item (id) on delete cascade,
+          host text not null check (host in ('john', 'dan')),
+          rating text not null check (rating in ('four_up', 'three_up', 'two_up', 'one_up', 'ok', 'one_down', 'two_down', 'not_seen')),
+          updated_at bigint not null,
+          primary key (media_item_id, host)
+        )
+      `);
+      await client.execute("insert into media_rating_new select * from media_rating");
+      await client.execute("drop table media_rating");
+      await bootstrapSqliteSchema(client, files);
+      assert.deepEqual(await readRatingRows(client), kept);
+      const renamed = await client.execute(
+        "select name from sqlite_master where type = 'table' and name in ('media_rating', 'media_rating_new')",
+      );
+      assert.deepEqual(
+        renamed.rows.map((row) => row.name),
+        ["media_rating"],
+      );
+    } finally {
+      client.close();
+    }
+  });
+
+  it("lets two racing rebuilds keep the same ratings", async () => {
+    const path = "/tmp/spacebat-rating-0017.db";
+    rmSync(path, { force: true });
+    rmSync(`${path}-wal`, { force: true });
+    rmSync(`${path}-shm`, { force: true });
+    const left = createClient({ url: `file:${path}`, timeout: 250 });
+    const right = createClient({ url: `file:${path}`, timeout: 250 });
+    try {
+      const files = migrationFiles();
+      const added = files.find((file) => file.name === "0017_media_rating_thumbs.sql");
+      assert.ok(added);
+      const prior = files.filter((file) => file.name !== added.name);
+      await bootstrapSqliteSchema(left, prior);
+      await left.execute(
+        "insert into media_rating (media_item_id, host, rating, updated_at) values ('alien', 'john', 'two_up', 15), ('loki', 'dan', 'ok', 16)",
+      );
+      const expected = await readRatingRows(left);
+      await Promise.all([
+        bootstrapSqliteSchema(left, files),
+        bootstrapSqliteSchema(right, files),
+      ]);
+      assert.deepEqual(await readRatingRows(left), expected);
+      assert.deepEqual(await readRatingRows(right), expected);
+      const recorded = await left.execute({
+        sql: "select count(*) as n from _migrations where name = ?",
+        args: [added.name],
+      });
+      assert.equal(Number(recorded.rows[0]?.n), 1);
+    } finally {
+      left.close();
+      right.close();
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
+    }
+  });
+
+  it("rebuilds the rating check on the preview database without changing rows", async () => {
+    const { PGlite } = await import("@electric-sql/pglite");
+    const pg = new PGlite();
+    try {
+      await pg.waitReady;
+      const files = migrationFiles();
+      const base = files.find((file) => file.name === "0012_media.sql");
+      const added = files.find((file) => file.name === "0017_media_rating_thumbs.sql");
+      assert.ok(base);
+      assert.ok(added);
+      await pg.exec(base.sql);
+      await pg.exec(
+        "insert into media_rating (media_item_id, host, rating, updated_at) values ('alien', 'john', 'two_up', 21), ('loki', 'dan', 'not_seen', 22)",
+      );
+      await pg.exec(added.sql);
+      const rows = await pg.query<{ media_item_id: string; host: string; rating: string; updated_at: string }>(
+        "select media_item_id, host, rating, updated_at::text from media_rating order by media_item_id, host",
+      );
+      assert.deepEqual(
+        rows.rows.map((row) => [row.media_item_id, row.host, row.rating, row.updated_at]),
+        [
+          ["alien", "john", "two_up", "21"],
+          ["loki", "dan", "not_seen", "22"],
+        ],
+      );
+      await pg.exec(added.sql);
+      const again = await pg.query<{ n: number }>("select count(*)::int as n from media_rating");
+      assert.equal(again.rows[0]?.n, 2);
+      await pg.exec(
+        "insert into media_rating (media_item_id, host, rating, updated_at) values ('alien', 'dan', 'four_up', 4)",
+      );
+      await pg.exec(
+        "insert into media_rating (media_item_id, host, rating, updated_at) values ('loki', 'john', 'three_up', 3)",
+      );
+      await assert.rejects(() =>
+        pg.exec(
+          "insert into media_rating (media_item_id, host, rating, updated_at) values ('loki', 'dan', 'nope', 1)",
+        ),
+      );
+      await pg.exec("delete from media_item where id = 'alien'");
+      const left = await pg.query<{ n: number }>(
+        "select count(*)::int as n from media_rating where media_item_id = 'alien'",
+      );
+      assert.equal(left.rows[0]?.n, 0);
+      const kept = await pg.query<{ rating: string }>(
+        "select rating from media_rating where media_item_id = 'loki' and host = 'dan'",
+      );
+      assert.equal(kept.rows[0]?.rating, "not_seen");
+    } finally {
+      await pg.close();
+    }
+  });
 });
 
 const EP6 = "ai-meltdown-europe-cracks-gunn-to-batman-s-head-quantum";
@@ -707,4 +996,50 @@ function mentions(raw: unknown): { slug: string; title: string; timestamp?: stri
 
 function slugs(raw: unknown): string[] {
   return mentions(raw).map((episode) => episode.slug);
+}
+
+const RATING_DISTRIBUTION = [
+  ["two_up", 90],
+  ["one_up", 12],
+  ["ok", 14],
+  ["one_down", 5],
+  ["two_down", 2],
+  ["not_seen", 16],
+] as const;
+
+async function seedRatingDistribution(client: Client): Promise<string[][]> {
+  const items = await client.execute("select id from media_item order by id");
+  const ids = items.rows.map((row) => String(row.id));
+  assert.ok(ids.length >= 73);
+  const expected: string[][] = [];
+  let slot = 0;
+  for (const [rating, count] of RATING_DISTRIBUTION) {
+    for (let i = 0; i < count; i += 1) {
+      const id = ids[Math.floor(slot / 2)];
+      const host = slot % 2 === 0 ? "john" : "dan";
+      const updated = 1_700_000_000_000 + slot;
+      assert.ok(id);
+      await client.execute({
+        sql: "insert into media_rating (media_item_id, host, rating, updated_at) values (?, ?, ?, ?)",
+        args: [id, host, rating, updated],
+      });
+      expected.push([id, host, rating, String(updated)]);
+      slot += 1;
+    }
+  }
+  assert.equal(slot, 139);
+  expected.sort((a, b) => a[0]!.localeCompare(b[0]!) || a[1]!.localeCompare(b[1]!));
+  return expected;
+}
+
+async function readRatingRows(client: Client): Promise<string[][]> {
+  const result = await client.execute(
+    "select media_item_id, host, rating, updated_at from media_rating order by media_item_id, host",
+  );
+  return result.rows.map((row) => [
+    String(row.media_item_id),
+    String(row.host),
+    String(row.rating),
+    String(row.updated_at),
+  ]);
 }

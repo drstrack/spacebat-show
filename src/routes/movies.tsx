@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, type KeyboardEvent } from "react";
+import { MediaRatingLegend } from "@/components/media-rating-legend";
 import {
   MEDIA_DESCRIPTION,
   MEDIA_OG_IMAGE,
@@ -109,6 +110,7 @@ function MoviesPage() {
           <SortLink tab={tab} sort={sort} value="john" label="John's rating" />
           <SortLink tab={tab} sort={sort} value="dan" label="Dan's rating" />
         </div>
+        <MediaRatingLegend />
       </div>
 
       <MediaPanel kind="movies" active={tab === "movies"} html={renderMediaGrid(movies)} />

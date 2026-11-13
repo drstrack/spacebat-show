@@ -2,6 +2,7 @@ import { upload } from "@vercel/blob/client";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { MediaRatingLegend } from "@/components/media-rating-legend";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getBearerToken } from "@/lib/auth/client";
@@ -445,6 +446,7 @@ function AdminMoviesPage() {
             ? "You are Dan. You can set Dan’s rating only."
             : "Ratings are John’s and Dan’s. This account can edit the list and cannot set either rating."}
       </p>
+      <MediaRatingLegend />
       <p className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
         <Link to="/admin" className="font-display text-2xl tracking-wide text-crimson hover:underline">
           Analytics
