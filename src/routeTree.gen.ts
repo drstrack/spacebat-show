@@ -20,6 +20,7 @@ import { Route as MoviesRouteImport } from './routes/movies'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StoryRouteImport } from './routes/story'
 import { Route as SubscribeRouteImport } from './routes/subscribe'
+import { Route as TechRouteImport } from './routes/tech'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminChatRouteImport } from './routes/admin.chat'
 import { Route as AdminMoviesRouteImport } from './routes/admin.movies'
@@ -39,6 +40,7 @@ import { Route as ApiChatUploadRouteImport } from './routes/api/chat/upload'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media/upload'
 import { Route as ApiMemorabiliaDirectRouteImport } from './routes/api/memorabilia/direct'
 import { Route as ApiMemorabiliaUploadRouteImport } from './routes/api/memorabilia/upload'
+import { Route as ApiTechUploadRouteImport } from './routes/api/tech/upload'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -93,6 +95,11 @@ const StoryRoute = StoryRouteImport.update({
 const SubscribeRoute = SubscribeRouteImport.update({
   id: '/subscribe',
   path: '/subscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TechRoute = TechRouteImport.update({
+  id: '/tech',
+  path: '/tech',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -190,6 +197,11 @@ const ApiMemorabiliaUploadRoute = ApiMemorabiliaUploadRouteImport.update({
   path: '/api/memorabilia/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTechUploadRoute = ApiTechUploadRouteImport.update({
+  id: '/api/tech/upload',
+  path: '/api/tech/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -203,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
+  '/tech': typeof TechRoute
   '/admin/chat': typeof AdminChatRoute
   '/admin/movies': typeof AdminMoviesRoute
   '/admin/schedule': typeof AdminScheduleRoute
@@ -222,6 +235,7 @@ export interface FileRoutesByFullPath {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/memorabilia/direct': typeof ApiMemorabiliaDirectRoute
   '/api/memorabilia/upload': typeof ApiMemorabiliaUploadRoute
+  '/api/tech/upload': typeof ApiTechUploadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -234,6 +248,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
+  '/tech': typeof TechRoute
   '/admin/chat': typeof AdminChatRoute
   '/admin/movies': typeof AdminMoviesRoute
   '/admin/schedule': typeof AdminScheduleRoute
@@ -253,6 +268,7 @@ export interface FileRoutesByTo {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/memorabilia/direct': typeof ApiMemorabiliaDirectRoute
   '/api/memorabilia/upload': typeof ApiMemorabiliaUploadRoute
+  '/api/tech/upload': typeof ApiTechUploadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -267,6 +283,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/story': typeof StoryRoute
   '/subscribe': typeof SubscribeRoute
+  '/tech': typeof TechRoute
   '/admin/chat': typeof AdminChatRoute
   '/admin/movies': typeof AdminMoviesRoute
   '/admin/schedule': typeof AdminScheduleRoute
@@ -286,6 +303,7 @@ export interface FileRoutesById {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/memorabilia/direct': typeof ApiMemorabiliaDirectRoute
   '/api/memorabilia/upload': typeof ApiMemorabiliaUploadRoute
+  '/api/tech/upload': typeof ApiTechUploadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -301,6 +319,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/story'
     | '/subscribe'
+    | '/tech'
     | '/admin/chat'
     | '/admin/movies'
     | '/admin/schedule'
@@ -320,6 +339,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/memorabilia/direct'
     | '/api/memorabilia/upload'
+    | '/api/tech/upload'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -332,6 +352,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/story'
     | '/subscribe'
+    | '/tech'
     | '/admin/chat'
     | '/admin/movies'
     | '/admin/schedule'
@@ -351,6 +372,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/memorabilia/direct'
     | '/api/memorabilia/upload'
+    | '/api/tech/upload'
   id:
     | '__root__'
     | '/'
@@ -364,6 +386,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/story'
     | '/subscribe'
+    | '/tech'
     | '/admin/chat'
     | '/admin/movies'
     | '/admin/schedule'
@@ -383,6 +406,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/memorabilia/direct'
     | '/api/memorabilia/upload'
+    | '/api/tech/upload'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -397,6 +421,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   StoryRoute: typeof StoryRoute
   SubscribeRoute: typeof SubscribeRoute
+  TechRoute: typeof TechRoute
   ChatPopoutRoute: typeof ChatPopoutRoute
   ComicCollectionRoute: typeof ComicCollectionRoute
   EpisodesSlugRoute: typeof EpisodesSlugRoute
@@ -412,6 +437,7 @@ export interface RootRouteChildren {
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiMemorabiliaDirectRoute: typeof ApiMemorabiliaDirectRoute
   ApiMemorabiliaUploadRoute: typeof ApiMemorabiliaUploadRoute
+  ApiTechUploadRoute: typeof ApiTechUploadRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -491,6 +517,13 @@ declare module '@tanstack/react-router' {
       path: '/subscribe'
       fullPath: '/subscribe'
       preLoaderRoute: typeof SubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tech': {
+      id: '/tech'
+      path: '/tech'
+      fullPath: '/tech'
+      preLoaderRoute: typeof TechRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -626,6 +659,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMemorabiliaUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/tech/upload': {
+      id: '/api/tech/upload'
+      path: '/api/tech/upload'
+      fullPath: '/api/tech/upload'
+      preLoaderRoute: typeof ApiTechUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -657,6 +697,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   StoryRoute: StoryRoute,
   SubscribeRoute: SubscribeRoute,
+  TechRoute: TechRoute,
   ChatPopoutRoute: ChatPopoutRoute,
   ComicCollectionRoute: ComicCollectionRoute,
   EpisodesSlugRoute: EpisodesSlugRoute,
@@ -672,6 +713,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiMemorabiliaDirectRoute: ApiMemorabiliaDirectRoute,
   ApiMemorabiliaUploadRoute: ApiMemorabiliaUploadRoute,
+  ApiTechUploadRoute: ApiTechUploadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

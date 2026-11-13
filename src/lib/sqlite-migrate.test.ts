@@ -79,6 +79,8 @@ describe("sqlite migrations", () => {
         "chat_message",
         "chat_upload",
         "memorabilia_frame",
+        "media_rating",
+        "tech_product",
         "_migrations",
       ]) {
         assert.ok(names.includes(table), table);
@@ -903,15 +905,16 @@ describe("sqlite migrations", () => {
       const files = migrationFiles();
       const added = files.find((file) => file.name === "0017_media_rating_thumbs.sql");
       assert.ok(added);
-      const prior = files.filter((file) => file.name !== added.name);
+      const prior = files.filter((file) => file.name < added.name);
       await bootstrapSqliteSchema(left, prior);
       await left.execute(
         "insert into media_rating (media_item_id, host, rating, updated_at) values ('alien', 'john', 'two_up', 15), ('loki', 'dan', 'ok', 16)",
       );
       const expected = await readRatingRows(left);
+      const throughRebuild = files.filter((file) => file.name <= added.name);
       await Promise.all([
-        bootstrapSqliteSchema(left, files),
-        bootstrapSqliteSchema(right, files),
+        bootstrapSqliteSchema(left, throughRebuild),
+        bootstrapSqliteSchema(right, throughRebuild),
       ]);
       assert.deepEqual(await readRatingRows(left), expected);
       assert.deepEqual(await readRatingRows(right), expected);

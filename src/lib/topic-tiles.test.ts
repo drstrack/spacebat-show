@@ -8,20 +8,21 @@ import { PODCAST_LISTEN, PODCAST_LIVE, topicTiles, topicTileTarget } from "./top
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 describe("topic tiles", () => {
-  it("sends Comics to the collection and the other beats to the episode list", () => {
+  it("sends Comics, Movies, and Tech to their pages and the other beats to the episode list", () => {
     assert.deepEqual(
       topicTiles.map((tile) => [tile.label, tile.href, tile.accessibleName]),
       [
         ["Comics", "/comic/collection", "Comics: see John's collection"],
         ["Movies", "/movies", "Movies: see movies & TV we've discussed"],
-        ["Tech", "/podcast#episodes", "Tech: see episodes"],
+        ["Tech", "/tech", "Tech: see products John and Dan recommend"],
         ["Politics", "/podcast#episodes", "Politics: see episodes"],
         ["Markets", "/podcast#episodes", "Markets: see episodes"],
       ],
     );
     assert.deepEqual(topicTileTarget(topicTiles[0]), { to: "/comic/collection" });
     assert.deepEqual(topicTileTarget(topicTiles[1]), { to: "/movies" });
-    for (const tile of topicTiles.slice(2)) {
+    assert.deepEqual(topicTileTarget(topicTiles[2]), { to: "/tech" });
+    for (const tile of topicTiles.slice(3)) {
       assert.deepEqual(topicTileTarget(tile), { to: "/podcast", hash: "episodes" });
     }
   });

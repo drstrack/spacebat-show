@@ -43,6 +43,8 @@ export type PreviewRequest = (input: {
   family: 4 | 6;
   accept: string;
   signal: AbortSignal;
+  /** Defaults to {@link PREVIEW_MAX_BYTES}. Chat previews do not pass this. */
+  maxBytes?: number;
 }) => Promise<PreviewResponse>;
 
 export type PreviewDeps = {
@@ -457,8 +459,8 @@ function decodeBody(body: Uint8Array, contentType: string): string {
   }
 }
 
-function clipBody(body: Uint8Array): Uint8Array {
-  return body.byteLength > PREVIEW_MAX_BYTES ? body.subarray(0, PREVIEW_MAX_BYTES) : body;
+function clipBody(body: Uint8Array, maxBytes = PREVIEW_MAX_BYTES): Uint8Array {
+  return body.byteLength > maxBytes ? body.subarray(0, maxBytes) : body;
 }
 
 async function resolvedAddress(
@@ -501,6 +503,7 @@ async function follow(
   deps: PreviewDeps,
   signal: AbortSignal,
   accept: string,
+  maxBytes = PREVIEW_MAX_BYTES,
 ): Promise<{ url: URL; contentType: string; body: Uint8Array } | null> {
   let current = initial;
   let redirects = 0;
@@ -519,6 +522,7 @@ async function follow(
       family: address.family,
       accept,
       signal,
+      maxBytes,
     });
     if (response.status >= 300 && response.status < 400) {
       if (redirects >= PREVIEW_MAX_REDIRECTS || !response.location) return null;
@@ -529,7 +533,7 @@ async function follow(
       continue;
     }
     if (response.status < 200 || response.status >= 300) return null;
-    return { url: current, contentType: response.contentType, body: clipBody(response.body) };
+    return { url: current, contentType: response.contentType, body: clipBody(response.body, maxBytes) };
   }
   return null;
 }
@@ -560,6 +564,35 @@ export async function resolveLinkPreview(
     if (!final || !isHtmlContentType(final.contentType)) return null;
     const html = decodeBody(final.body, final.contentType).replace(/^\uFEFF/, "");
     return previewFromHtml(html, final.url.href);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch one public URL with the same DNS pin, redirect limit, and address
+ * checks as a chat link preview. `maxBytes` defaults to the preview cap.
+ * Returns null when the target is unsafe or the fetch fails. Chat previews
+ * do not call this.
+ */
+export async function fetchPublicDocument(
+  rawUrl: string,
+  deps: PreviewDeps,
+  signal: AbortSignal,
+  options?: { accept?: string; maxBytes?: number },
+): Promise<{ url: string; contentType: string; body: Uint8Array } | null> {
+  try {
+    const page = publicHttpUrl(rawUrl);
+    if (!page) return null;
+    const final = await follow(
+      page,
+      deps,
+      signal,
+      options?.accept ?? "text/html,application/xhtml+xml,*/*;q=0.1",
+      options?.maxBytes ?? PREVIEW_MAX_BYTES,
+    );
+    if (!final) return null;
+    return { url: final.url.href, contentType: final.contentType, body: final.body };
   } catch {
     return null;
   }
