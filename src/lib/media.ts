@@ -76,10 +76,12 @@ export type MediaSort = "newest" | MediaHost;
 const UNRATED: MediaRatings = { john: "unrated", dan: "unrated" };
 
 /**
- * Published order, newest first, from the SpaceBat RSS on 1 Nov 2026.
+ * Published order, newest first, from the SpaceBat RSS on 13 Nov 2026.
  * A slug that is not listed sorts after these.
  */
 const NEWEST_EPISODE = [
+  "vets-the-brave-and-the-bold-jensen-hung-dc-re-loads-tokenize-this",
+  "ai-meltdown-europe-cracks-gunn-to-batman-s-head-quantum",
   "einstein-vs-ai-road-rage-amazon-where-superheroes-go-to-die",
   "nasdaq-war-stories-moon-landing-fraud-ai-compute-crunch",
   "highway-to-the-dangerzone",
