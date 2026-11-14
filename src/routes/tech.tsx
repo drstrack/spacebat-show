@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { TechDesk, TechEmpty, TechGrid } from "@/components/tech-desk";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { TechEmpty, TechGrid } from "@/components/tech-desk";
 import { TECH_DESCRIPTION, TECH_OG_IMAGE, TECH_PAGE_HEAD, TECH_URL } from "@/lib/tech/products";
 import { loadTech } from "@/lib/tech/products.functions";
 
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/tech")({
 });
 
 function TechPage() {
-  const { products, canManage, viewerHost } = Route.useLoaderData();
+  const { products, canManage } = Route.useLoaderData();
 
   return (
     <article>
@@ -31,18 +31,19 @@ function TechPage() {
           <span className="caption-box w-fit">The booth</span>
           <h1 className="mt-4 max-w-3xl font-display text-5xl leading-none tracking-wide sm:text-6xl">Tech</h1>
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted">{TECH_DESCRIPTION}</p>
+          {canManage ? (
+            <p className="mt-4">
+              <Link to="/admin/tech" className="font-display text-xl tracking-wide text-crimson hover:underline">
+                Edit tech
+              </Link>
+            </p>
+          ) : null}
         </div>
       </header>
 
-      {canManage ? (
-        <div className="pt-6">
-          <TechDesk products={products} viewerHost={viewerHost} />
-        </div>
-      ) : (
-        <section className="mx-auto max-w-6xl px-3 py-6 sm:px-5">
-          {products.length === 0 ? <TechEmpty canManage={false} /> : <TechGrid products={products} />}
-        </section>
-      )}
+      <section className="mx-auto max-w-6xl px-3 py-6 sm:px-5">
+        {products.length === 0 ? <TechEmpty canManage={false} /> : <TechGrid products={products} />}
+      </section>
     </article>
   );
 }
