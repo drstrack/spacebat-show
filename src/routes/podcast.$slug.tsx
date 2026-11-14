@@ -1,5 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { EpisodeShelf } from "@/components/episode-shelf";
 import { loadEpisodeChapters, loadPublishedEpisodes } from "@/lib/podcast-feed.functions";
 import type { EpisodeChapter, EpisodeClip } from "@/data/show";
 import { ScheduleChangeNotice } from "@/components/schedule-change-notice";
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/podcast/$slug")({
     return {
       episode,
       chapters,
-      others: episodes.filter((item) => item.slug !== episode.slug).slice(0, 4),
+      others: episodes.filter((item) => item.slug !== episode.slug),
     };
   },
   component: EpisodePage,
@@ -159,29 +160,11 @@ function EpisodePage() {
       ) : null}
 
       {others.length > 0 ? (
-        <section className="mt-16">
-          <h2 className="font-display text-3xl tracking-wide">More episodes</h2>
-          <ul className="mt-4 divide-y-2 divide-ink border-y-4 border-ink">
-            {others.map((ep) => (
-              <li key={ep.slug}>
-                <Link
-                  to="/podcast/$slug"
-                  params={{ slug: ep.slug }}
-                  className="flex items-center justify-between gap-4 py-4"
-                >
-                  <span>
-                    <span className="font-display text-sm tracking-wide text-crimson">
-                      Episode {ep.code}
-                    </span>
-                    <span className="mt-1 block font-display text-xl tracking-wide text-ink">
-                      {ep.title}
-                    </span>
-                  </span>
-                  <span className="text-sm text-muted">{ep.dateLabel}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <section className="mt-16" aria-labelledby="more-episodes-heading">
+          <h2 id="more-episodes-heading" className="font-display text-3xl tracking-wide">
+            More episodes
+          </h2>
+          <EpisodeShelf key={episode.slug} episodes={others} instanceId="more-episodes" />
         </section>
       ) : null}
     </article>

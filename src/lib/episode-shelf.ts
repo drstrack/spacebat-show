@@ -23,3 +23,19 @@ export function episodeShelfHasMore(
 ) {
   return visibleEpisodeCount(total, pages, pageSize) < Math.max(0, total);
 }
+
+const INSTANCE_ID = /^[A-Za-z][\w:-]*$/;
+
+/**
+ * DOM ids for one shelf. The podcast page keeps the original ids (`episode-list`,
+ * `episode-shelf-count`, `episode-card-*`). Another shelf on a different route
+ * passes its own instance id so `aria-controls` never points at the wrong list.
+ */
+export function episodeShelfDomIds(instanceId = "episode") {
+  const safe = INSTANCE_ID.test(instanceId) ? instanceId : "episode";
+  return {
+    listId: `${safe}-list`,
+    countId: `${safe}-shelf-count`,
+    cardId: (slug: string) => `${safe}-card-${slug}`,
+  };
+}

@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { EPISODE_PAGE_SIZE, episodeShelfHasMore, visibleEpisodeCount } from "./episode-shelf.ts";
+import {
+  EPISODE_PAGE_SIZE,
+  episodeShelfDomIds,
+  episodeShelfHasMore,
+  visibleEpisodeCount,
+} from "./episode-shelf.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -31,9 +36,41 @@ describe("episode shelf", () => {
     assert.match(page, /<EpisodeShelf episodes=\{episodes\} \/>/);
     assert.match(shelf, /More episodes/);
     assert.match(shelf, /type="button"/);
-    assert.match(shelf, /aria-controls="episode-list"/);
+    assert.match(shelf, /aria-controls=\{ids\.listId\}/);
     assert.match(shelf, /episodeShelfHasMore/);
     assert.match(shelf, /preventScroll:\s*true/);
     assert.doesNotMatch(page, /hash="live"/);
+    assert.doesNotMatch(page, /instanceId=/);
+  });
+
+  it("gives each shelf its own ids and keeps the podcast page on the original ones", () => {
+    const podcast = episodeShelfDomIds();
+    const detail = episodeShelfDomIds("more-episodes");
+    assert.equal(podcast.listId, "episode-list");
+    assert.equal(podcast.countId, "episode-shelf-count");
+    assert.equal(podcast.cardId("launch-day"), "episode-card-launch-day");
+    assert.equal(detail.listId, "more-episodes-list");
+    assert.equal(detail.countId, "more-episodes-shelf-count");
+    assert.equal(detail.cardId("launch-day"), "more-episodes-card-launch-day");
+    assert.notEqual(podcast.listId, detail.listId);
+    assert.notEqual(podcast.countId, detail.countId);
+    assert.equal(episodeShelfDomIds("").listId, "episode-list");
+    assert.equal(episodeShelfDomIds("more episodes").listId, "episode-list");
+  });
+
+  it("reuses the shelf under the episode the Play Latest Episode button opens", () => {
+    const page = readFileSync(join(root, "src/routes/podcast.$slug.tsx"), "utf8");
+    const listen = readFileSync(join(root, "src/routes/listen.tsx"), "utf8");
+    assert.match(listen, /to: "\/podcast\/\$slug"/);
+    assert.match(page, /item\.slug !== episode\.slug/);
+    assert.doesNotMatch(page, /\.slice\(0,\s*4\)/);
+    assert.match(page, /hash="episodes"/);
+    assert.match(page, /All episodes/);
+    assert.match(page, /id="more-episodes-heading"/);
+    assert.match(page, />\s*More episodes\s*</);
+    assert.match(
+      page,
+      /<EpisodeShelf key=\{episode\.slug\} episodes=\{others\} instanceId="more-episodes" \/>/,
+    );
   });
 });
