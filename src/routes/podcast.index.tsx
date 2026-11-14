@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { EpisodeCard } from "@/components/episode-card";
+import { EpisodeShelf } from "@/components/episode-shelf";
 import { HostPortrait } from "@/components/host-portrait";
 import { LivePlayer } from "@/components/live-player";
 import { ScheduleChangeNotice, StandingShowTime } from "@/components/schedule-change-notice";
@@ -64,11 +64,7 @@ function PodcastPage() {
         <span className="caption-box">The shelf</span>
         <h2 className="mt-4 font-display text-4xl tracking-wide">Episodes</h2>
         {episodes.length > 0 ? (
-          <div className="mt-6 grid gap-5">
-            {episodes.map((episode, i) => (
-              <EpisodeCard key={episode.slug} episode={episode} featured={i === 0} />
-            ))}
-          </div>
+          <EpisodeShelf episodes={episodes} />
         ) : (
           <p className="panel mt-6 bg-paper px-4 py-6 text-center font-display text-2xl tracking-wide text-ink">
             No Episodes posted yet
