@@ -16,6 +16,7 @@ export const TECH_DESCRIPTION = "Tech products John and Dan use and recommend.";
 export const TECH_URL = "https://www.spacebatshow.net/tech";
 export const TECH_OG_IMAGE = "/og.jpg";
 
+export const TECH_SORT_MAX = 100_000;
 export const TECH_NAME_MAX = 120;
 export const TECH_DESCRIPTION_MAX = 2_000;
 export const TECH_URL_MAX = 2_000;
@@ -125,6 +126,23 @@ export function techHostLabel(host: TechHost | null): string | null {
   return null;
 }
 
+/**
+ * Swap two neighbors in the public list. Equal sort numbers still move: the
+ * item heading later takes the next whole number.
+ */
+export function swappedSortOrders(
+  current: number,
+  neighbor: number,
+  direction: "earlier" | "later",
+): { current: number; neighbor: number } {
+  if (current !== neighbor) return { current: neighbor, neighbor: current };
+  const atCap = current >= TECH_SORT_MAX;
+  if (direction === "earlier") {
+    return atCap ? { current: current - 1, neighbor: current } : { current, neighbor: current + 1 };
+  }
+  return atCap ? { current, neighbor: current - 1 } : { current: current + 1, neighbor };
+}
+
 function cleanText(value: unknown, max: number): string | { error: string } {
   if (value == null) return "";
   if (typeof value !== "string") return { error: "That needs to be text." };
@@ -216,7 +234,7 @@ export function parseTechInput(input: unknown): TechInput | { error: string } {
   }
   let sortOrder: number | null = null;
   if (row.sortOrder != null && row.sortOrder !== "") {
-    if (typeof row.sortOrder !== "number" || !Number.isInteger(row.sortOrder) || row.sortOrder < 0 || row.sortOrder > 100_000) {
+    if (typeof row.sortOrder !== "number" || !Number.isInteger(row.sortOrder) || row.sortOrder < 0 || row.sortOrder > TECH_SORT_MAX) {
       return { error: "Sort order needs to be a whole number." };
     }
     sortOrder = row.sortOrder;

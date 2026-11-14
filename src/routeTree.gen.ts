@@ -25,6 +25,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminChatRouteImport } from './routes/admin.chat'
 import { Route as AdminMoviesRouteImport } from './routes/admin.movies'
 import { Route as AdminScheduleRouteImport } from './routes/admin.schedule'
+import { Route as AdminTechRouteImport } from './routes/admin.tech'
 import { Route as ChatIndexRouteImport } from './routes/chat.index'
 import { Route as ChatPopoutRouteImport } from './routes/chat.popout'
 import { Route as ComicCollectionRouteImport } from './routes/comic.collection'
@@ -120,6 +121,11 @@ const AdminMoviesRoute = AdminMoviesRouteImport.update({
 const AdminScheduleRoute = AdminScheduleRouteImport.update({
   id: '/schedule',
   path: '/schedule',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminTechRoute = AdminTechRouteImport.update({
+  id: '/tech',
+  path: '/tech',
   getParentRoute: () => AdminRoute,
 } as any)
 const ChatIndexRoute = ChatIndexRouteImport.update({
@@ -219,6 +225,7 @@ export interface FileRoutesByFullPath {
   '/admin/chat': typeof AdminChatRoute
   '/admin/movies': typeof AdminMoviesRoute
   '/admin/schedule': typeof AdminScheduleRoute
+  '/admin/tech': typeof AdminTechRoute
   '/chat/popout': typeof ChatPopoutRoute
   '/comic/collection': typeof ComicCollectionRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -252,6 +259,7 @@ export interface FileRoutesByTo {
   '/admin/chat': typeof AdminChatRoute
   '/admin/movies': typeof AdminMoviesRoute
   '/admin/schedule': typeof AdminScheduleRoute
+  '/admin/tech': typeof AdminTechRoute
   '/chat/popout': typeof ChatPopoutRoute
   '/comic/collection': typeof ComicCollectionRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -287,6 +295,7 @@ export interface FileRoutesById {
   '/admin/chat': typeof AdminChatRoute
   '/admin/movies': typeof AdminMoviesRoute
   '/admin/schedule': typeof AdminScheduleRoute
+  '/admin/tech': typeof AdminTechRoute
   '/chat/popout': typeof ChatPopoutRoute
   '/comic/collection': typeof ComicCollectionRoute
   '/episodes/$slug': typeof EpisodesSlugRoute
@@ -323,6 +332,7 @@ export interface FileRouteTypes {
     | '/admin/chat'
     | '/admin/movies'
     | '/admin/schedule'
+    | '/admin/tech'
     | '/chat/popout'
     | '/comic/collection'
     | '/episodes/$slug'
@@ -356,6 +366,7 @@ export interface FileRouteTypes {
     | '/admin/chat'
     | '/admin/movies'
     | '/admin/schedule'
+    | '/admin/tech'
     | '/chat/popout'
     | '/comic/collection'
     | '/episodes/$slug'
@@ -390,6 +401,7 @@ export interface FileRouteTypes {
     | '/admin/chat'
     | '/admin/movies'
     | '/admin/schedule'
+    | '/admin/tech'
     | '/chat/popout'
     | '/comic/collection'
     | '/episodes/$slug'
@@ -554,6 +566,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminScheduleRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/tech': {
+      id: '/admin/tech'
+      path: '/tech'
+      fullPath: '/admin/tech'
+      preLoaderRoute: typeof AdminTechRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/chat/': {
       id: '/chat/'
       path: '/chat'
@@ -673,6 +692,7 @@ interface AdminRouteChildren {
   AdminChatRoute: typeof AdminChatRoute
   AdminMoviesRoute: typeof AdminMoviesRoute
   AdminScheduleRoute: typeof AdminScheduleRoute
+  AdminTechRoute: typeof AdminTechRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -680,6 +700,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminChatRoute: AdminChatRoute,
   AdminMoviesRoute: AdminMoviesRoute,
   AdminScheduleRoute: AdminScheduleRoute,
+  AdminTechRoute: AdminTechRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 

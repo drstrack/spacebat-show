@@ -10,6 +10,7 @@ import {
   parseImageUrl,
   safeImageUrl,
   safeProductUrl,
+  swappedSortOrders,
   techBlobPathname,
   techHostLabel,
   type TechHost,
@@ -46,6 +47,19 @@ function emptyForm(viewerHost: "john" | "dan" | null): FormState {
   };
 }
 
+function savePayload(product: TechProduct, sortOrder: number) {
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    productUrl: product.productUrl,
+    imageSource: product.imageSource,
+    customImageUrl: product.imageSource === "custom" ? (product.imageUrl ?? "") : "",
+    recommendedBy: product.recommendedBy,
+    sortOrder,
+  };
+}
+
 function errorText(err: unknown, fallback: string): string {
   if (err instanceof Error && err.message) return err.message;
   return fallback;
@@ -76,15 +90,28 @@ export function TechGrid({
   products,
   onEdit,
   onDelete,
+  onMove,
+  controlsDisabled = false,
 }: {
   products: readonly TechProduct[];
   onEdit?: (product: TechProduct) => void;
   onDelete?: (product: TechProduct) => void;
+  onMove?: (product: TechProduct, direction: "earlier" | "later") => void;
+  controlsDisabled?: boolean;
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {products.map((product) => (
-        <TechCard key={product.id} product={product} onEdit={onEdit} onDelete={onDelete} />
+      {products.map((product, index) => (
+        <TechCard
+          key={product.id}
+          product={product}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onMove={onMove}
+          canMoveEarlier={index > 0}
+          canMoveLater={index < products.length - 1}
+          controlsDisabled={controlsDisabled}
+        />
       ))}
     </div>
   );
@@ -94,10 +121,18 @@ function TechCard({
   product,
   onEdit,
   onDelete,
+  onMove,
+  canMoveEarlier,
+  canMoveLater,
+  controlsDisabled,
 }: {
   product: TechProduct;
   onEdit?: (product: TechProduct) => void;
   onDelete?: (product: TechProduct) => void;
+  onMove?: (product: TechProduct, direction: "earlier" | "later") => void;
+  canMoveEarlier?: boolean;
+  canMoveLater?: boolean;
+  controlsDisabled?: boolean;
 }) {
   const href = safeProductUrl(product.productUrl);
   const host = techHostLabel(product.recommendedBy);
@@ -134,10 +169,32 @@ function TechCard({
         ) : null}
         {onEdit && onDelete ? (
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={() => onEdit(product)}>
+            {onMove ? (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={controlsDisabled || !canMoveEarlier}
+                  onClick={() => onMove(product, "earlier")}
+                >
+                  Move up
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={controlsDisabled || !canMoveLater}
+                  onClick={() => onMove(product, "later")}
+                >
+                  Move down
+                </Button>
+              </>
+            ) : null}
+            <Button type="button" variant="secondary" size="sm" disabled={controlsDisabled} onClick={() => onEdit(product)}>
               Edit
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => onDelete(product)}>
+            <Button type="button" variant="ghost" size="sm" disabled={controlsDisabled} onClick={() => onDelete(product)}>
               Delete
             </Button>
           </div>
@@ -308,8 +365,26 @@ export function TechDesk({
       ? safeImageUrl(form.customImageUrl)
       : safeImageUrl(form.autoImageUrl);
 
+  async function move(product: TechProduct, direction: "earlier" | "later") {
+    const index = products.findIndex((row) => row.id === product.id);
+    const neighbor = products[direction === "earlier" ? index - 1 : index + 1];
+    if (!neighbor || index < 0) return;
+    const next = swappedSortOrders(product.sortOrder, neighbor.sortOrder, direction);
+    setError("");
+    setBusy("move");
+    try {
+      await saveTech({ data: savePayload(neighbor, next.neighbor) });
+      await saveTech({ data: savePayload(product, next.current) });
+      await router.invalidate();
+    } catch (err) {
+      setError(errorText(err, "That didn't move."));
+    } finally {
+      setBusy("");
+    }
+  }
+
   return (
-    <div className="mx-auto max-w-6xl px-3 sm:px-5">
+    <div>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" onClick={startAdd}>
           Add product
@@ -453,7 +528,13 @@ export function TechDesk({
         {products.length === 0 ? (
           <TechEmpty canManage />
         ) : (
-          <TechGrid products={products} onEdit={startEdit} onDelete={setPending} />
+          <TechGrid
+            products={products}
+            onEdit={startEdit}
+            onDelete={setPending}
+            onMove={(product, direction) => void move(product, direction)}
+            controlsDisabled={busy !== ""}
+          />
         )}
       </div>
 

@@ -16,6 +16,7 @@ import {
   parseTechInput,
   planTechImage,
   saveTechProduct,
+  swappedSortOrders,
   techAdminDecision,
   techBlobPathname,
   TECH_BLOB_PATH,
@@ -531,5 +532,22 @@ describe("tech image bytes and migration", () => {
     assert.doesNotMatch(header, /\/tech/);
     assert.match(desk, /Add product/);
     assert.match(desk, /No picture yet/);
+    assert.doesNotMatch(page, /TechDesk|Add product|onEdit|onDelete/);
+    assert.match(page, /TechGrid/);
+    assert.match(page, /to="\/admin\/tech"/);
+    assert.match(page, /Edit tech/);
+    const admin = readFileSync(join(root, "src/routes/admin.tech.tsx"), "utf8");
+    assert.match(admin, /TechDesk/);
+    assert.match(admin, /!data\.canManage/);
+    assert.match(admin, /Crew only/);
+    const index = readFileSync(join(root, "src/routes/admin.index.tsx"), "utf8");
+    assert.match(index, /to="\/admin\/tech"/);
+  });
+
+  it("swaps neighbors and still moves a tie", () => {
+    assert.deepEqual(swappedSortOrders(2, 5, "later"), { current: 5, neighbor: 2 });
+    assert.deepEqual(swappedSortOrders(4, 4, "earlier"), { current: 4, neighbor: 5 });
+    assert.deepEqual(swappedSortOrders(4, 4, "later"), { current: 5, neighbor: 4 });
+    assert.deepEqual(swappedSortOrders(100_000, 100_000, "later"), { current: 100_000, neighbor: 99_999 });
   });
 });
