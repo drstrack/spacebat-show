@@ -2,15 +2,23 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { EpisodeCard } from "@/components/episode-card";
 import { Button } from "@/components/ui/button";
 import type { Episode } from "@/data/show";
-import { episodeShelfHasMore, visibleEpisodeCount } from "@/lib/episode-shelf";
+import { episodeShelfDomIds, episodeShelfHasMore, visibleEpisodeCount } from "@/lib/episode-shelf";
 
-export function EpisodeShelf({ episodes }: { episodes: Episode[] }) {
+export function EpisodeShelf({
+  episodes,
+  instanceId = "episode",
+}: {
+  episodes: Episode[];
+  /** Prefix for list, count, and card ids. Defaults to the podcast page ids. */
+  instanceId?: string;
+}) {
   const [pages, setPages] = useState(1);
   const listRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const scrollLock = useRef<number | null>(null);
   const pendingFocusSlug = useRef<string | null>(null);
   const restoreButtonFocus = useRef(false);
+  const ids = episodeShelfDomIds(instanceId);
   const visible = visibleEpisodeCount(episodes.length, pages);
   const shown = episodes.slice(0, visible);
   const hasMore = episodeShelfHasMore(episodes.length, pages);
@@ -20,7 +28,8 @@ export function EpisodeShelf({ episodes }: { episodes: Episode[] }) {
     if (slug) {
       pendingFocusSlug.current = null;
       restoreButtonFocus.current = false;
-      document.getElementById(`episode-card-${slug}`)?.focus({ preventScroll: true });
+      const cardId = episodeShelfDomIds(instanceId).cardId(slug);
+      document.getElementById(cardId)?.focus({ preventScroll: true });
     } else if (restoreButtonFocus.current) {
       restoreButtonFocus.current = false;
       buttonRef.current?.focus({ preventScroll: true });
@@ -29,7 +38,7 @@ export function EpisodeShelf({ episodes }: { episodes: Episode[] }) {
       window.scrollTo(0, scrollLock.current);
       scrollLock.current = null;
     }
-  }, [pages]);
+  }, [instanceId, pages]);
 
   function revealMore() {
     const nextVisible = visibleEpisodeCount(episodes.length, pages + 1);
@@ -50,14 +59,14 @@ export function EpisodeShelf({ episodes }: { episodes: Episode[] }) {
     <>
       <div
         ref={listRef}
-        id="episode-list"
+        id={ids.listId}
         tabIndex={-1}
         className="mt-6 grid gap-5 [overflow-anchor:none] outline-none"
       >
         {shown.map((episode, index) => (
           <div
             key={episode.slug}
-            id={`episode-card-${episode.slug}`}
+            id={ids.cardId(episode.slug)}
             tabIndex={-1}
             className="scroll-mt-20 outline-none"
           >
@@ -70,7 +79,7 @@ export function EpisodeShelf({ episodes }: { episodes: Episode[] }) {
       </p>
       {hasMore ? (
         <div className="mt-6 flex flex-col items-center gap-3 [overflow-anchor:none]">
-          <p id="episode-shelf-count" className="text-center text-sm text-muted">
+          <p id={ids.countId} className="text-center text-sm text-muted">
             Showing {visible} of {episodes.length}
           </p>
           <Button
@@ -78,8 +87,8 @@ export function EpisodeShelf({ episodes }: { episodes: Episode[] }) {
             type="button"
             variant="secondary"
             className="w-full sm:w-auto"
-            aria-controls="episode-list"
-            aria-describedby="episode-shelf-count"
+            aria-controls={ids.listId}
+            aria-describedby={ids.countId}
             onClick={revealMore}
           >
             More episodes
