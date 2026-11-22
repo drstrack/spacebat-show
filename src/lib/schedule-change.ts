@@ -7,7 +7,8 @@
  *
  * Podcast alerts, and only podcast alerts, also:
  * - on the skipped morning, during the morning window, send one
- *   "No live show tonight" note
+ *   "No live show tonight" note, unless the replacement night already
+ *   happened. Then the same note goes out the morning before the new night
  * - on the replacement morning, send one "We're on today"
  * A cancellation has no replacement morning. The Thursday (or other moved)
  * reminder stays kind "show-day", so the two notes cannot dedupe into each
@@ -16,6 +17,7 @@
 
 import {
   activeScheduleException,
+  americaNewYorkToUtc,
   inAlertMorning,
   instant,
   isWednesdayDate,
@@ -180,8 +182,16 @@ export function alertDayPlan(
   const date = new Date(instant(now));
   const today = nyDateKey(date);
   const open = openScheduleExceptions(date, exceptions);
+  // When the replacement is before the skipped night, the heads-up cannot
+  // wait for that morning: the show would already be over. Mail it the
+  // morning before the new night, still inside the 7–11 AM window.
+  const early = open.find((exception) => headsUpBeforeShow(exception, today));
+  if (early) return { kind: "schedule-change", exception: early };
   const skip = open.find((exception) => exception.skipDate === today && exception.showDate !== today);
-  if (skip) return { kind: "schedule-change", exception: skip };
+  if (skip) {
+    if (skip.showDate && skip.showDate < today) return null;
+    return { kind: "schedule-change", exception: skip };
+  }
   const moved = open.find((exception) => exception.showDate === today);
   if (moved) return { kind: "show-day", date: today, exception: moved };
   if (isWednesdayDate(today)) return { kind: "show-day", date: today, exception: null };
@@ -203,6 +213,7 @@ export function scheduleChangeMorningAlert(
   if (!plan || plan.kind !== "schedule-change") return null;
   const active = plan.exception;
   const home = site.replace(/\/$/, "");
+  const today = nyDateKey(new Date(instant(now)));
   if (active.showStartMs == null || active.showDate == null) {
     const resume = resumeLabel(active.skipDate);
     return {
@@ -219,12 +230,17 @@ export function scheduleChangeMorningAlert(
   const when = new Date(active.showStartMs);
   const weekday = nyWeekday(when);
   const resume = resumeLabel(active.skipDate);
+  const onSkippedNight = today === active.skipDate;
+  const skippedName = nyWeekday(noonOn(active.skipDate));
+  const lead = onSkippedNight
+    ? `No live show tonight, see you ${weekday}.`
+    : `No live show ${skippedName}, see you ${weekday}.`;
   return {
     kind: SCHEDULE_CHANGE_ALERT_KIND,
     ref: active.skipDate,
-    subject: "No live show tonight",
+    subject: onSkippedNight ? "No live show tonight" : `No live show ${skippedName}`,
     text:
-      `No live show tonight, see you ${weekday}.\n\n` +
+      `${lead}\n\n` +
       `${active.note}\n\n` +
       `Regular Wednesday 8:30 PM ET shows resume ${resume}.\n\n` +
       `Come listen with us ${weekday}:\n${home}/podcast#live\n\n` +
@@ -238,6 +254,25 @@ function syntheticShow(active: ResolvedScheduleException): AlertShow {
     title: "The SpaceBat Show",
     start: new Date(active.showStartMs!).toISOString(),
   };
+}
+
+/** Heads-up morning when the replacement night is earlier than the skipped night. */
+function headsUpBeforeShow(exception: ResolvedScheduleException, today: string): boolean {
+  if (!exception.showDate || exception.showDate >= exception.skipDate) return false;
+  return today === dayBefore(exception.showDate);
+}
+
+function dayBefore(dateKey: string): string {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const prev = new Date(Date.UTC(year!, month! - 1, day! - 1));
+  const monthText = String(prev.getUTCMonth() + 1).padStart(2, "0");
+  const dayText = String(prev.getUTCDate()).padStart(2, "0");
+  return `${prev.getUTCFullYear()}-${monthText}-${dayText}`;
+}
+
+function noonOn(dateKey: string): Date {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(americaNewYorkToUtc(year!, month!, day!, 12, 0));
 }
 
 /** The standing Wednesday a week after the skipped date. */
