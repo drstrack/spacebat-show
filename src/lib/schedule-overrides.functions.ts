@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSessionUser } from "@/lib/auth/verify.server";
-import type { ScheduleException } from "@/lib/schedule-exceptions";
+import { scheduleExceptions, type ScheduleException } from "@/lib/schedule-exceptions";
 import type { ScheduleOverrideInput } from "@/lib/schedule-overrides";
 import {
   deleteScheduleOverride,
@@ -15,7 +15,7 @@ export const loadPublicSchedule = createServerFn({ method: "GET" }).handler(
     try {
       return await listScheduleExceptions();
     } catch {
-      return [];
+      return [...scheduleExceptions];
     }
   },
 );

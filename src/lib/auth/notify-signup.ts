@@ -60,7 +60,7 @@ export async function notifyNewAccount(user: { email: string; name: string }) {
     const { listScheduleExceptions } = await import("../schedule-overrides.server.ts");
     exceptions = await listScheduleExceptions();
   } catch {
-    exceptions = [];
+    exceptions = scheduleExceptions;
   }
   try {
     await Promise.all([

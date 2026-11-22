@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  mergeScheduleExceptions,
   overrideConflicts,
   parseScheduleOverride,
   scheduleExceptionFromRow,
   suggestedCancelNote,
   suggestedMoveNote,
 } from "./schedule-overrides.ts";
+import { scheduleExceptions } from "./schedule-exceptions.ts";
 
 test("a move stores 8:30 PM ET and a cancel stores no start", () => {
   const move = parseScheduleOverride({
@@ -75,6 +77,17 @@ test("rejects a bad date and a colliding night", () => {
   });
   assert.equal(overrideConflicts(overlap, [existing]), "That date is already in another schedule change.");
   assert.equal(overrideConflicts(existing, [existing]), null);
+});
+
+test("a stored row replaces the shipped week and an empty table keeps it", () => {
+  const shipped = scheduleExceptions;
+  assert.deepEqual(mergeScheduleExceptions([], shipped), [...shipped]);
+  const custom = {
+    skipDate: "2026-11-25",
+    showStart: "2026-11-24T21:00:00.000Z",
+    note: "Custom.",
+  };
+  assert.deepEqual(mergeScheduleExceptions([custom], shipped), [custom]);
 });
 
 test("reads a database row and drops a damaged one", () => {

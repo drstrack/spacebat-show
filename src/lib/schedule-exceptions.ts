@@ -3,11 +3,11 @@
  *
  * The standing show is Wednesday at 8:30 PM America/New_York. Ordinary weeks
  * need nothing in this list and nothing in the database. A move or a
- * cancellation is a row in show_schedule_override, edited by an admin at
- * /admin/schedule. This array stays empty; it is only the default argument
- * so a caller with no rows behaves like a regular week. Each row expires on
- * its own at midnight America/New_York on the day after the later of the
- * skipped date and the replacement show.
+ * cancellation is usually a row in show_schedule_override, edited by an admin
+ * at /admin/schedule. A one-off in this array applies even when that table
+ * has no row. A database row with the same skip date replaces the array
+ * entry. Each row expires on its own at midnight America/New_York on the day
+ * after the later of the skipped date and the replacement show.
  *
  * skipDate: the America/New_York calendar date that has no show.
  * showStart: the replacement start (ISO), or null when the night is cancelled.
@@ -21,7 +21,13 @@ export type ScheduleException = {
   note: string;
 };
 
-export const scheduleExceptions: readonly ScheduleException[] = [];
+export const scheduleExceptions: readonly ScheduleException[] = [
+  {
+    skipDate: "2026-11-25",
+    showStart: "2026-11-24T20:30-05:00",
+    note: "This week only: SpaceBat is live Tuesday, Nov 24 at 8:30 PM ET.",
+  },
+];
 
 export const ET = "America/New_York";
 

@@ -1,11 +1,12 @@
 import { getSql, type Sql } from "@/lib/db";
 import {
+  mergeScheduleExceptions,
   overrideConflicts,
   parseScheduleOverride,
   scheduleExceptionFromRow,
   type ScheduleOverrideInput,
 } from "@/lib/schedule-overrides";
-import type { ScheduleException } from "@/lib/schedule-exceptions";
+import { scheduleExceptions, type ScheduleException } from "@/lib/schedule-exceptions";
 
 const CACHE_MS = 60_000;
 
@@ -29,8 +30,9 @@ export async function listScheduleExceptions(): Promise<ScheduleException[]> {
     const exception = scheduleExceptionFromRow(row);
     return exception ? [exception] : [];
   });
-  cache = { at: now, rows: parsed };
-  return parsed;
+  const merged = mergeScheduleExceptions(parsed, scheduleExceptions);
+  cache = { at: now, rows: merged };
+  return merged;
 }
 
 export async function loadSchedulePage(userId: string | null): Promise<{

@@ -86,6 +86,17 @@ export function overrideConflicts(
   return null;
 }
 
+/** Code one-offs first. A stored row with the same skip date replaces them. */
+export function mergeScheduleExceptions(
+  stored: readonly ScheduleException[],
+  shipped: readonly ScheduleException[] = [],
+): ScheduleException[] {
+  const bySkip = new Map<string, ScheduleException>();
+  for (const row of shipped) bySkip.set(row.skipDate, row);
+  for (const row of stored) bySkip.set(row.skipDate, row);
+  return [...bySkip.values()].sort((a, b) => a.skipDate.localeCompare(b.skipDate));
+}
+
 export function scheduleExceptionFromRow(row: {
   skip_date: unknown;
   show_start: unknown;

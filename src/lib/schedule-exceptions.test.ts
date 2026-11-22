@@ -7,6 +7,7 @@ import {
   scheduleExceptions,
   type ScheduleException,
 } from "./schedule-exceptions.ts";
+import { liveBannerOverrideActive, scheduleChangeNote, scheduleChangeVisible } from "./schedule-change.ts";
 
 const nov5: ScheduleException = {
   skipDate: "2026-11-04",
@@ -14,8 +15,12 @@ const nov5: ScheduleException = {
   note: "This week only: SpaceBat is live Thursday, Nov 5 at 8:30 PM ET.",
 };
 
-test("shipped exceptions stay empty so a regular Wednesday needs no code change", () => {
-  assert.deepEqual(scheduleExceptions, []);
+test("this week's only shipped exception is Tuesday, Nov 24, 2026 at 8:30 PM ET", () => {
+  assert.equal(scheduleExceptions.length, 1);
+  const week = scheduleExceptions[0]!;
+  assert.equal(week.skipDate, "2026-11-25");
+  assert.equal(week.showStart, "2026-11-24T20:30-05:00");
+  assert.equal(week.note, "This week only: SpaceBat is live Tuesday, Nov 24 at 8:30 PM ET.");
 });
 
 test("November wall time is EST (UTC-5) and July wall time is EDT (UTC-4)", () => {
@@ -62,5 +67,29 @@ test("the notice is up before the live window, during it, and until midnight ET 
   assert.ok(lastMoment);
   assert.equal(activeScheduleException(new Date("2026-11-06T05:00:00.000Z"), open), null);
   assert.equal(activeScheduleException(Date.parse("2026-11-06T05:00:00.000Z"), open), null);
-  assert.equal(activeScheduleException(new Date("2026-11-11T01:30:00.000Z")), null);
+  assert.equal(activeScheduleException(new Date("2026-11-11T01:30:00.000Z"), open), null);
+});
+
+test("Tue Nov 24 is 8:30–10:30 PM ET, stays up through Wed Nov 25, and is gone Thu Nov 26", () => {
+  const week = scheduleExceptions[0]!;
+  const resolved = resolveScheduleException(week);
+  assert.equal(resolved.showDate, "2026-11-24");
+  assert.equal(resolved.showId, "schedule-change-2026-11-24");
+  assert.equal(new Date(resolved.showStartMs!).toISOString(), "2026-11-25T01:30:00.000Z");
+  assert.equal(new Date(resolved.showEndMs!).toISOString(), "2026-11-25T03:30:00.000Z");
+  assert.equal(new Date(resolved.endsAtMs).toISOString(), "2026-11-26T05:00:00.000Z");
+
+  const note = week.note;
+  for (const when of ["2026-11-23T15:00:00.000Z", "2026-11-25T01:30:00.000Z", "2026-11-26T04:59:00.000Z"]) {
+    assert.equal(scheduleChangeNote(new Date(when)), note);
+    assert.equal(scheduleChangeVisible(new Date(when)), true);
+  }
+  assert.equal(scheduleChangeNote(new Date("2026-11-26T05:00:00.000Z")), null);
+  assert.equal(scheduleChangeVisible(new Date("2026-12-02T15:00:00.000Z")), false);
+
+  assert.equal(liveBannerOverrideActive(new Date("2026-11-25T01:29:00.000Z")), false);
+  assert.equal(liveBannerOverrideActive(new Date("2026-11-25T01:30:00.000Z")), true);
+  assert.equal(liveBannerOverrideActive(new Date("2026-11-25T03:29:00.000Z")), true);
+  assert.equal(liveBannerOverrideActive(new Date("2026-11-25T03:30:00.000Z")), false);
+  assert.equal(liveBannerOverrideActive(new Date("2026-11-26T01:30:00.000Z")), false);
 });

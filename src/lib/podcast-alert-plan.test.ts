@@ -10,6 +10,7 @@ import {
 import {
   americaNewYorkToUtc,
   resolveScheduleException,
+  scheduleExceptions,
   standingShowStart,
   type ScheduleException,
 } from "./schedule-exceptions.ts";
@@ -318,5 +319,59 @@ describe("one-off schedule data", () => {
     assert.match(skipped.mails[0]?.text ?? "", /no live SpaceBat show on November 11/);
     assert.equal(skipped.mails.some((mail) => mail.kind === "show-day" || mail.subject === "We're on today"), false);
     assert.deepEqual(planAlertMorning(null, morningOf("2026-11-12"), SITE, [cancel]).mails, []);
+  });
+});
+
+describe("Tuesday Nov 24 instead of Wednesday Nov 25", () => {
+  const week = scheduleExceptions;
+
+  it("mails the heads-up Monday, We're on today Tuesday, and nothing Wednesday", () => {
+    const monday = planAlertMorning(null, morningOf("2026-11-23"), SITE, week);
+    assert.equal(monday.mails.length, 1);
+    assert.equal(monday.mails[0]?.kind, "schedule-change");
+    assert.equal(monday.mails[0]?.ref, "2026-11-25");
+    assert.equal(monday.mails[0]?.subject, "No live show Wednesday");
+    assert.match(monday.mails[0]?.text ?? "", /No live show Wednesday, see you Tuesday/);
+    assert.match(monday.mails[0]?.text ?? "", /Tuesday, Nov 24 at 8:30 PM ET/);
+    assert.match(monday.mails[0]?.text ?? "", /resume December 2/);
+    assert.equal(monday.mails.some((mail) => mail.kind === "show-day"), false);
+
+    const early = planAlertMorning(null, morningOf("2026-11-23", 6, 59), SITE, week);
+    const late = planAlertMorning(null, morningOf("2026-11-23", 12), SITE, week);
+    assert.deepEqual(early.mails, []);
+    assert.deepEqual(late.mails, []);
+    assert.deepEqual(planAlertMorning(null, morningOf("2026-11-23", 11, 15), SITE, week).mails, monday.mails);
+
+    const tuesday = planAlertMorning(
+      liveItem("wed", "2026-11-26T01:30:00.000Z", "Still Wednesday in Podhome"),
+      morningOf("2026-11-24"),
+      SITE,
+      week,
+    );
+    assert.equal(tuesday.mails.length, 1);
+    assert.equal(tuesday.mails[0]?.kind, "show-day");
+    assert.equal(tuesday.mails[0]?.subject, "We're on today");
+    assert.equal(tuesday.mails[0]?.ref, "2026-11-24");
+    assert.match(tuesday.mails[0]?.text ?? "", /Tuesday/);
+    assert.match(tuesday.mails[0]?.text ?? "", /8:30/);
+    assert.equal(tuesday.mails[0]?.text.includes("No live show"), false);
+    assert.equal(tuesday.mails.some((mail) => mail.kind === "schedule-change"), false);
+
+    const wednesday = planAlertMorning(
+      liveItem("wed", "2026-11-26T01:30:00.000Z", "Still Wednesday in Podhome"),
+      morningOf("2026-11-25"),
+      SITE,
+      week,
+    );
+    assert.deepEqual(wednesday.mails, []);
+  });
+
+  it("is a normal Wednesday again on December 2", () => {
+    const back = planAlertMorning(null, morningOf("2026-12-02"), SITE, week);
+    assert.equal(back.mails.length, 1);
+    assert.equal(back.mails[0]?.kind, "show-day");
+    assert.equal(back.mails[0]?.ref, "2026-12-02");
+    assert.match(back.mails[0]?.text ?? "", /Wednesday/);
+    assert.equal(back.mails.some((mail) => mail.kind === "schedule-change"), false);
   });
 });

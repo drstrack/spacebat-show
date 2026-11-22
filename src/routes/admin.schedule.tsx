@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { deleteScheduleAdmin, loadScheduleAdmin, saveScheduleAdmin } from "@/lib/schedule-overrides.functions";
-import type { ScheduleException } from "@/lib/schedule-exceptions";
+import { scheduleExceptions, type ScheduleException } from "@/lib/schedule-exceptions";
 
 export const Route = createFileRoute("/admin/schedule")({
   loader: () => loadScheduleAdmin(),
@@ -104,9 +104,13 @@ function SchedulePage() {
                 <p className="mt-1 text-sm text-ink">{label(row)}</p>
                 <p className="mt-1 text-sm text-muted">{row.note}</p>
               </div>
-              <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => remove(row.skipDate)}>
-                Remove
-              </Button>
+              {shippedAsIs(row) ? (
+                <p className="text-xs uppercase tracking-[0.12em] text-muted">Shipped with the site</p>
+              ) : (
+                <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => remove(row.skipDate)}>
+                  Remove
+                </Button>
+              )}
             </li>
           ))
         )}
@@ -150,6 +154,12 @@ function SchedulePage() {
         </Button>
       </form>
     </div>
+  );
+}
+
+function shippedAsIs(row: ScheduleException): boolean {
+  return scheduleExceptions.some(
+    (entry) => entry.skipDate === row.skipDate && entry.showStart === row.showStart && entry.note === row.note,
   );
 }
 
