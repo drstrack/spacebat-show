@@ -31,8 +31,8 @@ function HostsPage() {
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
         <div className="panel overflow-hidden bg-surface md:grid md:grid-cols-2">
           <img
-            src="/images/studio.webp?v=2"
-            alt="Empty diner booth with two microphones, a stack of comics, and wine."
+            src="/images/studio.webp?v=3"
+            alt="Empty diner booth with two microphones, a stack of comics, wine, and Welch's grape juice."
             className="h-full min-h-64 w-full object-cover md:border-r-4 md:border-ink"
           />
           <div className="flex flex-col justify-center bg-paper p-6 sm:p-10">
