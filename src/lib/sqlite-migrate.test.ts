@@ -46,10 +46,13 @@ describe("sqlite migrations", () => {
     assert.doesNotMatch(statements, /if\s+not\s+exists/i);
     assert.match(sql, /add column original_url text/i);
     assert.match(sql, /add column original_pathname text/i);
-    assert.deepEqual(addColumnTarget("alter table memorabilia_frame add column original_url text"), {
-      table: "memorabilia_frame",
-      column: "original_url",
-    });
+    assert.deepEqual(
+      addColumnTarget("alter table memorabilia_frame add column original_url text"),
+      {
+        table: "memorabilia_frame",
+        column: "original_url",
+      },
+    );
   });
 
   it("applies every migration on a fresh libsql database", async () => {
@@ -99,19 +102,21 @@ describe("sqlite migrations", () => {
       assert.ok(current);
       assert.ok(prior.length >= 9);
       await bootstrapSqliteSchema(client, prior);
-      assert.equal((await columnNames(client, "memorabilia_frame")).includes("original_url"), false);
+      assert.equal(
+        (await columnNames(client, "memorabilia_frame")).includes("original_url"),
+        false,
+      );
 
       await bootstrapSqliteSchema(client, files);
       assert.deepEqual(
-        (await columnNames(client, "memorabilia_frame")).filter((name) => name.startsWith("original_")),
+        (await columnNames(client, "memorabilia_frame")).filter((name) =>
+          name.startsWith("original_"),
+        ),
         ["original_pathname", "original_url"],
       );
 
       await bootstrapSqliteSchema(client, files);
-      assert.equal(
-        (await appliedNames(client)).filter((name) => name === current.name).length,
-        1,
-      );
+      assert.equal((await appliedNames(client)).filter((name) => name === current.name).length, 1);
 
       await client.execute({
         sql: "delete from _migrations where name = ?",
@@ -209,18 +214,19 @@ describe("sqlite migrations", () => {
       assert.doesNotMatch(media.sql, /drop\s+table/i);
       await bootstrapSqliteSchema(client, files);
       const count = await client.execute("select count(*) as n from media_item");
-      assert.equal(Number(count.rows[0]?.n), 98);
+      assert.equal(Number(count.rows[0]?.n), 123);
       const kinds = await client.execute(
         "select kind, count(*) as n from media_item group by kind order by kind",
       );
-      assert.equal(Number(kinds.rows.find((row) => row.kind === "movie")?.n), 64);
-      assert.equal(Number(kinds.rows.find((row) => row.kind === "tv")?.n), 34);
+      assert.equal(Number(kinds.rows.find((row) => row.kind === "movie")?.n), 80);
+      assert.equal(Number(kinds.rows.find((row) => row.kind === "tv")?.n), 43);
       const marker = await client.execute("select id, note from media_seed order by id");
-      assert.equal(marker.rows.length, 4);
+      assert.equal(marker.rows.length, 5);
       assert.equal(marker.rows[0]?.note, "catalog-43");
       assert.equal(marker.rows[1]?.note, "2001-a-space-odyssey");
       assert.equal(marker.rows[2]?.note, "rescan-2026-11-01");
       assert.equal(marker.rows[3]?.note, "episodes-6-7");
+      assert.equal(marker.rows[4]?.note, "episodes-8-9");
       for (const table of ["user", "session", "account"]) {
         const info = await client.execute(`PRAGMA table_info(${table})`);
         assert.ok(info.rows.length > 0, table);
@@ -233,15 +239,15 @@ describe("sqlite migrations", () => {
       });
       await bootstrapSqliteSchema(client, files);
       const again = await client.execute("select count(*) as n from media_item");
-      assert.equal(Number(again.rows[0]?.n), 97);
+      assert.equal(Number(again.rows[0]?.n), 122);
       const alien = await client.execute("select count(*) as n from media_item where id = 'alien'");
       assert.equal(Number(alien.rows[0]?.n), 0);
       const markerAgain = await client.execute("select count(*) as n from media_seed");
-      assert.equal(Number(markerAgain.rows[0]?.n), 4);
+      assert.equal(Number(markerAgain.rows[0]?.n), 5);
 
       await bootstrapSqliteSchema(client, files);
       const third = await client.execute("select count(*) as n from media_item");
-      assert.equal(Number(third.rows[0]?.n), 97);
+      assert.equal(Number(third.rows[0]?.n), 122);
     } finally {
       client.close();
     }
@@ -280,7 +286,10 @@ describe("sqlite migrations", () => {
     const client = memory();
     try {
       const files = migrationFiles().filter(
-        (file) => file.name !== "0014_media_rescan.sql" && file.name !== "0016_media_ep6_ep7.sql",
+        (file) =>
+          file.name !== "0014_media_rescan.sql" &&
+          file.name !== "0016_media_ep6_ep7.sql" &&
+          file.name !== "0019_media_ep8_ep9.sql",
       );
       const prior = files.filter((file) => file.name !== "0013_media_space_odyssey.sql");
       const added = files.find((file) => file.name === "0013_media_space_odyssey.sql");
@@ -294,7 +303,9 @@ describe("sqlite migrations", () => {
       await client.execute(
         "insert into media_rating (media_item_id, host, rating, updated_at) values ('alien', 'dan', 'ok', 5)",
       );
-      const alienBefore = await client.execute("select title, year, overview from media_item where id = 'alien'");
+      const alienBefore = await client.execute(
+        "select title, year, overview from media_item where id = 'alien'",
+      );
 
       await bootstrapSqliteSchema(client, files);
       const count = await client.execute("select count(*) as n from media_item");
@@ -315,7 +326,9 @@ describe("sqlite migrations", () => {
         "select rating from media_rating where media_item_id = 'alien' and host = 'dan'",
       );
       assert.equal(rating.rows[0]?.rating, "ok");
-      const alienAfter = await client.execute("select title, year, overview from media_item where id = 'alien'");
+      const alienAfter = await client.execute(
+        "select title, year, overview from media_item where id = 'alien'",
+      );
       assert.deepEqual(alienAfter.rows, alienBefore.rows);
 
       await bootstrapSqliteSchema(client, files);
@@ -375,7 +388,9 @@ describe("sqlite migrations", () => {
       );
       assert.equal(rating.rows[0]?.rating, "two_up");
       await pg.exec(added.sql);
-      const again = await pg.query<{ n: number }>("select count(*)::int as n from media_item where tmdb_id = 62");
+      const again = await pg.query<{ n: number }>(
+        "select count(*)::int as n from media_item where tmdb_id = 62",
+      );
       assert.equal(again.rows[0]?.n, 1);
       const others = await pg.query<{ n: number }>("select count(*)::int as n from media_item");
       assert.equal(others.rows[0]?.n, 44);
@@ -387,7 +402,9 @@ describe("sqlite migrations", () => {
   it("adds the rescan titles once without changing an existing rating", async () => {
     const client = memory();
     try {
-      const files = migrationFiles().filter((file) => file.name !== "0016_media_ep6_ep7.sql");
+      const files = migrationFiles().filter(
+        (file) => file.name !== "0016_media_ep6_ep7.sql" && file.name !== "0019_media_ep8_ep9.sql",
+      );
       const prior = files.filter((file) => file.name !== "0014_media_rescan.sql");
       const added = files.find((file) => file.name === "0014_media_rescan.sql");
       assert.ok(added);
@@ -416,7 +433,9 @@ describe("sqlite migrations", () => {
         shows.rows.map((row) => row.id),
         ["battlestar-galactica-1978", "battlestar-galactica-2004"],
       );
-      const birds = await client.execute("select poster_path from media_item where id = 'the-birds'");
+      const birds = await client.execute(
+        "select poster_path from media_item where id = 'the-birds'",
+      );
       assert.equal(birds.rows[0]?.poster_path, null);
       const below = await client.execute("select best_guess from media_item where id = 'below'");
       assert.equal(Number(below.rows[0]?.best_guess), 1);
@@ -425,7 +444,9 @@ describe("sqlite migrations", () => {
       );
       assert.equal(rating.rows[0]?.rating, "two_up");
       await bootstrapSqliteSchema(client, files);
-      const twice = await client.execute("select count(*) as n from media_item where id = 'blade-runner'");
+      const twice = await client.execute(
+        "select count(*) as n from media_item where id = 'blade-runner'",
+      );
       assert.equal(Number(twice.rows[0]?.n), 1);
       await client.execute("delete from media_item where id = 'top-gun'");
       await client.execute({
@@ -433,7 +454,9 @@ describe("sqlite migrations", () => {
         args: ["0014_media_rescan.sql"],
       });
       await bootstrapSqliteSchema(client, files);
-      const gone = await client.execute("select count(*) as n from media_item where id = 'top-gun'");
+      const gone = await client.execute(
+        "select count(*) as n from media_item where id = 'top-gun'",
+      );
       assert.equal(Number(gone.rows[0]?.n), 0);
       const kept = await client.execute(
         "select rating from media_rating where media_item_id = 'alien' and host = 'dan'",
@@ -447,14 +470,17 @@ describe("sqlite migrations", () => {
   it("adds the episode 6 and 7 titles once, links existing titles, and does not add ratings", async () => {
     const client = memory();
     try {
-      const files = migrationFiles();
+      const files = migrationFiles().filter((file) => file.name !== "0019_media_ep8_ep9.sql");
       const prior = files.filter((file) => file.name !== "0016_media_ep6_ep7.sql");
       const added = files.find((file) => file.name === "0016_media_ep6_ep7.sql");
       assert.ok(added);
       assert.doesNotMatch(added.sql, /drop\s+table/i);
       assert.doesNotMatch(added.sql, /insert\s+into\s+media_rating/i);
       assert.doesNotMatch(added.sql, /update\s+media_rating/i);
-      assert.doesNotMatch(added.sql, /knightfall|black hawk|green mile|iron man 2|star trek|avengers/i);
+      assert.doesNotMatch(
+        added.sql,
+        /knightfall|black hawk|green mile|iron man 2|star trek|avengers/i,
+      );
       await bootstrapSqliteSchema(client, prior);
       const before = await client.execute("select count(*) as n from media_item");
       assert.equal(Number(before.rows[0]?.n), 79);
@@ -466,9 +492,12 @@ describe("sqlite migrations", () => {
         "select kind, title, year, wikipedia_url, tmdb_id, overview, poster_path, image, best_guess, sort_rank, created_at, updated_at from media_item where id = 'loki'",
       );
       const lokiEpisodesBefore = mentions(
-        (await client.execute("select episodes from media_item where id = 'loki'")).rows[0]?.episodes,
+        (await client.execute("select episodes from media_item where id = 'loki'")).rows[0]
+          ?.episodes,
       );
-      const avengersBefore = await client.execute("select episodes from media_item where id = 'avengers-doomsday'");
+      const avengersBefore = await client.execute(
+        "select episodes from media_item where id = 'avengers-doomsday'",
+      );
       const odysseyBefore = await client.execute(
         "select title, year, tmdb_id, poster_path, overview from media_item where id = '2001-a-space-odyssey'",
       );
@@ -522,9 +551,14 @@ describe("sqlite migrations", () => {
       const trek = await client.execute(
         "select id from media_item where lower(title) like '%star trek%'",
       );
-      assert.deepEqual(trek.rows.map((row) => row.id), ["star-trek-the-next-generation"]);
+      assert.deepEqual(
+        trek.rows.map((row) => row.id),
+        ["star-trek-the-next-generation"],
+      );
 
-      const street = await client.execute("select title, tmdb_id from media_item where id = 'the-treet'");
+      const street = await client.execute(
+        "select title, tmdb_id from media_item where id = 'the-treet'",
+      );
       assert.equal(street.rows[0]?.title, "The $treet");
       assert.equal(Number(street.rows[0]?.tmdb_id), 1616);
       const brave = await client.execute(
@@ -540,13 +574,14 @@ describe("sqlite migrations", () => {
       );
       assert.deepEqual(lokiAfter.rows, lokiBefore.rows);
       const lokiEpisodes = mentions(
-        (await client.execute("select episodes from media_item where id = 'loki'")).rows[0]?.episodes,
+        (await client.execute("select episodes from media_item where id = 'loki'")).rows[0]
+          ?.episodes,
       );
+      assert.deepEqual(lokiEpisodes.slice(0, lokiEpisodesBefore.length), lokiEpisodesBefore);
       assert.deepEqual(
-        lokiEpisodes.slice(0, lokiEpisodesBefore.length),
-        lokiEpisodesBefore,
+        lokiEpisodes.slice(lokiEpisodesBefore.length).map((episode) => episode.slug),
+        [EP6, EP7],
       );
-      assert.deepEqual(lokiEpisodes.slice(lokiEpisodesBefore.length).map((episode) => episode.slug), [EP6, EP7]);
       assert.equal(lokiEpisodes.find((episode) => episode.slug === EP6)?.title, EP6_TITLE);
       assert.equal(lokiEpisodes.find((episode) => episode.slug === EP7)?.title, EP7_TITLE);
       const lokiRating = await client.execute(
@@ -555,23 +590,36 @@ describe("sqlite migrations", () => {
       assert.equal(lokiRating.rows[0]?.rating, "ok");
 
       const blade = mentions(
-        (await client.execute("select episodes from media_item where id = 'blade-runner'")).rows[0]?.episodes,
+        (await client.execute("select episodes from media_item where id = 'blade-runner'")).rows[0]
+          ?.episodes,
       );
-      assert.equal(blade.some((episode) => episode.timestamp === "01:53:27"), true);
-      assert.equal(blade.some((episode) => episode.slug === EP7), true);
-      assert.equal(blade.some((episode) => episode.slug === EP6), false);
+      assert.equal(
+        blade.some((episode) => episode.timestamp === "01:53:27"),
+        true,
+      );
+      assert.equal(
+        blade.some((episode) => episode.slug === EP7),
+        true,
+      );
+      assert.equal(
+        blade.some((episode) => episode.slug === EP6),
+        false,
+      );
       const partTwo = slugs(
-        (await client.execute("select episodes from media_item where id = 'the-batman-part-ii'")).rows[0]?.episodes,
+        (await client.execute("select episodes from media_item where id = 'the-batman-part-ii'"))
+          .rows[0]?.episodes,
       );
       assert.equal(partTwo.includes(EP6), true);
       assert.equal(partTwo.includes(EP7), false);
       const wanda = slugs(
-        (await client.execute("select episodes from media_item where id = 'wandavision'")).rows[0]?.episodes,
+        (await client.execute("select episodes from media_item where id = 'wandavision'")).rows[0]
+          ?.episodes,
       );
       assert.equal(wanda.includes(EP7), true);
       assert.equal(wanda.includes(EP6), false);
       const vision = slugs(
-        (await client.execute("select episodes from media_item where id = 'visionquest'")).rows[0]?.episodes,
+        (await client.execute("select episodes from media_item where id = 'visionquest'")).rows[0]
+          ?.episodes,
       );
       assert.equal(vision.includes(EP6), true);
       assert.equal(vision.includes(EP7), true);
@@ -584,7 +632,9 @@ describe("sqlite migrations", () => {
       assert.equal(space.rows[0]?.poster_path, odysseyBefore.rows[0]?.poster_path);
       assert.equal(space.rows[0]?.overview, odysseyBefore.rows[0]?.overview);
       assert.deepEqual(slugs(space.rows[0]?.episodes), [EP7]);
-      const avengersAfter = await client.execute("select episodes from media_item where id = 'avengers-doomsday'");
+      const avengersAfter = await client.execute(
+        "select episodes from media_item where id = 'avengers-doomsday'",
+      );
       assert.equal(avengersAfter.rows[0]?.episodes, avengersBefore.rows[0]?.episodes);
 
       const linked = [
@@ -608,10 +658,13 @@ describe("sqlite migrations", () => {
       const twice = await client.execute("select count(*) as n from media_item");
       assert.equal(Number(twice.rows[0]?.n), 98);
       const lokiTwice = mentions(
-        (await client.execute("select episodes from media_item where id = 'loki'")).rows[0]?.episodes,
+        (await client.execute("select episodes from media_item where id = 'loki'")).rows[0]
+          ?.episodes,
       );
       assert.deepEqual(lokiTwice, lokiEpisodes);
-      const oneIron = await client.execute("select count(*) as n from media_item where tmdb_id = 1726");
+      const oneIron = await client.execute(
+        "select count(*) as n from media_item where tmdb_id = 1726",
+      );
       assert.equal(Number(oneIron.rows[0]?.n), 1);
 
       await client.execute("delete from media_item where id = 'iron-man'");
@@ -620,14 +673,17 @@ describe("sqlite migrations", () => {
         args: ["0016_media_ep6_ep7.sql"],
       });
       await bootstrapSqliteSchema(client, files);
-      const gone = await client.execute("select count(*) as n from media_item where id = 'iron-man'");
+      const gone = await client.execute(
+        "select count(*) as n from media_item where id = 'iron-man'",
+      );
       assert.equal(Number(gone.rows[0]?.n), 0);
       const still = await client.execute(
         "select rating from media_rating where media_item_id = 'loki' and host = 'john'",
       );
       assert.equal(still.rows[0]?.rating, "ok");
       const lokiKept = mentions(
-        (await client.execute("select episodes from media_item where id = 'loki'")).rows[0]?.episodes,
+        (await client.execute("select episodes from media_item where id = 'loki'")).rows[0]
+          ?.episodes,
       );
       assert.deepEqual(lokiKept, lokiEpisodes);
     } finally {
@@ -638,7 +694,7 @@ describe("sqlite migrations", () => {
   it("does not insert a second Iron Man when that title is already stored", async () => {
     const client = memory();
     try {
-      const files = migrationFiles();
+      const files = migrationFiles().filter((file) => file.name !== "0019_media_ep8_ep9.sql");
       const prior = files.filter((file) => file.name !== "0016_media_ep6_ep7.sql");
       await bootstrapSqliteSchema(client, prior);
       await client.execute(`
@@ -675,7 +731,9 @@ describe("sqlite migrations", () => {
     const pg = new PGlite();
     try {
       await pg.waitReady;
-      for (const file of migrationFiles()) {
+      for (const file of migrationFiles().filter(
+        (file) => file.name !== "0019_media_ep8_ep9.sql",
+      )) {
         await pg.exec(file.sql);
       }
       const count = await pg.query<{ n: number }>("select count(*)::int as n from media_item");
@@ -687,12 +745,238 @@ describe("sqlite migrations", () => {
       );
       assert.deepEqual(slugs(green.rows[0]?.episodes), [EP6, EP7]);
       await pg.exec(migrationFiles().find((file) => file.name === "0016_media_ep6_ep7.sql")!.sql);
-      const again = await pg.query<{ n: number }>("select count(*)::int as n from media_item where id = 'green-book'");
+      const again = await pg.query<{ n: number }>(
+        "select count(*)::int as n from media_item where id = 'green-book'",
+      );
       assert.equal(again.rows[0]?.n, 1);
-      const loki = await pg.query<{ episodes: string }>("select episodes from media_item where id = 'loki'");
+      const loki = await pg.query<{ episodes: string }>(
+        "select episodes from media_item where id = 'loki'",
+      );
       const parsed = mentions(loki.rows[0]?.episodes);
       assert.equal(parsed.filter((episode) => episode.slug === EP6).length, 1);
       assert.equal(parsed.filter((episode) => episode.slug === EP7).length, 1);
+    } finally {
+      await pg.close();
+    }
+  });
+
+  it("adds the episode 8 and 9 titles once, links existing titles, and does not add ratings", async () => {
+    const client = memory();
+    try {
+      const files = migrationFiles();
+      const prior = files.filter((file) => file.name !== "0019_media_ep8_ep9.sql");
+      const added = files.find((file) => file.name === "0019_media_ep8_ep9.sql");
+      assert.ok(added);
+      assert.doesNotMatch(added.sql, /drop\s+table/i);
+      assert.doesNotMatch(added.sql, /insert\s+into\s+media_rating/i);
+      assert.doesNotMatch(added.sql, /update\s+media_rating/i);
+      assert.doesNotMatch(added.sql, /knightfall|black hawk|green mile|twilight|batwoman|batgirl/i);
+      await bootstrapSqliteSchema(client, prior);
+      const before = await client.execute("select count(*) as n from media_item");
+      assert.equal(Number(before.rows[0]?.n), 98);
+      await client.execute(
+        "insert into media_rating (media_item_id, host, rating, updated_at) values ('alien', 'dan', 'two_up', 8), ('loki', 'john', 'ok', 9), ('superman', 'dan', 'four_up', 10)",
+      );
+      const ratingsBefore = await client.execute("select count(*) as n from media_rating");
+      const lokiBefore = await client.execute(
+        "select kind, title, year, wikipedia_url, tmdb_id, overview, poster_path, image, best_guess, sort_rank, created_at, updated_at from media_item where id = 'loki'",
+      );
+      const lokiEpisodesBefore = mentions(
+        (await client.execute("select episodes from media_item where id = 'loki'")).rows[0]
+          ?.episodes,
+      );
+      const invincibleBefore = mentions(
+        (await client.execute("select episodes from media_item where id = 'invincible'")).rows[0]
+          ?.episodes,
+      );
+
+      await bootstrapSqliteSchema(client, files);
+      const count = await client.execute("select count(*) as n from media_item");
+      assert.equal(Number(count.rows[0]?.n), 123);
+      const kinds = await client.execute(
+        "select kind, count(*) as n from media_item group by kind order by kind",
+      );
+      assert.equal(Number(kinds.rows.find((row) => row.kind === "movie")?.n), 80);
+      assert.equal(Number(kinds.rows.find((row) => row.kind === "tv")?.n), 43);
+      const ratingsAfter = await client.execute("select count(*) as n from media_rating");
+      assert.equal(Number(ratingsAfter.rows[0]?.n), Number(ratingsBefore.rows[0]?.n));
+      const newRatings = await client.execute(
+        `select count(*) as n from media_rating where media_item_id in (
+          'superman-returns', 'lois-clark-the-new-adventures-of-superman', 'smallville',
+          'superman-lois', 'krypton', 'arrow', 'the-big-bang-theory', 'firefly',
+          'justice-league', 'batman-v-superman-dawn-of-justice', 'the-batman',
+          'casino-royale', 'on-her-majesty-s-secret-service', 'the-avengers-1961',
+          'avengers-age-of-ultron', 'rogue-one-a-star-wars-story', 'falling-down',
+          'kingpin', 'the-great-santini', 'the-punisher', 'logan', 'deadpool-wolverine',
+          'the-matrix', 'colossus-the-forbin-project', 'the-lathe-of-heaven'
+        )`,
+      );
+      assert.equal(Number(newRatings.rows[0]?.n), 0);
+
+      const returns = await client.execute(
+        "select kind, year, tmdb_id, tmdb_type, poster_path, episodes from media_item where id = 'superman-returns'",
+      );
+      assert.equal(returns.rows[0]?.kind, "movie");
+      assert.equal(returns.rows[0]?.year, "2006");
+      assert.equal(Number(returns.rows[0]?.tmdb_id), 1452);
+      assert.equal(returns.rows[0]?.poster_path, "/385XwTQZDpRX2d3kxtnpiLrjBXw.jpg");
+      assert.deepEqual(slugs(returns.rows[0]?.episodes), [EP8]);
+
+      const batman = await client.execute(
+        "select title, year, tmdb_id, tmdb_type, episodes from media_item where id = 'the-batman'",
+      );
+      assert.equal(batman.rows[0]?.title, "The Batman");
+      assert.equal(batman.rows[0]?.year, "2022");
+      assert.equal(Number(batman.rows[0]?.tmdb_id), 414906);
+      assert.deepEqual(slugs(batman.rows[0]?.episodes), [EP8, EP9]);
+
+      const avengers = await client.execute(
+        "select id, kind, year, tmdb_id, episodes from media_item where id = 'the-avengers-1961'",
+      );
+      assert.equal(avengers.rows[0]?.kind, "tv");
+      assert.equal(avengers.rows[0]?.year, "1961–1969");
+      assert.equal(Number(avengers.rows[0]?.tmdb_id), 2473);
+      assert.deepEqual(slugs(avengers.rows[0]?.episodes), [EP8]);
+
+      const punisher = await client.execute(
+        "select title, kind, year, tmdb_id, tmdb_type, episodes from media_item where id = 'the-punisher'",
+      );
+      assert.equal(punisher.rows[0]?.title, "The Punisher");
+      assert.equal(punisher.rows[0]?.kind, "tv");
+      assert.equal(Number(punisher.rows[0]?.tmdb_id), 67178);
+      assert.deepEqual(slugs(punisher.rows[0]?.episodes), [EP9]);
+
+      const matrix = await client.execute(
+        "select episodes from media_item where id = 'the-matrix'",
+      );
+      assert.deepEqual(slugs(matrix.rows[0]?.episodes), [EP9]);
+
+      const lokiAfter = mentions(
+        (await client.execute("select episodes from media_item where id = 'loki'")).rows[0]
+          ?.episodes,
+      );
+      assert.deepEqual(
+        lokiAfter.map((episode) => episode.slug),
+        [...lokiEpisodesBefore.map((episode) => episode.slug), EP8],
+      );
+      const lokiCols = await client.execute(
+        "select kind, title, year, wikipedia_url, tmdb_id, overview, poster_path, image, best_guess, sort_rank, created_at, updated_at from media_item where id = 'loki'",
+      );
+      assert.deepEqual(lokiCols.rows, lokiBefore.rows);
+
+      const invincibleAfter = mentions(
+        (await client.execute("select episodes from media_item where id = 'invincible'")).rows[0]
+          ?.episodes,
+      );
+      assert.deepEqual(
+        invincibleAfter.map((episode) => episode.slug),
+        [...invincibleBefore.map((episode) => episode.slug), EP9],
+      );
+
+      const ep9Links = [
+        "spider-man-brand-new-day",
+        "avengers-doomsday",
+        "invincible",
+        "fallout",
+        "batman-begins",
+        "the-brave-and-the-bold",
+        "the-batman-part-ii",
+        "man-of-tomorrow",
+        "2001-a-space-odyssey",
+        "the-batman",
+      ];
+      for (const id of ep9Links) {
+        const row = await client.execute(`select episodes from media_item where id = '${id}'`);
+        assert.ok(slugs(row.rows[0]?.episodes).includes(EP9), id);
+      }
+
+      const ep8Links = [
+        "superman",
+        "zack-snyder-s-justice-league",
+        "the-batman-part-ii",
+        "kraven-the-hunter",
+        "spider-man-brand-new-day",
+        "visionquest",
+        "loki",
+        "andor",
+        "the-batman",
+      ];
+      for (const id of ep8Links) {
+        const row = await client.execute(`select episodes from media_item where id = '${id}'`);
+        assert.ok(slugs(row.rows[0]?.episodes).includes(EP8), id);
+      }
+
+      const skipped = await client.execute(
+        `select count(*) as n from media_item where id in (
+          'twilight', 'batman-1989', 'adventures-of-superman', 'black-hawk-down', 'batwoman', 'batgirl'
+        ) or tmdb_id in (8966, 268, 557)`,
+      );
+      assert.equal(Number(skipped.rows[0]?.n), 0);
+
+      const existingRating = await client.execute(
+        "select rating from media_rating where media_item_id = 'superman' and host = 'dan'",
+      );
+      assert.equal(existingRating.rows[0]?.rating, "four_up");
+
+      await bootstrapSqliteSchema(client, files);
+      const twice = await client.execute("select count(*) as n from media_item");
+      assert.equal(Number(twice.rows[0]?.n), 123);
+      const batmanTwice = mentions(
+        (await client.execute("select episodes from media_item where id = 'the-batman'")).rows[0]
+          ?.episodes,
+      );
+      assert.deepEqual(
+        slugs(batman.rows[0]?.episodes),
+        batmanTwice.map((episode) => episode.slug),
+      );
+      assert.equal(batmanTwice.filter((episode) => episode.slug === EP8).length, 1);
+      assert.equal(batmanTwice.filter((episode) => episode.slug === EP9).length, 1);
+
+      await client.execute("delete from media_item where id = 'the-matrix'");
+      await client.execute({
+        sql: "delete from _migrations where name = ?",
+        args: ["0019_media_ep8_ep9.sql"],
+      });
+      await bootstrapSqliteSchema(client, files);
+      const gone = await client.execute(
+        "select count(*) as n from media_item where id = 'the-matrix'",
+      );
+      assert.equal(Number(gone.rows[0]?.n), 0);
+      const still = await client.execute(
+        "select rating from media_rating where media_item_id = 'loki' and host = 'john'",
+      );
+      assert.equal(still.rows[0]?.rating, "ok");
+    } finally {
+      client.close();
+    }
+  });
+
+  it("applies the episode 8 and 9 migration on the preview database", async () => {
+    const { PGlite } = await import("@electric-sql/pglite");
+    const pg = new PGlite();
+    try {
+      await pg.waitReady;
+      for (const file of migrationFiles()) {
+        await pg.exec(file.sql);
+      }
+      const count = await pg.query<{ n: number }>("select count(*)::int as n from media_item");
+      assert.equal(count.rows[0]?.n, 123);
+      const ratings = await pg.query<{ n: number }>("select count(*)::int as n from media_rating");
+      assert.equal(ratings.rows[0]?.n, 0);
+      const batman = await pg.query<{ episodes: string }>(
+        "select episodes from media_item where id = 'the-batman'",
+      );
+      assert.deepEqual(slugs(batman.rows[0]?.episodes), [EP8, EP9]);
+      await pg.exec(migrationFiles().find((file) => file.name === "0019_media_ep8_ep9.sql")!.sql);
+      const again = await pg.query<{ n: number }>(
+        "select count(*)::int as n from media_item where id = 'the-batman'",
+      );
+      assert.equal(again.rows[0]?.n, 1);
+      const loki = await pg.query<{ episodes: string }>(
+        "select episodes from media_item where id = 'loki'",
+      );
+      const parsed = mentions(loki.rows[0]?.episodes);
+      assert.equal(parsed.filter((episode) => episode.slug === EP8).length, 1);
     } finally {
       await pg.close();
     }
@@ -706,7 +990,10 @@ describe("sqlite migrations", () => {
       assert.ok(added);
       const statements = sqlStatements(toSqlite(added.sql));
       assert.equal(statements.length, 5);
-      assert.match(statements[2] ?? "", /insert into media_rating_new select \* from media_rating/i);
+      assert.match(
+        statements[2] ?? "",
+        /insert into media_rating_new select \* from media_rating/i,
+      );
       assert.doesNotMatch(added.sql, /\bupdate\s+media_rating\b/i);
       const prior = files.filter((file) => file.name !== added.name);
       await bootstrapSqliteSchema(client, prior);
@@ -724,8 +1011,11 @@ describe("sqlite migrations", () => {
       await bootstrapSqliteSchema(client, files);
       assert.deepEqual(await readRatingRows(client), expected);
       const schema = String(
-        (await client.execute("select sql from sqlite_master where type = 'table' and name = 'media_rating'"))
-          .rows[0]?.sql,
+        (
+          await client.execute(
+            "select sql from sqlite_master where type = 'table' and name = 'media_rating'",
+          )
+        ).rows[0]?.sql,
       );
       assert.match(schema, /'four_up'/);
       assert.match(schema, /'three_up'/);
@@ -814,12 +1104,15 @@ describe("sqlite migrations", () => {
         args: [cascadeId],
       });
       assert.equal(Number(gone.rows[0]?.n), 0);
-      assert.deepEqual(await readRatingRows(client), [
-        ...expected,
-        [fresh, "dan", "three_up", "3"],
-        [fresh, "john", "four_up", "4"],
-        [other, "john", "two_up", "2"],
-      ].sort((a, b) => a[0]!.localeCompare(b[0]!) || a[1]!.localeCompare(b[1]!)));
+      assert.deepEqual(
+        await readRatingRows(client),
+        [
+          ...expected,
+          [fresh, "dan", "three_up", "3"],
+          [fresh, "john", "four_up", "4"],
+          [other, "john", "two_up", "2"],
+        ].sort((a, b) => a[0]!.localeCompare(b[0]!) || a[1]!.localeCompare(b[1]!)),
+      );
     } finally {
       client.close();
     }
@@ -947,7 +1240,12 @@ describe("sqlite migrations", () => {
         "insert into media_rating (media_item_id, host, rating, updated_at) values ('alien', 'john', 'two_up', 21), ('loki', 'dan', 'not_seen', 22)",
       );
       await pg.exec(added.sql);
-      const rows = await pg.query<{ media_item_id: string; host: string; rating: string; updated_at: string }>(
+      const rows = await pg.query<{
+        media_item_id: string;
+        host: string;
+        rating: string;
+        updated_at: string;
+      }>(
         "select media_item_id, host, rating, updated_at::text from media_rating order by media_item_id, host",
       );
       assert.deepEqual(
@@ -988,6 +1286,8 @@ describe("sqlite migrations", () => {
 
 const EP6 = "ai-meltdown-europe-cracks-gunn-to-batman-s-head-quantum";
 const EP7 = "vets-the-brave-and-the-bold-jensen-hung-dc-re-loads-tokenize-this";
+const EP8 = "one-light-day-away-space-superheroes-and-ant-ipo-ai-drama";
+const EP9 = "dan-rides-a-robotaxi-in-texas-claude-at-2am-dc-the-future-is-the-past-taxes";
 const EP6_TITLE = "AI Meltdown, Europe Cracks, Gunn to Batman's Head, Quantum!?!";
 const EP7_TITLE = 'Vets - The Brave and the Bold, Jensen "Hung", DC Re-Loads, Tokenize "This"';
 
