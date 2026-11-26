@@ -30,7 +30,7 @@ export function parsePublishedEpisodes(xml: string): Episode[] {
     const pub = text(block, "pubDate");
     const when = pub ? new Date(pub) : null;
     const rawNumber = text(block, "itunes:episode");
-    const code = episodeCode(title, rawNumber, when, String(episodes.length + 1));
+    const code = episodeCode(title, rawNumber, when, imageUrl(block));
     episodes.push({
       slug,
       code,
@@ -59,14 +59,29 @@ export function parsePublishedEpisodes(xml: string): Episode[] {
   }
 
   episodes.sort((a, b) => (a.date < b.date ? 1 : -1));
-  episodes.forEach((episode, index) => {
-    if (!textHasNumber(episode.code)) episode.code = String(episodes.length - index).padStart(2, "0");
+  const nonZero = episodes.filter((episode) => episode.code !== "0");
+  nonZero.forEach((episode, index) => {
+    if (!textHasNumber(episode.code)) {
+      episode.code = String(nonZero.length - index).padStart(2, "0");
+    }
   });
   return episodes;
 }
 
-function episodeCode(title: string, rawNumber: string, when: Date | null, fallback: string) {
-  if (/\bepisode\s*(zero|0)\b/i.test(title)) return "0";
+function episodeCode(title: string, rawNumber: string, when: Date | null, artwork: string) {
+  if (isEpisodeZero(title, when, artwork)) return "0";
+  const fromFeed = parseEpisodeNumber(rawNumber);
+  if (fromFeed) return fromFeed;
+  const fromTitle = numberFromText(title);
+  if (fromTitle) return fromTitle;
+  const fromArt = numberFromText(decodeUri(artwork));
+  if (fromArt) return fromArt;
+  return "";
+}
+
+function isEpisodeZero(title: string, when: Date | null, artwork: string) {
+  if (/\bepisode\s*(zero|0)\b/i.test(title)) return true;
+  if (artwork && /\bepisode[\s_-]*(zero|0)\b/i.test(decodeUri(artwork))) return true;
   if (when && !Number.isNaN(when.getTime())) {
     const label = when.toLocaleDateString("en-US", {
       month: "numeric",
@@ -74,10 +89,49 @@ function episodeCode(title: string, rawNumber: string, when: Date | null, fallba
       year: "numeric",
       timeZone: "America/New_York",
     });
-    if (label === "9/23/2026" || label === "6/23/2026") return "0";
+    if (label === "9/23/2026" || label === "6/23/2026") return true;
   }
-  const number = rawNumber || fallback;
+  return false;
+}
+
+function parseEpisodeNumber(raw: string) {
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) return "";
+  return trimmed === "0" ? "0" : trimmed.padStart(2, "0");
+}
+
+function numberFromText(value: string) {
+  if (/\bepisode\s*(zero|0)\b/i.test(value)) return "0";
+  const words: Record<string, string> = {
+    one: "01",
+    two: "02",
+    three: "03",
+    four: "04",
+    five: "05",
+    six: "06",
+    seven: "07",
+    eight: "08",
+    nine: "09",
+    ten: "10",
+    eleven: "11",
+    twelve: "12",
+  };
+  const word = value.match(
+    /\bepisode\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/i,
+  );
+  if (word?.[1]) return words[word[1].toLowerCase()] ?? "";
+  const numeric = value.match(/\bepisode[\s_-]*(\d+)\b/i);
+  if (!numeric?.[1]) return "";
+  const number = numeric[1].replace(/^0+(?=\d)/, "");
   return number === "0" ? "0" : number.padStart(2, "0");
+}
+
+function decodeUri(value: string) {
+  try {
+    return decodeURIComponent(value.replace(/\+/g, " "));
+  } catch {
+    return value;
+  }
 }
 
 function chaptersUrl(block: string): string | undefined {
@@ -146,9 +200,7 @@ function enclosureUrl(block: string): string {
 
 function imageUrl(block: string): string {
   const tag =
-    block.match(/<itunes:image\b[^>]*>/i)?.[0] ??
-    block.match(/<podcast:image\b[^>]*>/i)?.[0] ??
-    "";
+    block.match(/<itunes:image\b[^>]*>/i)?.[0] ?? block.match(/<podcast:image\b[^>]*>/i)?.[0] ?? "";
   return attr(tag, "href");
 }
 
@@ -171,7 +223,12 @@ function slugFrom(link: string, title: string, guid: string): string {
 function parseShowNotes(html: string): Episode["notes"] {
   const list = html.match(/<ul\b[\s\S]*?<\/ul>/i)?.[0] ?? "";
   const prose = html.replace(/<ul\b[\s\S]*?<\/ul>/i, " ");
-  const paragraphs = decode(prose.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<[^>]+>/g, " "))
+  const paragraphs = decode(
+    prose
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<[^>]+>/g, " "),
+  )
     .split(/\n+/)
     .map((paragraph) => paragraph.replace(/\s+/g, " ").trim())
     .filter(Boolean);
